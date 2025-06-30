@@ -21,19 +21,22 @@ public class Settings extends JFrame {
     private JSlider CycleSpeedSlider;
     private JLabel CylceLabel;
     private JLabel DevInfo;
+    private JSlider StackSizeSlider;
+    private JLabel StackSizeLabel;
 
     public Settings(String title){
         super(title);
         this.setContentPane(panel1);
         this.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        this.setVisible(true);
+        this.setLocationRelativeTo(null);
         this.pack();
+        this.setVisible(true);
 
         // Apparently, the only way to show newlines in JLabel is to surround with html tags and break with br tags
         // Interesting Property.
         DevInfo.setText(String.format("""
                 <html>
-                Custom CPU Emulators Project
+                Custom CPU Emulators Project<br>
                 V%s<br>
                 Youssef Mohamed Ahmed @2025<br>
                 yousoftec@hotmail.com<br>
@@ -57,6 +60,9 @@ public class Settings extends JFrame {
         DataOffsetSlider.setValue(Integer.parseInt(settings.get("OffsetSize")));
         OffsetSizeLabel.setText(settings.get("OffsetSize") + "KB");
 
+        StackSizeSlider.setValue(Integer.parseInt(settings.get("StackSize")));
+        StackSizeLabel.setText(settings.get("StackSize") + "KB");
+
         switch (settings.get("Architecture")){
             case "8" -> a8BitRadioButton.setSelected(true);
             case "16" -> a16BitRadioButton.setSelected(true);
@@ -67,13 +73,14 @@ public class Settings extends JFrame {
         writeLogsAndProgramCheckBox.setSelected(Boolean.parseBoolean(settings.get("WriteDump")));
 
         CycleSpeedSlider.setValue(Integer.parseInt(settings.get("Cycles")));
-        CylceLabel.setText(settings.get("Cycles") + "Cycles/S");
+        CylceLabel.setText(settings.get("Cycles") + " Instructions/Second");
 
 
         MemorySlider.addChangeListener(new ChangeListener() {
             @Override
             public void stateChanged(ChangeEvent e) {
                 MemorySizeLabel.setText( MemorySlider.getValue() + "KB" );
+                DataOffsetSlider.setMaximum(MemorySlider.getValue() - 1);
             }
         });
 
@@ -82,6 +89,7 @@ public class Settings extends JFrame {
             @Override
             public void stateChanged(ChangeEvent e) {
                 OffsetSizeLabel.setText( DataOffsetSlider.getValue() + "KB" );
+                StackSizeSlider.setMaximum( DataOffsetSlider.getValue() - 1 );
             }
         });
 
@@ -89,7 +97,7 @@ public class Settings extends JFrame {
         CycleSpeedSlider.addChangeListener(new ChangeListener() {
             @Override
             public void stateChanged(ChangeEvent e) {
-                CylceLabel.setText( CycleSpeedSlider.getValue() + "Cycles/S" );
+                CylceLabel.setText( CycleSpeedSlider.getValue() + " Instructions/Second" );
             }
         });
 
@@ -98,6 +106,14 @@ public class Settings extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 writeSettings();
+            }
+        });
+
+
+        StackSizeSlider.addChangeListener(new ChangeListener() {
+            @Override
+            public void stateChanged(ChangeEvent changeEvent) {
+                StackSizeLabel.setText( StackSizeSlider.getValue() + "KB" );
             }
         });
     }
@@ -130,6 +146,7 @@ public class Settings extends JFrame {
             printer.println("Version=" + Launcher.version);
             printer.println("MemSize=" + MemorySlider.getValue());
             printer.println("OffsetSize=" + DataOffsetSlider.getValue());
+            printer.println("StackSize=" + StackSizeSlider.getValue());
 
             if (a8BitRadioButton.isSelected()) printer.println("Architecture=8");
             if (a16BitRadioButton.isSelected()) printer.println("Architecture=16");

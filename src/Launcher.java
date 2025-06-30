@@ -12,6 +12,7 @@ public class Launcher{
             Version=%s
             MemSize=8
             OffsetSize=3
+            StackSize=2
             Architecture=16
             WriteDump=false
             Cycles=200
@@ -30,7 +31,7 @@ public class Launcher{
         }catch (Exception e) {e.printStackTrace();}
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InstantiationException, IllegalAccessException {
         appConfig = new HashMap<>();
         try{
             File file = new File(configFilePath);
@@ -52,7 +53,7 @@ public class Launcher{
         }catch (Exception e){
             e.printStackTrace();
         }
-
+        CPU cpu = new CPUModule8BIT();
         Settings settings = new Settings("Hello wrold");
     }
 }
