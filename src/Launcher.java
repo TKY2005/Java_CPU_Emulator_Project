@@ -31,7 +31,7 @@ public class Launcher{
         }catch (Exception e) {e.printStackTrace();}
     }
 
-    public static void main(String[] args) throws InstantiationException, IllegalAccessException {
+    public static void main(String[] args) {
         appConfig = new HashMap<>();
         try{
             File file = new File(configFilePath);
@@ -53,7 +53,11 @@ public class Launcher{
         }catch (Exception e){
             e.printStackTrace();
         }
-        CPU cpu = new CPUModule8BIT();
-        Settings settings = new Settings("Hello wrold");
+
+        if (args.length == 0 ){
+            //System.out.println("No arguments. Going into UI mode.");
+            //new UI("T.K.Y CPU Emulator V" + Launcher.version);
+            new VirtualMachine(new CPUModule8BIT());
+        }
     }
 }

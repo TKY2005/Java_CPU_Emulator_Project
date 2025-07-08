@@ -23,6 +23,7 @@ public class Settings extends JFrame {
     private JLabel DevInfo;
     private JSlider StackSizeSlider;
     private JLabel StackSizeLabel;
+    private JCheckBox allowDirectManipulationOfCheckBox;
 
     public Settings(String title){
         super(title);
@@ -71,6 +72,7 @@ public class Settings extends JFrame {
         }
 
         writeLogsAndProgramCheckBox.setSelected(Boolean.parseBoolean(settings.get("WriteDump")));
+        allowDirectManipulationOfCheckBox.setSelected( Boolean.parseBoolean( settings.get("OverwritePC") ) );
 
         CycleSpeedSlider.setValue(Integer.parseInt(settings.get("Cycles")));
         CylceLabel.setText(settings.get("Cycles") + " Instructions/Second");
@@ -80,7 +82,8 @@ public class Settings extends JFrame {
             @Override
             public void stateChanged(ChangeEvent e) {
                 MemorySizeLabel.setText( MemorySlider.getValue() + "KB" );
-                DataOffsetSlider.setMaximum(MemorySlider.getValue() - 1);
+                StackSizeSlider.setMaximum(MemorySlider.getValue() - 1);
+
             }
         });
 
@@ -89,7 +92,7 @@ public class Settings extends JFrame {
             @Override
             public void stateChanged(ChangeEvent e) {
                 OffsetSizeLabel.setText( DataOffsetSlider.getValue() + "KB" );
-                StackSizeSlider.setMaximum( DataOffsetSlider.getValue() - 1 );
+                DataOffsetSlider.setMaximum( StackSizeSlider.getValue() - 1 );
             }
         });
 
@@ -154,7 +157,8 @@ public class Settings extends JFrame {
             if (a64BitRadioButton.isSelected()) printer.println("Architecture=64");
 
             printer.println("WriteDump=" + writeLogsAndProgramCheckBox.isSelected());
-            printer.print("Cycles=" + CycleSpeedSlider.getValue());
+            printer.println("Cycles=" + CycleSpeedSlider.getValue());
+            printer.print("OverwritePC=" + allowDirectManipulationOfCheckBox.isSelected());
 
             printer.close();
             writer.close();
