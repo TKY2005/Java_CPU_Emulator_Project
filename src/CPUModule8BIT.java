@@ -1215,7 +1215,7 @@ public class CPUModule8BIT extends CPU {
             charSet.append( (Character.isLetterOrDigit(memory[i])) ? (char) memory[i] : "." );
 
             if ((i + 1) % chunkSize == 0){
-                result.append("\t\t\t").append("|").append(charSet).append("|").append("\n");
+                result.append("\t\t").append("|").append(charSet).append("|").append("\n");
                 charSet.setLength(0);
             }
         }
