@@ -5,6 +5,9 @@ public class VirtualMachine {
 
     private CPU cpuModule;
     public boolean readyToExecute = false;
+    public boolean UIMode = false;
+
+    public String err_msg = "";
 
     public VirtualMachine(CPU cpuModule){
         System.out.println("Starting the virtual machine with the selected CPU module.");
@@ -53,7 +56,7 @@ public class VirtualMachine {
                 ext
                 """;*/
 
-        String code3 = """
+        /*String code3 = """
                 .MAIN
                  call func1
                  la $ss ~n1
@@ -81,12 +84,12 @@ public class VirtualMachine {
 
         String code4 = """
                 .MAIN
-                    la $dp ~n1
-                    set $ra &dp
-                    la $ss ~n2
-                    llen $rc ~n2
-                    call cipher
-                    outs
+                la $dp ~n1
+                set $ra &dp
+                la $ss ~n2
+                llen $rc ~n2
+                call cipher
+                outs
                 ext
                 
                 .cipher
@@ -95,26 +98,20 @@ public class VirtualMachine {
                 loop cipher
                 ret
                 .DATA
+                org !10
                 n1 !5
                 n2 "Hello world"
                 end
                 """;
-
-        cpuModule.compileCode(code4);
-        cpuModule.executeCompiledCode(cpuModule.machineCode);
-        System.out.println(cpuModule.outputString.toString());
-        System.out.println(cpuModule.dumpRegisters());
-        System.out.println("==========================");
-        System.out.println(cpuModule.dumpFlags());
-        System.out.println("============================");
-        System.out.println(cpuModule.dumpMemory());
-
+                */
     }
 
     public void sendCode(String code){
 
        StringBuilder result = new StringBuilder();
         String[] lines = code.split("\n");
+        err_msg = "";
+        cpuModule.reset();
 
         for (String line : lines) {
             String[] tokens = line.trim().split("\\s+");
@@ -145,12 +142,24 @@ public class VirtualMachine {
             result.append(newLine.toString().trim()).append("\n");
         }
 
-        cpuModule.compileCode(result.toString());
+        try {
+            cpuModule.compileCode(result.toString());
+        }catch (RuntimeException e) {
+            e.printStackTrace();
+            err_msg = e.getMessage();
+            throw e;
+        }
         readyToExecute = true;
     }
 
     public void executeCode(){
         // Implement delay and stepping logic and update UI components
         cpuModule.executeCompiledCode(cpuModule.machineCode);
+    }
+
+    public void resetCPU(){
+        cpuModule.reset();
+        cpuModule.canExecute = true;
+        cpuModule.programEnd = false;
     }
 }

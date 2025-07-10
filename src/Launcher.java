@@ -55,9 +55,9 @@ public class Launcher{
         }
 
         if (args.length == 0 ){
-            //System.out.println("No arguments. Going into UI mode.");
-            //new UI("T.K.Y CPU Emulator V" + Launcher.version);
-            new VirtualMachine(new CPUModule8BIT());
+            System.out.println("No arguments. Going into UI mode.");
+            new UI("T.K.Y CPU Emulator V" + Launcher.version);
+            //new VirtualMachine(new CPUModule8BIT());
         }
     }
 }

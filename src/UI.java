@@ -3,7 +3,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.*;
 
-public class UI extends JFrame {
+public class UI extends JFrame implements onStepListener {
     private JPanel panel1;
     private JTextArea CodeArea;
     private JButton compileCodeButton;
@@ -15,6 +15,15 @@ public class UI extends JFrame {
     private JTextArea RegisterDumpArea;
     private JButton settingsButton;
     private JButton resetMemoryButton;
+
+    private JButton[] executionButtons = new JButton[]{
+            executeCodeButton,
+            compileCodeButton,
+            loadCodeFromFileButton,
+            compileCodeToFileButton,
+            settingsButton,
+            resetMemoryButton
+    };
 
     private CPU cpuModule;
     private VirtualMachine vm;
@@ -28,18 +37,19 @@ public class UI extends JFrame {
         this.setVisible(true);
 
         HashMap<String, String> settings = Settings.loadSettings();
-        cpuModule = null;
 
         String architecture = settings.get("Architecture");
-        if (architecture.equals("8")) cpuModule = new CPUModule8BIT();
+        //if (architecture.equals("8")) cpuModule = new CPUModule8BIT();
         /*else if (architecture.equals("16")) cpuModule = new CPUModule16BIT();
         else if (architecture.equals("32")) cpuModule = new CPUModule32BIT();
         else if (architecture.equals("64")) cpuModule = new CPUModule64BIT();*/
 
-        assert cpuModule != null;
+
+        cpuModule = new CPUModule8BIT();
         vm = new VirtualMachine(cpuModule);
 
         CodeArea.setText(".MAIN\next");
+        cpuModule.setUIupdateListener(this);
         updateUI();
 
         if (!vm.readyToExecute) executeCodeButton.setEnabled(false);
@@ -49,7 +59,11 @@ public class UI extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 String code = CodeArea.getText();
-                vm.sendCode(code);
+                try {
+                    vm.sendCode(code);
+                }catch (RuntimeException err){
+                    JOptionPane.showMessageDialog(panel1, vm.err_msg, "Compilation Error", JOptionPane.ERROR_MESSAGE);
+                }
 
                 if (vm.readyToExecute){
                     String c = "Code compiled successfully.";
@@ -66,25 +80,55 @@ public class UI extends JFrame {
         executeCodeButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                vm.executeCode();
-                updateUI();
-                executeCodeButton.setEnabled(false);
+                toggleButtons(false);
                 vm.readyToExecute = false;
+
+                SwingWorker<Void, Void> executionThread = new SwingWorker<Void, Void>() {
+                    @Override
+                    protected Void doInBackground() throws Exception {
+                        vm.executeCode();
+
+                        return null;
+                    }
+
+                    @Override
+                    protected void done(){
+                        updateUI();
+                    }
+                };
+
+                executionThread.execute();
+                toggleButtons(true);
             }
         });
 
         resetMemoryButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                cpuModule.reset();
+                vm.resetCPU();
                 updateUI();
+            }
+        });
+
+        settingsButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                new Settings("Settings.");
             }
         });
     }
 
+    @Override
     public void updateUI(){
-        RegisterDumpArea.setText(cpuModule.dumpRegisters() + "\n\n" + cpuModule.dumpFlags());
-        MemoryDumpArea.setText(cpuModule.dumpMemory());
-        OutputDumpArea.setText(cpuModule.outputString.toString());
+        SwingUtilities.invokeLater( () -> {
+            RegisterDumpArea.setText(cpuModule.dumpRegisters() + "\n\n" + cpuModule.dumpFlags());
+            MemoryDumpArea.setText(cpuModule.dumpMemory());
+            MemoryDumpArea.setCaretPosition(0);
+            OutputDumpArea.setText(cpuModule.outputString.toString());
+        });
+    }
+
+    public void toggleButtons(boolean enabled){
+        for(JButton button : executionButtons) button.setEnabled(enabled);
     }
 }

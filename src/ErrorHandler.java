@@ -7,6 +7,11 @@ public class ErrorHandler{
     public static final int ERR_CODE_INVALID_INSTRUCTION_FORMAT = 5;
     public static final int ERR_CODE_PROGRAM_ERROR = 6;
     public static final int ERR_CODE_NULL_POINTER = 7;
+    public static final int ERR_COMP_COMPILATION_ERROR = 8;
+    public static final int ERR_COMP_NULL_DATA_POINTER = 9;
+    public static final int ERR_COMP_NULL_FUNCTION_POINTER = 10;
+    public static final int ERR_COMP_INVALID_CPU_CODE = 11;
+    public static final int ERR_COMP_UNDEFINED_INSTRUCTION = 12;
 
     static class InvalidMemoryLayoutException extends RuntimeException{
         public InvalidMemoryLayoutException(String err) {super(err);}
@@ -25,5 +30,9 @@ public class ErrorHandler{
 
     static class InvalidDataPointerException extends RuntimeException{
         public InvalidDataPointerException(String err) {super(err);}
+    }
+
+    static class CodeCompilationError extends RuntimeException {
+        public CodeCompilationError(String err) {super(err);}
     }
 }

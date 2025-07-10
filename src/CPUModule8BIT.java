@@ -1,6 +1,4 @@
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 public class CPUModule8BIT extends CPU {
 
@@ -8,7 +6,7 @@ public class CPUModule8BIT extends CPU {
     public static final int max_value = 255;
     public static final int min_value = -127;
 
-    public int currentLine = 0;
+    public int currentLine = 1;
     /// ///////////////////////////////////////
 
     // Memory related Variables //
@@ -22,6 +20,10 @@ public class CPUModule8BIT extends CPU {
     public String[] registerNames;
     public short[] memory;
     /// ///////////////////////////////////////
+    ///
+    ///
+    /// Listeners /////////////////////////////
+    private onStepListener stepListener;
 
 
     // Flags N = negative, C = carry, O = overflow, Z = zero //
@@ -67,6 +69,9 @@ public class CPUModule8BIT extends CPU {
                 stackSize, stack_start, stack_start,
                 last_addressable_location, last_addressable_location));
 
+        System.out.printf("CPU speed set to %s Cycles per second. With a step delay of %sMS\n",
+                Launcher.appConfig.get("Cycles"), delayAmountMilliseconds);
+
         reset();
     }
 
@@ -79,6 +84,10 @@ public class CPUModule8BIT extends CPU {
         registerNames = new String[registers.length];
         bit_length = 8;
         memory = new short[mem_size_B];
+        currentLine = 1;
+
+        functionCallStack = new Stack<>();
+        dataMap = new HashMap<>();
 
         outputString = new StringBuilder();
 
@@ -102,86 +111,92 @@ public class CPUModule8BIT extends CPU {
         registers[SP] = (short) (stack_start + memory.length - stack_start - 1);
         registers[PC] = 0;
 
+        Z = false;
+        N = false;
+        E = false;
 
+        machineCode = new int[0];
+        programEnd = false;
     }
 
     public void executeCompiledCode(int[] machine_code){
         int mainEntryPoint = functions.get("MAIN");
         registers[PC] = (short) mainEntryPoint;
-        while (!programEnd || registers[PC] < machine_code.length){
+        while (!programEnd && registers[PC] < machine_code.length){
+            System.out.printf("Executing machine code : 0x%X -> 0x%X -> %s.\n",
+                    registers[PC], machine_code[registers[PC]], instructionSet.get( machine_code[registers[PC]] ));
             switch (machine_code[ registers[PC] ]){
                 case INS_EXT ->{
                     programEnd = true;
-                    break;
                 }
 
                 // step function increments PC and returns its value
                 // we step two times for each operand. one step for mode. another step for value
                 case INS_SET -> {
-                    short[] destination = new short[] {(short) machine_code[ step() ], (short) machine_code[ step() ]};
-                    short[] source = new short[] {(short) machine_code[ step() ], (short) machine_code[ step() ]};
+                    short[] destination = getNextOperand();
+                    short[] source = getNextOperand();
                     set(destination, source);
                 }
                 case INS_OUT -> {
-                    short[] destination = new short[] { (short) machine_code[ step() ], (short) machine_code[ step() ] };
+                    short[] destination = getNextOperand();
                     out(destination);
                 }
 
                 case INS_ADD -> {
-                    short[] destination = new short[] { (short) machine_code[ step() ], (short) machine_code[ step() ] };
-                    short[] source = new short[] {  (short) machine_code[ step() ], (short) machine_code[ step() ]  };
+                    short[] destination = getNextOperand();
+                    short[] source = getNextOperand();
                     add(destination, source);
                 }
                 case INS_SUB -> {
-                    short[] destination = new short[] { (short) machine_code[ step() ], (short) machine_code[ step() ] };
-                    short[] source = new short[] {  (short) machine_code[ step() ], (short) machine_code[ step() ]  };
+                    short[] destination = getNextOperand();
+                    short[] source = getNextOperand();
                     sub(destination, source);
                 }
                 case INS_MUL -> {
-                    short[] destination = new short[] { (short) machine_code[ step() ], (short) machine_code[ step() ] };
-                    short[] source = new short[] {  (short) machine_code[ step() ], (short) machine_code[ step() ]  };
+                    short[] destination = getNextOperand();
+                    short[] source = getNextOperand();
                     mul(destination, source);
                 }
                 case INS_DIV -> {
-                    short[] destination = new short[] { (short) machine_code[ step() ], (short) machine_code[ step() ] };
-                    short[] source = new short[] {  (short) machine_code[ step() ], (short) machine_code[ step() ]  };
+                    short[] destination = getNextOperand();
+                    short[] source = getNextOperand();
                     div(destination, source);
                 }
 
                 case INS_POW -> {
-                    short[] destination = new short[] { (short) machine_code[ step() ], (short) machine_code[ step() ] };
-                    short[] source = new short[] {  (short) machine_code[ step() ], (short) machine_code[ step() ]  };
+                    short[] destination = getNextOperand();
+                    short[] source = getNextOperand();
                     pow(destination, source);
                 }
 
                 case INS_SQRT -> {
-                    short[] destination = new short[] { (short) machine_code[ step() ], (short) machine_code[ step() ] };
+                    short[] destination = getNextOperand();
                     sqrt(destination);
                 }
 
                 case INS_RND -> {
-                    short[] destination = new short[] { (short) machine_code[ step() ], (short) machine_code[ step() ] };
-                    short[] source = new short[] { (short) machine_code[ step() ], (short) machine_code[ step() ]};
+                    short[] destination = getNextOperand();
+                    short[] source = getNextOperand();
                     rnd(destination, source);
                 }
 
                 case INS_INC -> {
-                    short[] destination = new short[] { (short) machine_code[ step() ], (short) machine_code[ step() ] };
+                    short[] destination = getNextOperand();
                     inc(destination);
                 }
                 case INS_DEC -> {
-                    short[] destination = new short[] { (short) machine_code[ step() ], (short) machine_code[ step() ] };
+                    short[] destination = getNextOperand();
                     dec(destination);
                 }
 
                 case INS_NOT -> {
-                    short[] source = new short[] {(short) machine_code[step()], (short) machine_code[step()]};
+                    short[] source = getNextOperand();
                     not(source);
                 }
 
                 case INS_AND -> {
-                    short[] destination = new short[] {(short) machine_code[step()], (short) machine_code[step()]};
-                    short[] source = new short[] {(short) machine_code[step()], (short) machine_code[step()]};
+                    short[] destination = getNextOperand();
+                    short[] source = getNextOperand();
                     and(destination, source);
                 }
 
@@ -211,14 +226,14 @@ public class CPUModule8BIT extends CPU {
 
                 case INS_LA -> {
                     // Get the source (must be 16-bit compatible). step to the address. load into source
-                    short[] source = new short[] { (short) machine_code[ step() ], (short) machine_code[ step() ]};
+                    short[] source = getNextOperand();
                     step();
                     step();
                     la(source);
                 }
 
                 case INS_LLEN -> {
-                    short[] destination = new short[] {(short) machine_code[ step() ], (short) machine_code[ step() ]};
+                    short[] destination = getNextOperand();
                     step();
                     step();
                     int start = machine_code[registers[PC]];
@@ -246,62 +261,63 @@ public class CPUModule8BIT extends CPU {
                 }
 
                 case INS_PUSH -> {
-                    short[] source = new short[] { (short) machine_code[ step() ], (short) machine_code[ step() ] };
+                    short[] source = getNextOperand();
                     push(source);
                 }
 
                 case INS_POP ->{
-                    short[] source = new short[] { (short) machine_code[ step() ], (short) machine_code[ step() ] };
+                    short[] source = getNextOperand();
                     pop(source);
                 }
 
                 case INS_CALL -> {
-                    int mode = machine_code[step()];
+                    step();
                     int address = machine_code[step()];
-                    call(address);
+                    int return_address = step() - 1;
+                    call(address, return_address);
                 }
                 case INS_RET -> {
-                    System.out.println("Popping the function call stack.");
-                    if (!functionCallStack.isEmpty()) {
-                        int return_address = functionCallStack.pop() - 1;
-                        System.out.println("Popping address : 0x" + Integer.toHexString(return_address) + ". Stack size : " + functionCallStack.size());
-                        registers[PC] = (short) (return_address);
-                    }else{
-                        E = true;
-                        System.out.println("The function stack is empty.");
-                        continue;
-                    }
+                    System.out.println(functionCallStack);
+                    int return_address = functionCallStack.pop();
+                    System.out.printf("Popping address 0x%X from the stack.\n", return_address);
+                    registers[PC] = (short) return_address;
                 }
 
                 case INS_CE -> {
                     step();
                     int address = machine_code[step()];
-                    if (Z) call(address);
+                    int return_address = machine_code[step()];
+                    if (Z) call(address, return_address);
                 }
                 case INS_CNE -> {
                     step();
                     int address = machine_code[step()];
-                    if (!Z) call(address);
+                    int return_address = machine_code[step()];
+                    if (!Z) call(address, return_address);
                 }
                 case INS_CL -> {
                     step();
                     int address = machine_code[step()];
-                    if (N) call(address);
+                    int return_address = machine_code[step()];
+                    if (N) call(address, return_address);
                 }
                 case INS_CLE -> {
                     step();
                     int address = machine_code[step()];
-                    if (N || Z) call(address);
+                    int return_address = machine_code[step()];
+                    if (N || Z) call(address, return_address);
                 }
                 case INS_CG -> {
                     step();
                     int address = machine_code[step()];
-                    if (!N) call(address);
+                    int return_address = machine_code[step()];
+                    if (!N) call(address, return_address);
                 }
                 case INS_CGE -> {
                     step();
                     int address = machine_code[step()];
-                    if (!N || Z) call(address);
+                    int return_address = machine_code[step()];
+                    if (!N || Z) call(address, return_address);
                 }
 
                 case INS_JMP -> {
@@ -341,8 +357,8 @@ public class CPUModule8BIT extends CPU {
                 }
 
                 case INS_CMP -> {
-                    short[] destination = new short[] {(short) machine_code[ step() ], (short) machine_code[ step() ]};
-                    short[] source = new short[] { (short) machine_code[ step() ], (short) machine_code[ step() ]};
+                    short[] destination = getNextOperand();
+                    short[] source = getNextOperand();
                     cmp(destination, source);
                 }
 
@@ -374,12 +390,22 @@ public class CPUModule8BIT extends CPU {
             }
 
             step();
+
         }
 
         outputString.append("Program terminated with code : ").append(status_code);
     }
 
-    public int step() {registers[PC]++; return registers[PC];}
+    public int step() {
+        registers[PC]++;
+        if (stepListener != null) stepListener.updateUI();
+        try {
+            Thread.sleep(delayAmountMilliseconds);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        return registers[PC];
+    }
 
     public short[] getNextOperand(){
         return new short[] {(short) machineCode[step()], (short) machineCode[step()]};
@@ -884,9 +910,10 @@ public class CPUModule8BIT extends CPU {
     }
 
     @Override
-    public void call(int address){
-        System.out.println("Pushing address : 0x" + Integer.toHexString(machineCode[registers[PC]]));
-        functionCallStack.push(machineCode[ registers[PC] ]); // save the return address
+    public void call(int address, int return_address){
+        System.out.println("Pushing address : 0x" + Integer.toHexString(return_address));
+        functionCallStack.push(return_address); // save the return address
+        System.out.println(functionCallStack);
         registers[PC] = (short) (address - 1); // sub 1 to nullify the step()
     }
 
@@ -929,7 +956,14 @@ public class CPUModule8BIT extends CPU {
             length += 2; // 2 bytes for all remaining operands
         }
         int[] result = new int[length];
-        result[0] = translationMap.get(tokens[0]); // tokens[0] should always be the opcode.
+
+        Integer opCode = translationMap.get(tokens[0]);
+        if (opCode == null){
+            String err = String.format("Unknown instruction : %s\n", tokens[0]);
+            status_code = ErrorHandler.ERR_COMP_UNDEFINED_INSTRUCTION;
+            triggerProgramError(new ErrorHandler.CodeCompilationError(err), err, status_code);
+        }
+        else result[0] = opCode; // tokens[0] should always be the opcode.
 
         // figure out which addressing mode is used.
         if (tokens.length > 1) {
@@ -948,19 +982,53 @@ public class CPUModule8BIT extends CPU {
 
 
                 if (result[i] == 0x4){
-                    result[i + 1] = dataMap.get(tokens[tokenIndex].substring(1));
-                    tokenIndex++;
-                    break;
+                    Integer dataPointer = dataMap.get(tokens[tokenIndex].substring(1));
+
+                    if (dataPointer == null){
+                        String err = String.format("The variable '%s' doesn't exist in the data section.\n",
+                                tokens[tokenIndex].substring(1));
+                        status_code = ErrorHandler.ERR_COMP_NULL_DATA_POINTER;
+                        triggerProgramError(new ErrorHandler.CodeCompilationError(err),
+                                err, status_code);
+                        return new int[] {-1};
+                    }
+
+                    else {
+                        result[i + 1] = dataPointer;
+                        tokenIndex++;
+                        break;
+                    }
                 }
                 if (result[i] == 0x6){
-                    result[i + 1] = functions.get(tokens[tokenIndex]);
-                    tokenIndex++;
-                    break;
+                    Integer functionPointer = functions.get(tokens[tokenIndex]);
+
+                    if (functionPointer == null){
+                        String err = String.format("The function '%s' doesn't exist in the ROM.\n",
+                                tokens[tokenIndex]);
+                        status_code = ErrorHandler.ERR_COMP_NULL_FUNCTION_POINTER;
+                        triggerProgramError(new ErrorHandler.CodeCompilationError(err),
+                                err, status_code);
+                        return new int[] {-1};
+                    }
+
+                    else {
+                        result[i + 1] = functions.get(tokens[tokenIndex]);
+                        tokenIndex++;
+                        break;
+                    }
                 }
 
                 if (isNumber(tokens[tokenIndex].substring(1))){
                     result[i + 1] = Integer.parseInt(tokens[tokenIndex].substring(1));
-                }else result[i + 1] = getRegisterCode(tokens[tokenIndex].substring(1));
+                }else{
+                    int registerCode = getRegisterCode(tokens[tokenIndex].substring(1));
+                    if (registerCode == -1){
+                        String err = String.format("Unknown register '%s'.\n", tokens[tokenIndex].substring(1));
+                        status_code = ErrorHandler.ERR_COMP_INVALID_CPU_CODE;
+                        triggerProgramError(new ErrorHandler.CodeCompilationError(err), err, status_code);
+                    }
+                    else result[i + 1] = registerCode;
+                }
                 tokenIndex++;
             }
         }
@@ -980,7 +1048,7 @@ public class CPUModule8BIT extends CPU {
         // Step 1- Calculate the function offset addresses, add .DATA variables to the data section, and build a raw code string
         String fullCode = "";
         for(int i = 0; i < lines.length; i++){
-
+            currentLine++;
             // Which section are we in? (is it a line of code? is it a function. and if it starts with '.' is it the data section?)
             if (lines[i].equals(".DATA")){
                 System.out.println("Data section detected.");
@@ -1047,8 +1115,10 @@ public class CPUModule8BIT extends CPU {
         // Step 2- convert the raw code to machine code array.
         String[] fullLines = fullCode.split("\n");
 
+        currentLine = 1;
         for(int i = 0; i < fullLines.length; i++){
 
+            currentLine++;
             String a = Arrays.toString(toMachineCode(fullLines[i])).replace("[", "").replace("]", "");
 
             machineCodeString.append(a);
@@ -1180,9 +1250,14 @@ public class CPUModule8BIT extends CPU {
 
     public void triggerProgramError(RuntimeException exceptionType, String errMsg, int errCode){
         status_code = errCode;
-        outputString.append(errMsg);
+        outputString.append("line " + currentLine + " : " + errMsg);
         programEnd = true;
-        exceptionType = new RuntimeException(errMsg);
+        exceptionType = new RuntimeException("line " + currentLine + " : " + errMsg);
         throw exceptionType;
+    }
+
+    @Override
+    public void setUIupdateListener(onStepListener listener){
+        this.stepListener = listener;
     }
 }

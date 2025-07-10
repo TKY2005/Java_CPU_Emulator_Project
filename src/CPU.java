@@ -72,6 +72,8 @@ public abstract class CPU {
     protected boolean noStep = false;
     protected boolean UIMode = false;
 
+    protected int delayAmountMilliseconds = (int) ( (1.0 / Integer.parseInt(Launcher.appConfig.get("Cycles"))) * 1000 );
+
 
     protected StringBuilder outputString = new StringBuilder();
 
@@ -229,6 +231,8 @@ public abstract class CPU {
         return sb.toString();
     }
 
+    public abstract void setUIupdateListener(onStepListener listener);
+
 
     public abstract void set(short[] destination, short[] source);
     public abstract void out(short[] destination);
@@ -252,7 +256,7 @@ public abstract class CPU {
 
     public abstract void push(short[] source);
     public abstract void pop(short[] source);
-    public abstract void call(int address);
+    public abstract void call(int address, int return_address);
     public abstract void jmp();
     public abstract void cmp(short[] destination, short[] source);
 }

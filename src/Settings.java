@@ -75,7 +75,7 @@ public class Settings extends JFrame {
         allowDirectManipulationOfCheckBox.setSelected( Boolean.parseBoolean( settings.get("OverwritePC") ) );
 
         CycleSpeedSlider.setValue(Integer.parseInt(settings.get("Cycles")));
-        CylceLabel.setText(settings.get("Cycles") + " Instructions/Second");
+        CylceLabel.setText(settings.get("Cycles") + " Cycles/Second");
 
 
         MemorySlider.addChangeListener(new ChangeListener() {
@@ -100,7 +100,7 @@ public class Settings extends JFrame {
         CycleSpeedSlider.addChangeListener(new ChangeListener() {
             @Override
             public void stateChanged(ChangeEvent e) {
-                CylceLabel.setText( CycleSpeedSlider.getValue() + " Instructions/Second" );
+                CylceLabel.setText( CycleSpeedSlider.getValue() + " Cycles/Second" );
             }
         });
 
