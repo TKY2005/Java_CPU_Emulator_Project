@@ -79,7 +79,7 @@ public class CPUModule8BIT extends CPU {
     @Override
     public void reset(){
 
-        // 6 General purpose registers + 4 Special purpose registers
+        // 6 General purpose registers + 6 Special purpose registers
         registers = new short[REGISTER_COUNT + 6];
         registerNames = new String[registers.length];
         bit_length = 8;
@@ -120,11 +120,18 @@ public class CPUModule8BIT extends CPU {
     }
 
     public void executeCompiledCode(int[] machine_code){
-        int mainEntryPoint = functions.get("MAIN");
-        registers[PC] = (short) mainEntryPoint;
+
+        Integer mainEntryPoint = functions.get("MAIN");
+        if (mainEntryPoint == null){
+            String err = "MAIN function label not found.";
+            triggerProgramError(new ErrorHandler.CodeCompilationError(err),
+                    err, ErrorHandler.ERR_CODE_MAIN_NOT_FOUND);
+        }
+        registers[PC] = (short) (int) mainEntryPoint;
+
         while (!programEnd && registers[PC] < machine_code.length){
-            System.out.printf("Executing machine code : 0x%X -> 0x%X -> %s.\n",
-                    registers[PC], machine_code[registers[PC]], instructionSet.get( machine_code[registers[PC]] ));
+           // System.out.printf("Executing machine code : 0x%X -> 0x%X -> %s.\n",
+             //       registers[PC], machine_code[registers[PC]], instructionSet.get( machine_code[registers[PC]] ));
             switch (machine_code[ registers[PC] ]){
                 case INS_EXT ->{
                     programEnd = true;
