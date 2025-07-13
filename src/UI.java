@@ -16,6 +16,8 @@ public class UI extends JFrame implements onStepListener {
     private JButton settingsButton;
     private JButton resetMemoryButton;
 
+    private LineNumberComponent lineNumbers;
+
     private JButton[] executionButtons = new JButton[]{
             executeCodeButton,
             compileCodeButton,
@@ -37,6 +39,7 @@ public class UI extends JFrame implements onStepListener {
         this.setVisible(true);
 
         HashMap<String, String> settings = Settings.loadSettings();
+        lineNumbers = new LineNumberComponent(CodeArea);
 
         String architecture = settings.get("Architecture");
         //if (architecture.equals("8")) cpuModule = new CPUModule8BIT();
@@ -47,6 +50,7 @@ public class UI extends JFrame implements onStepListener {
 
         cpuModule = new CPUModule8BIT();
         vm = new VirtualMachine(cpuModule);
+        vm.UIMode = true;
 
         CodeArea.setText(".MAIN\next");
         cpuModule.setUIupdateListener(this);
@@ -106,6 +110,7 @@ public class UI extends JFrame implements onStepListener {
             @Override
             public void actionPerformed(ActionEvent e) {
                 vm.resetCPU();
+                executeCodeButton.setEnabled(false);
                 updateUI();
             }
         });

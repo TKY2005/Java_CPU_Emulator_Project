@@ -53,6 +53,13 @@ public abstract class CPU {
     public static final int INS_INT = 0x30;
 
 
+
+    /// ///////////// Interrupts ////////////////////
+    public static final int INT_INPUT_STR = 0x00;
+    public static final int INT_INPUT_NUM = 0x01;
+    public static final int INT_STR_STRING = 0x02;
+
+
     public static final int REGISTER_MODE = 0;
     public static final int DIRECT_MODE = 1;
     public static final int INDIRECT_MODE = 2;
@@ -98,6 +105,7 @@ public abstract class CPU {
     public final static String CHAR_PREFIX = "@";
     public static final String HEX_MEMORY = "*";
     public final static String SIGNAL_PREFIX = "^";
+    public static final String COMMENT_PREFIX = ";";
 
     public static final byte NULL_TERMINATOR = 0x00;
 
@@ -164,6 +172,7 @@ public abstract class CPU {
 
 
         translationMap = createTranslationMap(instructionSet);
+
 
     }
 

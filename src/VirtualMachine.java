@@ -1,11 +1,12 @@
-import java.lang.reflect.Array;
-import java.util.Arrays;
+import javax.swing.*;
+import java.util.Scanner;
 
 public class VirtualMachine {
 
     private CPU cpuModule;
     public boolean readyToExecute = false;
     public boolean UIMode = false;
+    public static boolean ui = false;
 
     public String err_msg = "";
 
@@ -14,96 +15,6 @@ public class VirtualMachine {
         this.cpuModule = cpuModule;
         System.out.println("Welcome");
 
-        // Temporary testing codes.
-        /*String code = """
-                .MAIN
-                    la $dp ~n1
-                    set $ra &dp
-                    
-                    la $ss ~n2
-                    llen $rc ~n2
-                    call cipher
-                    
-                    la $ss ~n2
-                    outs
-                ext
-                
-                .cipher
-                    add &ss $ra
-                    inc $ss
-                    loop cipher
-                ret
-                
-                .DATA
-                n1 !5
-                n2 "Hello world"
-                end
-                """;
-
-        String code2 = """
-                .MAIN
-                    set $ra @a
-                    set $rb !0
-                    .set_loop
-                        set &rb $ra
-                        inc $ra
-                        inc $rb
-                        cmp $ra @z
-                        jle set_loop
-                        set &rb !0
-                    set $ss !0
-                    outs
-                ext
-                """;*/
-
-        /*String code3 = """
-                .MAIN
-                 call func1
-                 la $ss ~n1
-                 outs
-                ext
-                
-                .func1
-                 la $ss ~n2
-                 outs
-                 call func2
-                ret
-                
-                .func2
-                 la $ss ~n3
-                 outs
-                ret
-                
-                .DATA
-                 org #14
-                 n1 "This is the end of MAIN"
-                 n2 "This is func1"
-                 n3 "This is func2"
-                end
-                """;
-
-        String code4 = """
-                .MAIN
-                la $dp ~n1
-                set $ra &dp
-                la $ss ~n2
-                llen $rc ~n2
-                call cipher
-                outs
-                ext
-                
-                .cipher
-                add &ss $ra
-                inc $ss
-                loop cipher
-                ret
-                .DATA
-                org !10
-                n1 !5
-                n2 "Hello world"
-                end
-                """;
-                */
     }
 
     public void sendCode(String code){
@@ -112,6 +23,7 @@ public class VirtualMachine {
         String[] lines = code.split("\n");
         err_msg = "";
         cpuModule.reset();
+
 
         for (String line : lines) {
             String[] tokens = line.trim().split("\\s+");
@@ -143,7 +55,9 @@ public class VirtualMachine {
         }
 
         try {
-            cpuModule.compileCode(result.toString());
+            cpuModule.machineCode = cpuModule.compileCode(result.toString());
+            System.out.println(cpuModule.dumpROM());
+            ui = UIMode;
         }catch (RuntimeException e) {
             e.printStackTrace();
             err_msg = e.getMessage();
@@ -159,7 +73,91 @@ public class VirtualMachine {
 
     public void resetCPU(){
         cpuModule.reset();
+
         cpuModule.canExecute = true;
         cpuModule.programEnd = false;
+        readyToExecute = false;
+    }
+
+    public static boolean interruptHandler(short[] registers, short[] memory){
+        boolean validInterrupt = true;
+        switch (registers[0]){ // interrupt register : RA
+
+            case CPU.INT_INPUT_STR -> {
+
+                System.out.println("Calling interrupt for input string");
+                String input_message = getInputMessage(registers, memory);
+                //System.out.println("Message is : " + input_message);
+                String input = "";
+                if (ui){ // temporary
+                  //  System.out.println("Showing message for ui input");
+                    input = JOptionPane.showInputDialog(null, input_message,
+                            "Input", JOptionPane.INFORMATION_MESSAGE);
+
+                }else{
+                    System.out.print(input_message); input = new Scanner(System.in).nextLine();
+                }
+
+                //System.out.println("Writing the input to memory.");
+                int write_address = registers[11]; // write_pointer_register : DI
+                //System.out.println("Writing to : 0x" + Integer.toHexString(write_address));
+                int index = 0;
+                //System.out.println("Storing input to : " + input);
+                for(int i = write_address; i < write_address + input.length(); i++){
+                  //  System.out.println("Storing char " + input.charAt(index) + " to address : 0x" + Integer.toHexString(i));
+                    memory[i] = (short) input.charAt(index);
+                    index++;
+                }
+                memory[write_address + input.length() + 1] = CPU.NULL_TERMINATOR;
+                registers[9] = (short) (write_address + input.length()); // string end position stored in SE
+
+            }
+
+            case CPU.INT_INPUT_NUM -> {
+                System.out.println("Calling interrupt for numeric input");
+                String input_message = getInputMessage(registers, memory);
+
+                short input;
+
+                if (ui){
+                    System.out.println("Showing ui input prompt");
+                    input = Short.parseShort(JOptionPane.showInputDialog(null, input_message, "Numeric input : ",
+                            JOptionPane.INFORMATION_MESSAGE));
+                }else{
+                    System.out.print(input_message);
+                    input = new Scanner(System.in).nextShort();
+                }
+                //System.out.println("User entered : " + input);
+
+                if (input <= 255) registers[3] = input; // if input fits 8-bits place in RD
+                else registers[11] = input; // otherwise place in DI
+            }
+
+
+            default -> validInterrupt = false;
+        }
+        System.out.println("done. returning to original program.");
+        return validInterrupt;
+    }
+
+    private static String getInputMessage(short[] registers, short[] memory) {
+        int input_message_pointer = registers[8]; // string message stored at : SS
+        String input_message = "";
+        if (memory[input_message_pointer] != CPU.NULL_TERMINATOR) {
+            //System.out.println("Message stored at : 0x" + Integer.toHexString(input_message_pointer));
+            for (int i = input_message_pointer; memory[i] != CPU.NULL_TERMINATOR; i++) {
+                //  System.out.println("adding char : " + (char) memory[i]);
+                input_message += (char) memory[i];
+            }
+        } else input_message = "Input : "; // no message provided
+        return input_message;
+    }
+
+    public static void interruptHandler(int[] registers){
+
+    }
+
+    public static void interruptHandler(long[] registers){
+
     }
 }

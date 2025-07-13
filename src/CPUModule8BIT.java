@@ -28,8 +28,8 @@ public class CPUModule8BIT extends CPU {
 
     // Flags N = negative, C = carry, O = overflow, Z = zero //
     boolean N, C, O, Z;
-    // T = trap, E = Error
-    boolean T, E;
+    // T = trap, E = Error, I = Interrupt
+    boolean T, E, I;
     /// /////////////////////////////////////////////
 
     int memorySize = Integer.parseInt(Settings.loadSettings().get("MemSize"));
@@ -85,11 +85,18 @@ public class CPUModule8BIT extends CPU {
         bit_length = 8;
         memory = new short[mem_size_B];
         currentLine = 1;
+        currentByte = 0;
+        status_code = 0;
 
         functionCallStack = new Stack<>();
         dataMap = new HashMap<>();
+        functions = new HashMap<>();
+
 
         outputString = new StringBuilder();
+        machineCode = new int[] {0};
+        data_start = stack_start - (offsetSize * 1024);
+
 
         // set register names for search
         char registerChar = 'a';
@@ -114,8 +121,11 @@ public class CPUModule8BIT extends CPU {
         Z = false;
         N = false;
         E = false;
+        I = false;
+        T = false;
+        C = false;
+        O = false;
 
-        machineCode = new int[0];
         programEnd = false;
     }
 
@@ -128,6 +138,7 @@ public class CPUModule8BIT extends CPU {
                     err, ErrorHandler.ERR_CODE_MAIN_NOT_FOUND);
         }
         registers[PC] = (short) (int) mainEntryPoint;
+        I = true;
 
         while (!programEnd && registers[PC] < machine_code.length){
            // System.out.printf("Executing machine code : 0x%X -> 0x%X -> %s.\n",
@@ -379,6 +390,13 @@ public class CPUModule8BIT extends CPU {
                     if (registers[2] > 0){
                         jmp();
                     }
+                }
+
+                case INS_INT -> {
+                    if (I) {
+                        boolean x = VirtualMachine.interruptHandler(registers, memory);
+                        if (!x) E = true;
+                    }else System.out.println("Interrupt flag not set. skipping.");
                 }
 
                 default -> {
@@ -1107,7 +1125,7 @@ public class CPUModule8BIT extends CPU {
                 // no-operand instruction = 1 byte
                 // single-operand instruction = 3 bytes
                 // 2 operand instruction = 5 bytes
-                if (lines[i].isEmpty()) continue;
+                if (lines[i].isEmpty() || lines[i].startsWith(COMMENT_PREFIX)) continue;
                 int len = lines[i].trim().split(" ").length;
                 if (len == 3) currentByte += 5;
                 else if (len == 2) currentByte += 3;
@@ -1244,13 +1262,16 @@ public class CPUModule8BIT extends CPU {
     @Override
     public String dumpFlags(){
         StringBuilder result = new StringBuilder();
-        result.append(String.format("N = %d\tO = %d\tC = %d\tZ = %d\tT = %d\tE = %d\n",
+        result.append(String.format("N = %d\tO = %d\tC = %d\n" +
+                        "Z = %d\tT = %d\tE = %d\n" +
+                        "I = %d\n",
                 N ? 1 : 0,
                 O ? 1 : 0,
                 C ? 1 : 0,
                 Z ? 1 : 0,
                 T ? 1 : 0,
-                E ? 1 : 0));
+                E ? 1 : 0,
+                I ? 1 : 0));
 
         return result.toString();
     }
