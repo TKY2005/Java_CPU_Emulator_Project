@@ -36,6 +36,7 @@ public class CPUModule8BIT extends CPU {
     public CPUModule8BIT() {
         super();
 
+        System.out.println("Starting 8 bit cpu module.");
         mem_size_B = memorySize * 1024;
         stack_start = mem_size_B - (stackSize * 1024);
         data_start = stack_start - (offsetSize * 1024);
@@ -827,7 +828,10 @@ public class CPUModule8BIT extends CPU {
         if (power == 256) triggerProgramError(new ErrorHandler.InvalidInstructionException("Invalid instruction prefix"),
                 "Invalid instruction prefix", ErrorHandler.ERR_CODE_INVALID_PREFIX);
 
+        System.out.println("power : " + power);
+        System.out.println(destination[1] + "^" + power);
         short newValue = (short) Math.pow( destination[1], power );
+        System.out.println(newValue);
         switch (destination[0]){
             case REGISTER_MODE -> setRegister( destination[1], newValue );
             case DIRECT_MODE -> setMemory( destination[1], newValue );

@@ -19,7 +19,7 @@ public class UI extends JFrame implements onStepListener {
     private JButton settingsButton;
     private JButton resetMemoryButton;
 
-    private LineNumberComponent lineNumbers;
+    //private LineNumberComponent lineNumbers;
 
     private JButton[] executionButtons = new JButton[]{
             executeCodeButton,
@@ -41,7 +41,7 @@ public class UI extends JFrame implements onStepListener {
         this.setVisible(true);
 
         HashMap<String, String> settings = Settings.loadSettings();
-        lineNumbers = new LineNumberComponent(CodeArea);
+        //lineNumbers = new LineNumberComponent(CodeArea);
 
         String architecture = settings.get("Architecture");
         //if (architecture.equals("8")) cpuModule = new CPUModule8BIT();
