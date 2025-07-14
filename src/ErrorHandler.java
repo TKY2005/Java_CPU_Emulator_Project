@@ -13,6 +13,7 @@ public class ErrorHandler{
     public static final int ERR_COMP_INVALID_CPU_CODE = 11;
     public static final int ERR_COMP_UNDEFINED_INSTRUCTION = 12;
     public static final int ERR_CODE_MAIN_NOT_FOUND = 13;
+    public static final int ERR_CODE_PC_MODIFY_UNALLOWED = 14;
 
     static class InvalidMemoryLayoutException extends RuntimeException{
         public InvalidMemoryLayoutException(String err) {super(err);}

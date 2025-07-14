@@ -1206,8 +1206,14 @@ public class CPUModule8BIT extends CPU {
 
     public void setRegister(int registerID, short value){
         if (registerID < registers.length){
+            if (registerID == PC && Launcher.appConfig.get("OverwritePC").equals("false")){
+                 String err = "Direct modification of PC register is not allowed." +
+                            " if you wish to proceed, change that in the settings.";
+                    triggerProgramError(new ErrorHandler.InvalidMemoryOperationException(err),
+                            err, ErrorHandler.ERR_CODE_PC_MODIFY_UNALLOWED);
+            }
             // Special purpose registers are 16-bits whereas general purpose registers are 8-bits
-            if (registerID >= PC) registers[registerID] = value;
+            else if (registerID >= PC) registers[registerID] = value;
             else if (value > max_value){
                 String err = String.format("The value %X(%d) exceeds the %d-bit CPU module size.", value, value, bit_length);
                 triggerProgramError(new ErrorHandler.InvalidMemoryOperationException(err),
