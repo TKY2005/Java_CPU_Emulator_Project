@@ -3,7 +3,7 @@ import java.util.Scanner;
 
 public class VirtualMachine {
 
-    private CPU cpuModule;
+    private static CPU cpuModule;
     public boolean readyToExecute = false;
     public boolean UIMode = false;
     public static boolean ui = false;
@@ -133,6 +133,13 @@ public class VirtualMachine {
                 else registers[11] = input; // otherwise place in DI
             }
 
+            case CPU.INT_DEBUG -> {
+                System.out.println("Calling debug interrupt.");
+                System.out.println("Press Enter to continue.");
+                Scanner s = new Scanner(System.in);
+                s.nextLine();
+            }
+
 
             default -> validInterrupt = false;
         }
@@ -160,4 +167,5 @@ public class VirtualMachine {
     public static void interruptHandler(long[] registers){
 
     }
+
 }

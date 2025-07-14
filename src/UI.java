@@ -1,6 +1,9 @@
 import javax.swing.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
 import java.util.*;
 
 public class UI extends JFrame implements onStepListener {
@@ -22,7 +25,6 @@ public class UI extends JFrame implements onStepListener {
             executeCodeButton,
             compileCodeButton,
             loadCodeFromFileButton,
-            compileCodeToFileButton,
             settingsButton,
             resetMemoryButton
     };
@@ -119,6 +121,35 @@ public class UI extends JFrame implements onStepListener {
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
                 new Settings("Settings.");
+            }
+        });
+
+
+        loadCodeFromFileButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                try{
+                    JFileChooser chooser = new JFileChooser(System.getenv("HOME"));
+                    chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+
+                    int save = chooser.showSaveDialog(panel1);
+                    String code = "";
+
+                    if (save == JFileChooser.APPROVE_OPTION){
+                        File codeFile = chooser.getSelectedFile();
+
+                        BufferedReader reader = new BufferedReader(new FileReader(codeFile));
+                        String line;
+                        while ( (line = reader.readLine()) != null ){
+                            code += line + "\n";
+                        }
+                    }
+
+                    CodeArea.setText(code);
+                }catch (Exception e) {
+                    e.printStackTrace();
+                    JOptionPane.showMessageDialog(panel1, "Error reading from file.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
             }
         });
     }

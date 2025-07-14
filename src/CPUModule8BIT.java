@@ -26,11 +26,7 @@ public class CPUModule8BIT extends CPU {
     private onStepListener stepListener;
 
 
-    // Flags N = negative, C = carry, O = overflow, Z = zero //
-    boolean N, C, O, Z;
-    // T = trap, E = Error, I = Interrupt
-    boolean T, E, I;
-    /// /////////////////////////////////////////////
+
 
     int memorySize = Integer.parseInt(Settings.loadSettings().get("MemSize"));
     int offsetSize = Integer.parseInt(Settings.loadSettings().get("OffsetSize"));
@@ -141,280 +137,283 @@ public class CPUModule8BIT extends CPU {
         I = true;
 
         while (!programEnd && registers[PC] < machine_code.length){
-           // System.out.printf("Executing machine code : 0x%X -> 0x%X -> %s.\n",
-             //       registers[PC], machine_code[registers[PC]], instructionSet.get( machine_code[registers[PC]] ));
-            switch (machine_code[ registers[PC] ]){
-                case INS_EXT ->{
-                    programEnd = true;
-                }
-
-                // step function increments PC and returns its value
-                // we step two times for each operand. one step for mode. another step for value
-                case INS_SET -> {
-                    short[] destination = getNextOperand();
-                    short[] source = getNextOperand();
-                    set(destination, source);
-                }
-                case INS_OUT -> {
-                    short[] destination = getNextOperand();
-                    out(destination);
-                }
-
-                case INS_ADD -> {
-                    short[] destination = getNextOperand();
-                    short[] source = getNextOperand();
-                    add(destination, source);
-                }
-                case INS_SUB -> {
-                    short[] destination = getNextOperand();
-                    short[] source = getNextOperand();
-                    sub(destination, source);
-                }
-                case INS_MUL -> {
-                    short[] destination = getNextOperand();
-                    short[] source = getNextOperand();
-                    mul(destination, source);
-                }
-                case INS_DIV -> {
-                    short[] destination = getNextOperand();
-                    short[] source = getNextOperand();
-                    div(destination, source);
-                }
-
-                case INS_POW -> {
-                    short[] destination = getNextOperand();
-                    short[] source = getNextOperand();
-                    pow(destination, source);
-                }
-
-                case INS_SQRT -> {
-                    short[] destination = getNextOperand();
-                    sqrt(destination);
-                }
-
-                case INS_RND -> {
-                    short[] destination = getNextOperand();
-                    short[] source = getNextOperand();
-                    rnd(destination, source);
-                }
-
-                case INS_INC -> {
-                    short[] destination = getNextOperand();
-                    inc(destination);
-                }
-                case INS_DEC -> {
-                    short[] destination = getNextOperand();
-                    dec(destination);
-                }
-
-                case INS_NOT -> {
-                    short[] source = getNextOperand();
-                    not(source);
-                }
-
-                case INS_AND -> {
-                    short[] destination = getNextOperand();
-                    short[] source = getNextOperand();
-                    and(destination, source);
-                }
-
-                case INS_OR -> {
-                    short[] destination = getNextOperand();
-                    short[] source = getNextOperand();
-                    or(destination, source);
-                }
-
-                case INS_XOR -> {
-                    short[] destination = getNextOperand();
-                    short[] source = getNextOperand();
-                    xor(destination, source);
-                }
-
-                case INS_NAND -> {
-                    short[] destination = getNextOperand();
-                    short[] source = getNextOperand();
-                    nand(destination, source);
-                }
-
-                case INS_NOR -> {
-                    short[] destination = getNextOperand();
-                    short[] source = getNextOperand();
-                    nor(destination, source);
-                }
-
-                case INS_LA -> {
-                    // Get the source (must be 16-bit compatible). step to the address. load into source
-                    short[] source = getNextOperand();
-                    step();
-                    step();
-                    la(source);
-                }
-
-                case INS_LLEN -> {
-                    short[] destination = getNextOperand();
-                    step();
-                    step();
-                    int start = machine_code[registers[PC]];
-                    short len = 0;
-                    while (getMemory( start ) != NULL_TERMINATOR){
-                        start++;
-                        len++;
+            if (canExecute) {
+                // System.out.printf("Executing machine code : 0x%X -> 0x%X -> %s.\n",
+                //       registers[PC], machine_code[registers[PC]], instructionSet.get( machine_code[registers[PC]] ));
+                switch (machine_code[registers[PC]]) {
+                    case INS_EXT -> {
+                        programEnd = true;
                     }
 
-                    switch (destination[0]){
-                        case REGISTER_MODE -> setRegister(destination[1], len);
-                        case DIRECT_MODE -> setMemory(destination[1], len);
-                        case INDIRECT_MODE -> setMemory( getRegister( destination[1] ), len );
-                        default -> E = true;
+                    // step function increments PC and returns its value
+                    // we step two times for each operand. one step for mode. another step for value
+                    case INS_SET -> {
+                        short[] destination = getNextOperand();
+                        short[] source = getNextOperand();
+                        set(destination, source);
                     }
-                }
-
-                case INS_OUTS -> {
-                    int start = registers[SS];
-                    while (getMemory( start ) != NULL_TERMINATOR){
-                        outputString.append( (char) getMemory(start));
-                        start++;
+                    case INS_OUT -> {
+                        short[] destination = getNextOperand();
+                        out(destination);
                     }
-                    outputString.append("\n");
-                }
 
-                case INS_PUSH -> {
-                    short[] source = getNextOperand();
-                    push(source);
-                }
+                    case INS_ADD -> {
+                        short[] destination = getNextOperand();
+                        short[] source = getNextOperand();
+                        add(destination, source);
+                    }
+                    case INS_SUB -> {
+                        short[] destination = getNextOperand();
+                        short[] source = getNextOperand();
+                        sub(destination, source);
+                    }
+                    case INS_MUL -> {
+                        short[] destination = getNextOperand();
+                        short[] source = getNextOperand();
+                        mul(destination, source);
+                    }
+                    case INS_DIV -> {
+                        short[] destination = getNextOperand();
+                        short[] source = getNextOperand();
+                        div(destination, source);
+                    }
 
-                case INS_POP ->{
-                    short[] source = getNextOperand();
-                    pop(source);
-                }
+                    case INS_POW -> {
+                        short[] destination = getNextOperand();
+                        short[] source = getNextOperand();
+                        pow(destination, source);
+                    }
 
-                case INS_CALL -> {
-                    step();
-                    int address = machine_code[step()];
-                    int return_address = step() - 1;
-                    call(address, return_address);
-                }
-                case INS_RET -> {
-                    System.out.println(functionCallStack);
-                    int return_address = functionCallStack.pop();
-                    System.out.printf("Popping address 0x%X from the stack.\n", return_address);
-                    registers[PC] = (short) return_address;
-                }
+                    case INS_SQRT -> {
+                        short[] destination = getNextOperand();
+                        sqrt(destination);
+                    }
 
-                case INS_CE -> {
-                    step();
-                    int address = machine_code[step()];
-                    int return_address = machine_code[step()];
-                    if (Z) call(address, return_address);
-                }
-                case INS_CNE -> {
-                    step();
-                    int address = machine_code[step()];
-                    int return_address = machine_code[step()];
-                    if (!Z) call(address, return_address);
-                }
-                case INS_CL -> {
-                    step();
-                    int address = machine_code[step()];
-                    int return_address = machine_code[step()];
-                    if (N) call(address, return_address);
-                }
-                case INS_CLE -> {
-                    step();
-                    int address = machine_code[step()];
-                    int return_address = machine_code[step()];
-                    if (N || Z) call(address, return_address);
-                }
-                case INS_CG -> {
-                    step();
-                    int address = machine_code[step()];
-                    int return_address = machine_code[step()];
-                    if (!N) call(address, return_address);
-                }
-                case INS_CGE -> {
-                    step();
-                    int address = machine_code[step()];
-                    int return_address = machine_code[step()];
-                    if (!N || Z) call(address, return_address);
-                }
+                    case INS_RND -> {
+                        short[] destination = getNextOperand();
+                        short[] source = getNextOperand();
+                        rnd(destination, source);
+                    }
 
-                case INS_JMP -> {
-                    step();
-                    step();
-                    jmp();
-                }
-                case INS_JE -> {
-                    step();
-                    step();
-                    if (Z) jmp();
-                }
-                case INS_JNE -> {
-                    step();
-                    step();
-                    if (!Z) jmp();
-                }
-                case INS_JL -> {
-                    step();
-                    step();
-                    if (N) jmp();
-                }
-                case INS_JLE -> {
-                    step();
-                    step();
-                    if (N || Z) jmp();
-                }
-                case INS_JG -> {
-                    step();
-                    step();
-                    if (!N) jmp();
-                }
-                case INS_JGE -> {
-                    step();
-                    step();
-                    if (!N || Z) jmp();
-                }
+                    case INS_INC -> {
+                        short[] destination = getNextOperand();
+                        inc(destination);
+                    }
+                    case INS_DEC -> {
+                        short[] destination = getNextOperand();
+                        dec(destination);
+                    }
 
-                case INS_CMP -> {
-                    short[] destination = getNextOperand();
-                    short[] source = getNextOperand();
-                    cmp(destination, source);
-                }
+                    case INS_NOT -> {
+                        short[] source = getNextOperand();
+                        not(source);
+                    }
 
-                case INS_LOOP -> {
-                    // if RC > 0: decrement RC and jump to the label address specified.
-                    step();
-                    step();
-                    //short address = (short) machine_code[ registers[PC] ];
+                    case INS_AND -> {
+                        short[] destination = getNextOperand();
+                        short[] source = getNextOperand();
+                        and(destination, source);
+                    }
 
-                    registers[2]--;
-                    if (registers[2] > 0){
+                    case INS_OR -> {
+                        short[] destination = getNextOperand();
+                        short[] source = getNextOperand();
+                        or(destination, source);
+                    }
+
+                    case INS_XOR -> {
+                        short[] destination = getNextOperand();
+                        short[] source = getNextOperand();
+                        xor(destination, source);
+                    }
+
+                    case INS_NAND -> {
+                        short[] destination = getNextOperand();
+                        short[] source = getNextOperand();
+                        nand(destination, source);
+                    }
+
+                    case INS_NOR -> {
+                        short[] destination = getNextOperand();
+                        short[] source = getNextOperand();
+                        nor(destination, source);
+                    }
+
+                    case INS_LA -> {
+                        // Get the source (must be 16-bit compatible). step to the address. load into source
+                        short[] source = getNextOperand();
+                        step();
+                        step();
+                        la(source);
+                    }
+
+                    case INS_LLEN -> {
+                        short[] destination = getNextOperand();
+                        step();
+                        step();
+                        int start = machine_code[registers[PC]];
+                        short len = 0;
+                        while (getMemory(start) != NULL_TERMINATOR) {
+                            start++;
+                            len++;
+                        }
+
+                        switch (destination[0]) {
+                            case REGISTER_MODE -> setRegister(destination[1], len);
+                            case DIRECT_MODE -> setMemory(destination[1], len);
+                            case INDIRECT_MODE -> setMemory(getRegister(destination[1]), len);
+                            default -> E = true;
+                        }
+                    }
+
+                    case INS_OUTS -> {
+                        int start = registers[SS];
+                        while (getMemory(start) != NULL_TERMINATOR) {
+                            outputString.append((char) getMemory(start));
+                            start++;
+                        }
+                        outputString.append("\n");
+                    }
+
+                    case INS_PUSH -> {
+                        short[] source = getNextOperand();
+                        push(source);
+                    }
+
+                    case INS_POP -> {
+                        short[] source = getNextOperand();
+                        pop(source);
+                    }
+
+                    case INS_CALL -> {
+                        step();
+                        int address = machine_code[step()];
+                        int return_address = step() - 1;
+                        call(address, return_address);
+                    }
+                    case INS_RET -> {
+                        System.out.println(functionCallStack);
+                        int return_address = functionCallStack.pop();
+                        System.out.printf("Popping address 0x%X from the stack.\n", return_address);
+                        registers[PC] = (short) return_address;
+                    }
+
+                    case INS_CE -> {
+                        step();
+                        int address = machine_code[step()];
+                        int return_address = machine_code[step()];
+                        if (Z) call(address, return_address);
+                    }
+                    case INS_CNE -> {
+                        step();
+                        int address = machine_code[step()];
+                        int return_address = machine_code[step()];
+                        if (!Z) call(address, return_address);
+                    }
+                    case INS_CL -> {
+                        step();
+                        int address = machine_code[step()];
+                        int return_address = machine_code[step()];
+                        if (N) call(address, return_address);
+                    }
+                    case INS_CLE -> {
+                        step();
+                        int address = machine_code[step()];
+                        int return_address = machine_code[step()];
+                        if (N || Z) call(address, return_address);
+                    }
+                    case INS_CG -> {
+                        step();
+                        int address = machine_code[step()];
+                        int return_address = machine_code[step()];
+                        if (!N) call(address, return_address);
+                    }
+                    case INS_CGE -> {
+                        step();
+                        int address = machine_code[step()];
+                        int return_address = machine_code[step()];
+                        if (!N || Z) call(address, return_address);
+                    }
+
+                    case INS_JMP -> {
+                        step();
+                        step();
                         jmp();
                     }
+                    case INS_JE -> {
+                        step();
+                        step();
+                        if (Z) jmp();
+                    }
+                    case INS_JNE -> {
+                        step();
+                        step();
+                        if (!Z) jmp();
+                    }
+                    case INS_JL -> {
+                        step();
+                        step();
+                        if (N) jmp();
+                    }
+                    case INS_JLE -> {
+                        step();
+                        step();
+                        if (N || Z) jmp();
+                    }
+                    case INS_JG -> {
+                        step();
+                        step();
+                        if (!N) jmp();
+                    }
+                    case INS_JGE -> {
+                        step();
+                        step();
+                        if (!N || Z) jmp();
+                    }
+
+                    case INS_CMP -> {
+                        short[] destination = getNextOperand();
+                        short[] source = getNextOperand();
+                        cmp(destination, source);
+                    }
+
+                    case INS_LOOP -> {
+                        // if RC > 0: decrement RC and jump to the label address specified.
+                        step();
+                        step();
+                        //short address = (short) machine_code[ registers[PC] ];
+
+                        registers[2]--;
+                        if (registers[2] > 0) {
+                            jmp();
+                        }
+                    }
+
+                    case INS_INT -> {
+                        if (I) {
+                            boolean x = VirtualMachine.interruptHandler(registers, memory);
+                            if (!x) E = true;
+                        } else System.out.println("Interrupt flag not set. skipping.");
+                    }
+
+                    default -> {
+                        String err = "Undefined instruction. please check the instruction codes : " + machine_code[registers[PC]];
+                        status_code = ErrorHandler.ERR_CODE_INVALID_INSTRUCTION_FORMAT;
+                        triggerProgramError(new ErrorHandler.InvalidInstructionException(err),
+                                err, status_code);
+                    }
                 }
 
-                case INS_INT -> {
-                    if (I) {
-                        boolean x = VirtualMachine.interruptHandler(registers, memory);
-                        if (!x) E = true;
-                    }else System.out.println("Interrupt flag not set. skipping.");
-                }
-
-                default -> {
-                    String err = "Undefined instruction. please check the instruction codes : " + machine_code[ registers[PC] ];
-                    status_code = ErrorHandler.ERR_CODE_INVALID_INSTRUCTION_FORMAT;
-                    triggerProgramError(new ErrorHandler.InvalidInstructionException(err),
+                if (E) {
+                    status_code = ErrorHandler.ERR_CODE_PROGRAM_ERROR;
+                    String err = String.format("The program triggered an error with code : %s", status_code);
+                    triggerProgramError(new ErrorHandler.ProgramErrorException(err),
                             err, status_code);
                 }
-            }
 
-            if (E){
-                status_code = ErrorHandler.ERR_CODE_PROGRAM_ERROR;
-                String err = String.format("The program triggered an error with code : %s", status_code);
-                triggerProgramError(new ErrorHandler.ProgramErrorException(err),
-                        err, status_code);
+                canExecute = !T;
+                step();
             }
-
-            step();
 
         }
 
@@ -434,6 +433,19 @@ public class CPUModule8BIT extends CPU {
 
     public short[] getNextOperand(){
         return new short[] {(short) machineCode[step()], (short) machineCode[step()]};
+    }
+
+    public void updateFlags(short value){
+        byte flagSetter = (byte) value;
+
+        // N = the value of MSB
+        N = ( (flagSetter >>> 7) & 1 ) == 1;
+
+        // C for unsigned arithmetic, O for signed arithmetic.
+        if (N) O =  value > 127 || value < -127;
+        else C = value > 255;
+
+        Z = value == 0; // Z = is value = 0
     }
 
     @Override
@@ -503,11 +515,7 @@ public class CPUModule8BIT extends CPU {
                 setMemory( getRegister( destination[1] ), newVal );
             }
         }
-        byte flagSetter = (byte) newVal;
-        if (flagSetter == 0) Z = true;
-        else Z = false;
-        if (flagSetter < 0) N = true;
-        else N = false;
+        updateFlags(newVal);
 
     }
 
@@ -529,15 +537,15 @@ public class CPUModule8BIT extends CPU {
         short newVal = 0;
         switch (destination[0]){
             case REGISTER_MODE -> {
-                newVal = (short) (operandValue - getRegister( destination[1] ));
+                newVal = (short) ( getRegister( destination[1] ) - operandValue );
                 setRegister( destination[1] , newVal);
             }
             case DIRECT_MODE -> {
-                newVal = (short) ( operandValue - getMemory( destination[1] ) );
+                newVal = (short) ( getMemory( destination[1] ) - operandValue);
                 setMemory( destination[1], newVal );
             }
             case INDIRECT_MODE -> {
-                newVal = (short) ( operandValue - getMemory( getRegister( destination[1] ) ) );
+                newVal = (short) ( getMemory( getRegister( destination[1] ) ) - operandValue );
                 setMemory( getRegister( destination[1] ), newVal );
             }
         }
@@ -1083,7 +1091,7 @@ public class CPUModule8BIT extends CPU {
              while (!lines[i].equals("end")) {
 
                  String[] x = lines[i].trim().split(" ");
-                 if (x[0].equals("org")) data_start = Integer.parseInt(x[1].substring(1));
+                 if (x[0].equals("org")) data_start = Integer.parseInt(x[1].substring(1)) - offset;
 
                  else {
                      dataMap.put(x[0], data_start + offset);

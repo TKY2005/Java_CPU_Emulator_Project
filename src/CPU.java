@@ -58,6 +58,7 @@ public abstract class CPU {
     public static final int INT_INPUT_STR = 0x00;
     public static final int INT_INPUT_NUM = 0x01;
     public static final int INT_STR_STRING = 0x02;
+    public static final int INT_DEBUG = 0x03;
 
 
     public static final int REGISTER_MODE = 0;
@@ -85,6 +86,12 @@ public abstract class CPU {
     protected StringBuilder outputString = new StringBuilder();
 
     protected int status_code = 0;
+
+    // Flags N = negative, C = carry, O = overflow, Z = zero //
+    protected boolean N, C, O, Z;
+    // T = trap, E = Error, I = Interrupt
+    protected boolean T, E, I;
+    /// /////////////////////////////////////////////
 
 
     //Instruction set //
