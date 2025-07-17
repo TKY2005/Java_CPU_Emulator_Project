@@ -4,6 +4,12 @@ import java.io.PrintWriter;
 import java.io.Writer;
 import java.util.HashMap;
 
+/*
+    Java simple CPU emulator
+    T.K.Y
+    last updated: July 15 2025
+ */
+
 public class Launcher{
     static String configFilePath = "./myEmulator.conf";
     static String version = "3.0";
@@ -56,8 +62,8 @@ public class Launcher{
 
         if (args.length == 0 ){
             System.out.println("No arguments. Going into UI mode.");
-            new UI("T.K.Y CPU Emulator V" + Launcher.version);
-            //new VirtualMachine(new CPUModule8BIT());
+            //new UI("T.K.Y CPU Emulator V" + Launcher.version);
+            new CPUModule16BIT();
         }
     }
 }

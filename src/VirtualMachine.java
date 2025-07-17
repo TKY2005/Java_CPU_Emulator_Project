@@ -61,6 +61,7 @@ public class VirtualMachine {
         }catch (RuntimeException e) {
             e.printStackTrace();
             err_msg = e.getMessage();
+            readyToExecute = false;
             throw e;
         }
         readyToExecute = true;
@@ -98,13 +99,13 @@ public class VirtualMachine {
                     System.out.print(input_message); input = new Scanner(System.in).nextLine();
                 }
 
-                //System.out.println("Writing the input to memory.");
+
                 int write_address = registers[11]; // write_pointer_register : DI
-                //System.out.println("Writing to : 0x" + Integer.toHexString(write_address));
+
                 int index = 0;
-                //System.out.println("Storing input to : " + input);
+
                 for(int i = write_address; i < write_address + input.length(); i++){
-                  //  System.out.println("Storing char " + input.charAt(index) + " to address : 0x" + Integer.toHexString(i));
+
                     memory[i] = (short) input.charAt(index);
                     index++;
                 }
@@ -127,7 +128,6 @@ public class VirtualMachine {
                     System.out.print(input_message);
                     input = new Scanner(System.in).nextShort();
                 }
-                //System.out.println("User entered : " + input);
 
                 if (input <= 255) registers[3] = input; // if input fits 8-bits place in RD
                 else registers[11] = input; // otherwise place in DI
@@ -160,11 +160,11 @@ public class VirtualMachine {
         return input_message;
     }
 
-    public static void interruptHandler(int[] registers){
+    public static void interruptHandler(int[] registers, int[] memory){
 
     }
 
-    public static void interruptHandler(long[] registers){
+    public static void interruptHandler(long[] registers, long[] memory){
 
     }
 

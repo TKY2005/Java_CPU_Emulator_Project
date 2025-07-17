@@ -37,6 +37,8 @@ public class UI extends JFrame implements onStepListener {
         this.setContentPane(panel1);
         this.setDefaultCloseOperation(EXIT_ON_CLOSE);
 
+        this.setExtendedState(JFrame.MAXIMIZED_BOTH);
+
         this.pack();
         this.setVisible(true);
 
@@ -44,13 +46,12 @@ public class UI extends JFrame implements onStepListener {
         //lineNumbers = new LineNumberComponent(CodeArea);
 
         String architecture = settings.get("Architecture");
-        //if (architecture.equals("8")) cpuModule = new CPUModule8BIT();
-        /*else if (architecture.equals("16")) cpuModule = new CPUModule16BIT();
-        else if (architecture.equals("32")) cpuModule = new CPUModule32BIT();
-        else if (architecture.equals("64")) cpuModule = new CPUModule64BIT();*/
+        if (architecture.equals("8")) cpuModule = new CPUModule8BIT();
+        //else if (architecture.equals("16")) cpuModule = new CPUModule16BIT();
+        //else if (architecture.equals("32")) cpuModule = new CPUModule32BIT();
+        //else if (architecture.equals("64")) cpuModule = new CPUModule64BIT();
 
 
-        cpuModule = new CPUModule8BIT();
         vm = new VirtualMachine(cpuModule);
         vm.UIMode = true;
 

@@ -29,7 +29,7 @@ public class Settings extends JFrame {
         super(title);
         this.setContentPane(panel1);
         this.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        this.setLocationRelativeTo(null);
+
         this.pack();
         this.setVisible(true);
 

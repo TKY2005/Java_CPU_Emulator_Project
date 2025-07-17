@@ -828,14 +828,20 @@ public class CPUModule8BIT extends CPU {
         if (power == 256) triggerProgramError(new ErrorHandler.InvalidInstructionException("Invalid instruction prefix"),
                 "Invalid instruction prefix", ErrorHandler.ERR_CODE_INVALID_PREFIX);
 
-        System.out.println("power : " + power);
-        System.out.println(destination[1] + "^" + power);
-        short newValue = (short) Math.pow( destination[1], power );
-        System.out.println(newValue);
+        short newValue = 0;
         switch (destination[0]){
-            case REGISTER_MODE -> setRegister( destination[1], newValue );
-            case DIRECT_MODE -> setMemory( destination[1], newValue );
-            case INDIRECT_MODE -> setMemory( getRegister( destination[1] ), newValue );
+            case REGISTER_MODE ->{
+                newValue = (short) Math.pow( getRegister(destination[1]), power );
+                setRegister( destination[1], newValue );
+            }
+            case DIRECT_MODE ->{
+                newValue = (short) Math.pow( getMemory( destination[1] ), power );
+                setMemory( destination[1], newValue );
+            }
+            case INDIRECT_MODE ->{
+                newValue = (short) Math.pow( getMemory( getRegister(destination[1]) ), power );
+                setMemory( getRegister( destination[1] ), newValue );
+            }
         }
         byte flagSetter = (byte) newValue;
         if (flagSetter == 0) Z = true;
@@ -845,11 +851,20 @@ public class CPUModule8BIT extends CPU {
     @Override
     public void sqrt(short[] destination){
 
-        short newValue = (short) Math.sqrt( destination[1] );
+        short newValue = 0;
         switch (destination[0]){
-            case REGISTER_MODE -> setRegister( destination[1], newValue );
-            case DIRECT_MODE -> setMemory( destination[1], newValue );
-            case INDIRECT_MODE -> setMemory( getRegister( destination[1] ), newValue );
+            case REGISTER_MODE ->{
+                newValue = (short) Math.sqrt( getRegister(destination[1]) );
+                setRegister( destination[1], newValue );
+            }
+            case DIRECT_MODE ->{
+                newValue = (short) Math.sqrt( getMemory(destination[1]) );
+                setMemory( destination[1], newValue );
+            }
+            case INDIRECT_MODE ->{
+                newValue = (short) Math.sqrt( getMemory( getRegister( destination[1] ) ) );
+                setMemory( getRegister( destination[1] ), newValue );
+            }
             default ->{
                 String err = "Invalid instruction error.";
                 triggerProgramError(new ErrorHandler.InvalidInstructionException(err),
@@ -1070,7 +1085,7 @@ public class CPUModule8BIT extends CPU {
             }
         }
         System.out.print(instruction + " => ");
-        for(int i = 0; i < result.length; i++) System.out.printf("0x%X ", result[i]);
+        for (int j : result) System.out.printf("0x%X ", j);
         System.out.println();
         return result;
     }
