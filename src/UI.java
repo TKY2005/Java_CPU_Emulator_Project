@@ -47,7 +47,7 @@ public class UI extends JFrame implements onStepListener {
 
         String architecture = settings.get("Architecture");
         if (architecture.equals("8")) cpuModule = new CPUModule8BIT();
-        //else if (architecture.equals("16")) cpuModule = new CPUModule16BIT();
+        else if (architecture.equals("16")) cpuModule = new CPUModule16BIT();
         //else if (architecture.equals("32")) cpuModule = new CPUModule32BIT();
         //else if (architecture.equals("64")) cpuModule = new CPUModule64BIT();
 

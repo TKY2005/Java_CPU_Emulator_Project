@@ -79,6 +79,11 @@ public abstract class CPU {
     protected boolean programEnd = false;
     protected boolean noStep = false;
     protected boolean UIMode = false;
+    protected int currentLine = 1;
+
+    protected int max_pair_value = 0xffff;
+    protected int max_byte_value = 255;
+    protected int last_addressable_location;
 
     protected int delayAmountMilliseconds = (int) ( (1.0 / Integer.parseInt(Launcher.appConfig.get("Cycles"))) * 1000 );
 
@@ -86,6 +91,8 @@ public abstract class CPU {
     protected StringBuilder outputString = new StringBuilder();
 
     protected int status_code = 0;
+
+    protected short[] memory;
 
     // Flags N = negative, C = carry, O = overflow, Z = zero //
     protected boolean N, C, O, Z;
@@ -185,8 +192,6 @@ public abstract class CPU {
 
     public abstract void reset();
 
-    public abstract int readByte(int address);
-    public abstract int[] readWord(int startAddress);
 
     private HashMap<String, Integer> createTranslationMap(HashMap<Integer, String> instructionSet){
         HashMap<String, Integer> translationMap = new HashMap<>();
@@ -202,7 +207,6 @@ public abstract class CPU {
 
     public String dumpROM(){
         StringBuilder hexDump = new StringBuilder();
-        int padding = 16 / 4;
 
         for(int i = 0; i < machineCode.length; i++){
             if (i % 5 == 0){
@@ -232,7 +236,7 @@ public abstract class CPU {
         }
     }
 
-    public String leftPad(String s, int l, char p) {
+/*    public String leftPad(String s, int l, char p) {
 
         // Create a StringBuilder to build the padded string
         StringBuilder sb = new StringBuilder();
@@ -245,12 +249,12 @@ public abstract class CPU {
 
         sb.append(s);
         return sb.toString();
-    }
+    }*/
 
     public abstract void setUIupdateListener(onStepListener listener);
 
 
-    public abstract void set(short[] destination, short[] source);
+    /*public abstract void set(short[] destination, short[] source);
     public abstract void out(short[] destination);
     public abstract void add(short[] destination, short[] source);
     public abstract void sub(short[] destination, short[] source);
@@ -274,5 +278,84 @@ public abstract class CPU {
     public abstract void pop(short[] source);
     public abstract void call(int address, int return_address);
     public abstract void jmp();
-    public abstract void cmp(short[] destination, short[] source);
+
+    public abstract void cmp(short[] destination, short[] source);*/
+
+    public void triggerProgramError(RuntimeException exceptionType, String errMsg, int errCode){
+        status_code = errCode;
+        outputString.append("line " + currentLine + " : " + errMsg);
+        programEnd = true;
+        exceptionType = new RuntimeException("line " + currentLine + " : " + errMsg);
+        throw exceptionType;
+    }
+
+    public int readByte(int address){
+        if (!isValidMemoryAddress(address)){
+            String err = String.format("0x%X(%d) is an invalid memory address.");
+            triggerProgramError(new ErrorHandler.InvalidMemoryOperationException(err),
+                    err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
+        }
+        return memory[address];
+    }
+
+    public int[] readWord(int startAddress){
+        if (!isValidMemoryAddress(startAddress)){
+            String err = String.format("0x%X(%d) is an invalid memory address.");
+            triggerProgramError(new ErrorHandler.InvalidMemoryOperationException(err),
+                    err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
+        }
+        if (!isValidMemoryAddress(startAddress + 1)){
+            String err = String.format("0x%X(%d) is an invalid memory address.");
+            triggerProgramError(new ErrorHandler.InvalidMemoryOperationException(err),
+                    err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
+        }
+
+        return new int[] {memory[startAddress], memory[startAddress + 1]};
+    }
+
+    // read in little-endian format
+    public int bytePairToWordLE(int lowByte, int highByte){
+        return (highByte << 8) | lowByte;
+    }
+    public int bytePairToWordLE(int[] pair){
+        return (pair[1] << 8) | pair[0];
+    }
+
+    // read in big-endian format
+    public int bytePairToWordBE(int lowByte, int highByte){
+        return (lowByte << 8) | highByte;
+    }
+    public int bytePairToWordBE(int[] pair){
+        return (pair[0] << 8) | pair[1];
+    }
+
+    public void setMemory(int address, int value){
+
+        if (isValidMemoryAddress(address)){
+
+            if (value <= max_byte_value) memory[address] = (short) value;
+            else{
+                if (!isValidMemoryAddress(address + 1)){
+                    String err = String.format("0x%X(%d) is an invalid memory address.", address, address);
+                    triggerProgramError(new ErrorHandler.InvalidMemoryOperationException(err),
+                    err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
+                }
+                else{
+                    int low = value & 0xff;
+                    int high = (value >> 8) & 0xff;
+                    memory[address] = (short) low;
+                    memory[address + 1] = (short) high;
+                }
+            }
+
+        }else{
+            String err = String.format("0x%X(%d) is an invalid memory address.", address, address);
+            triggerProgramError(new ErrorHandler.InvalidMemoryOperationException(err),
+                    err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
+        }
+    }
+
+    public boolean isValidMemoryAddress(int address){
+        return address <= last_addressable_location && address >= 0;
+    }
 }

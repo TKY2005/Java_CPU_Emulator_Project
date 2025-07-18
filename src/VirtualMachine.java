@@ -160,12 +160,12 @@ public class VirtualMachine {
         return input_message;
     }
 
-    public static void interruptHandler(int[] registers, int[] memory){
-
+    public static boolean interruptHandler(int[] registers, short[] memory){
+        return true;
     }
 
-    public static void interruptHandler(long[] registers, long[] memory){
-
+    public static boolean interruptHandler(long[] registers, short[] memory){
+        return true;
     }
 
 }

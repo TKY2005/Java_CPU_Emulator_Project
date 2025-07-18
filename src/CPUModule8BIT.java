@@ -449,7 +449,7 @@ public class CPUModule8BIT extends CPU {
         Z = value == 0; // Z = is value = 0
     }
 
-    @Override
+
     public void set(short[] destination, short[] value){
         short operandValue;
         operandValue = switch (value[0]){
@@ -474,7 +474,7 @@ public class CPUModule8BIT extends CPU {
 
     }
 
-    @Override
+
     public void out(short[] destination){
         switch (destination[0]){
             case REGISTER_MODE -> outputString.append( registers[ destination[1] ] ).append("\n");
@@ -486,7 +486,7 @@ public class CPUModule8BIT extends CPU {
         }
     }
 
-    @Override
+
     public void add(short[] destination, short[] source){
 
         short operandValue = switch ( source[0] ){
@@ -520,7 +520,7 @@ public class CPUModule8BIT extends CPU {
 
     }
 
-    @Override
+
     public void sub(short[] destination, short[] source){
 
         short operandValue = switch ( source[0] ){
@@ -556,7 +556,7 @@ public class CPUModule8BIT extends CPU {
 
     }
 
-    @Override
+
     public void mul(short[] destination, short[] source){
 
         short operandValue = switch ( source[0] ){
@@ -592,7 +592,7 @@ public class CPUModule8BIT extends CPU {
 
     }
     
-    @Override
+
     public void div(short[] destination, short[] source){
 
         short operandValue = switch ( source[0] ){
@@ -628,7 +628,7 @@ public class CPUModule8BIT extends CPU {
 
     }
 
-    @Override
+
     public void not(short[] source){
         short newVal = 0;
         switch (source[0]){
@@ -650,7 +650,7 @@ public class CPUModule8BIT extends CPU {
         if (flagSetter == 0) Z = true;
     }
 
-    @Override
+
     public void and(short[] destination, short[] source){
 
         short operandValue = switch (source[0]){
@@ -683,7 +683,7 @@ public class CPUModule8BIT extends CPU {
         if (flagSetter == 0) Z = true;
     }
 
-    @Override
+
     public void or(short[] destination, short[] source){
 
         short operandValue = switch (source[0]){
@@ -716,7 +716,7 @@ public class CPUModule8BIT extends CPU {
         if (flagSetter == 0) Z = true;
     }
 
-    @Override
+
     public void xor(short[] destination, short[] source){
 
         short operandValue = switch (source[0]){
@@ -749,7 +749,7 @@ public class CPUModule8BIT extends CPU {
         if (flagSetter == 0) Z = true;
     }
 
-    @Override
+
     public void nand(short[] destination, short[] source){
 
         short operandValue = switch (source[0]){
@@ -782,7 +782,7 @@ public class CPUModule8BIT extends CPU {
         if (flagSetter == 0) Z = true;
     }
 
-    @Override
+
     public void nor(short[] destination, short[] source){
 
         short operandValue = switch (source[0]){
@@ -815,7 +815,7 @@ public class CPUModule8BIT extends CPU {
         if (flagSetter == 0) Z = true;
     }
 
-    @Override
+
     public void pow(short[] destination, short[] source){
         short power = switch(source[0]){
             case REGISTER_MODE -> getRegister( source[1] );
@@ -848,7 +848,7 @@ public class CPUModule8BIT extends CPU {
         if (flagSetter < 0) N = true;
     }
 
-    @Override
+
     public void sqrt(short[] destination){
 
         short newValue = 0;
@@ -877,7 +877,7 @@ public class CPUModule8BIT extends CPU {
     }
 
 
-    @Override
+
     public void rnd(short[] destination, short[] source){
         short bound = switch (source[0]){
             case REGISTER_MODE -> getRegister(source[1]);
@@ -901,7 +901,7 @@ public class CPUModule8BIT extends CPU {
         }
     }
 
-    @Override
+
     public void inc(short[] destination){
 
         switch (destination[0]){
@@ -915,7 +915,7 @@ public class CPUModule8BIT extends CPU {
         if (flagSetter < 0) N = true;
     }
 
-    @Override
+
     public void dec(short[] destination){
         switch (destination[0]){
             case REGISTER_MODE -> setRegister(destination[1], (short) (getRegister(destination[1]) - 1));
@@ -928,7 +928,7 @@ public class CPUModule8BIT extends CPU {
         if (flagSetter < 0) N = true;
     }
 
-    @Override
+
     public void la(short[] source){
         short address = (short) machineCode[ registers[PC] ];
         switch (source[0]){
@@ -938,7 +938,7 @@ public class CPUModule8BIT extends CPU {
         }
     }
 
-    @Override
+
     public void push(short[] source){
         switch (source[0]){
             case REGISTER_MODE -> memory[ registers[SP] ] = getRegister(source[1]);
@@ -949,7 +949,7 @@ public class CPUModule8BIT extends CPU {
         registers[SP]--;
     }
 
-    @Override
+
     public void pop(short[] source){
         registers[SP]++;
         switch (source[0]){
@@ -961,7 +961,7 @@ public class CPUModule8BIT extends CPU {
         memory[ registers[SP] ] = 0;
     }
 
-    @Override
+
     public void call(int address, int return_address){
         System.out.println("Pushing address : 0x" + Integer.toHexString(return_address));
         functionCallStack.push(return_address); // save the return address
@@ -969,12 +969,12 @@ public class CPUModule8BIT extends CPU {
         registers[PC] = (short) (address - 1); // sub 1 to nullify the step()
     }
 
-    @Override
+
     public void jmp(){
         registers[PC] = (short) (machineCode[registers[PC]] - 1);
     }
 
-    @Override
+
     public void cmp(short[] destination, short[] source){
         short val1 = switch (destination[0]){
             case REGISTER_MODE -> getRegister(destination[1]);

@@ -4,18 +4,15 @@ public class CPUModule16BIT extends CPU {
 
     // CPU specific variables //
     public static final int bit_length = 16;
-    public static final int max_pair_value = 0xffff;
-    public static final int min_pair_value = -32768;
 
-    public static final int max_byte_value = 255;
     public static final int min_byte_value = -127;
-    public int currentLine = 1;
+
     /// ///////
 
     // Memory variables
     public int data_start;
     public int stack_start;
-    public int last_addressable_location;
+
 
     public int mem_size_B;
 
@@ -23,9 +20,12 @@ public class CPUModule16BIT extends CPU {
     // CPU architecture
     public int[] registers;
     public String[] registerNames;
-    public short[] memory;
 
     int registerPairStart;
+
+    public static final int REGISTER_WORD_MODE = 7;
+    public static final int DIRECT_WORD_MODE = 8;
+    public static final int INDIRECT_MEMORY_WORD_MODE = 9;
 
     int PC = 18;
     int SP = 19;
@@ -33,6 +33,7 @@ public class CPUModule16BIT extends CPU {
     int SE = 21;
     int DI = 22;
     int DP = 23;
+    int RCX;
 
 
     // flags
@@ -48,12 +49,18 @@ public class CPUModule16BIT extends CPU {
 
     /// /////////////////////////// HELPER FUNCTIONS /////////////////////////////////////////////////////////
     /// /////////////////////////////////////////////////////////////////////////////////////////////////////
-    public void triggerProgramError(RuntimeException exceptionType, String errMsg, int errCode){
-        status_code = errCode;
-        outputString.append("line " + currentLine + " : " + errMsg);
-        programEnd = true;
-        exceptionType = new RuntimeException("line " + currentLine + " : " + errMsg);
-        throw exceptionType;
+
+
+    public int getOperandValue(int[] source){
+        return switch (source[0]){
+            case REGISTER_MODE, REGISTER_WORD_MODE -> getRegister(source[1]);
+            case DIRECT_MODE -> readByte(source[1]);
+            case DIRECT_WORD_MODE -> bytePairToWordLE((readWord( source[1] )));
+            case INDIRECT_MODE -> readByte( getRegister( source[1] ) );
+            case INDIRECT_MEMORY_WORD_MODE -> bytePairToWordLE( readWord( getRegister( source[1] ) ) );
+            case IMMEDIATE_MODE -> source[1];
+            default -> max_pair_value + 1;
+        };
     }
 
 
@@ -108,6 +115,13 @@ public class CPUModule16BIT extends CPU {
         return registers[registerID];
     }
 
+    public int getRegisterByte(int registerID){
+        if (registerID < registerPairStart){
+            return registers[registerID];
+        }
+        return max_byte_value + 1;
+    }
+
     public int getMemory(int address){
         if (isValidMemoryAddress(address)) return memory[address];
         else return max_pair_value + 1;
@@ -120,8 +134,8 @@ public class CPUModule16BIT extends CPU {
 
         for(int i = registerPairStart; i < registerPairStart + 6; i++){
             registers[i] = (registers[highByteIndex] << 8) | registers[lowByteIndex];
-            lowByteIndex++;
-            highByteIndex++;
+            lowByteIndex += 2;
+            highByteIndex += 2;
         }
     }
 
@@ -139,59 +153,6 @@ public class CPUModule16BIT extends CPU {
         }
     }
 
-    public int readByte(int address){
-        if (!isValidMemoryAddress(address)){
-            String err = String.format("0x%X(%d) is an invalid memory address.");
-            triggerProgramError(new ErrorHandler.InvalidMemoryOperationException(err),
-                    err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
-        }
-        return memory[address];
-    }
-
-    public int[] readWord(int startAddress){
-        if (!isValidMemoryAddress(startAddress)){
-            String err = String.format("0x%X(%d) is an invalid memory address.");
-            triggerProgramError(new ErrorHandler.InvalidMemoryOperationException(err),
-                    err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
-        }
-        if (!isValidMemoryAddress(startAddress + 1)){
-            String err = String.format("0x%X(%d) is an invalid memory address.");
-            triggerProgramError(new ErrorHandler.InvalidMemoryOperationException(err),
-                    err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
-        }
-
-        return new int[] {memory[startAddress], memory[startAddress + 1]};
-    }
-
-    public void setMemory(int address, int value){
-
-        if (isValidMemoryAddress(address)){
-
-            if (value <= max_byte_value) memory[address] = (short) value;
-            else{
-                if (!isValidMemoryAddress(address + 1)){
-                    String err = String.format("0x%X(%d) is an invalid memory address.", address, address);
-                    triggerProgramError(new ErrorHandler.InvalidMemoryOperationException(err),
-                    err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
-                }
-                else{
-                    int low = value & 0xff;
-                    int high = (value >> 8) & 0xff;
-                    memory[address] = (short) low;
-                    memory[address + 1] = (short) high;
-                }
-            }
-
-        }else{
-            String err = String.format("0x%X(%d) is an invalid memory address.", address, address);
-            triggerProgramError(new ErrorHandler.InvalidMemoryOperationException(err),
-                    err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
-        }
-    }
-
-    public boolean isValidMemoryAddress(int address){
-        return address <= last_addressable_location && address >= 0;
-    }
 
     public String dumpMemory(){
         int chunkSize = 10;
@@ -328,6 +289,17 @@ public class CPUModule16BIT extends CPU {
                     case STRING_PREFIX -> 0x5;
                     default -> 0x6;
                 };
+
+                // decide if we are dealing with a byte or a word depending on the register name
+                if (tokens[tokenIndex].charAt(0) == REGISTER_PREFIX &&
+                tokens[tokenIndex].charAt( tokens[tokenIndex].length() - 1 ) == 'x') result[i] = REGISTER_WORD_MODE;
+
+                if (tokens[tokenIndex].charAt(0) == DIRECT_MEMORY_PREFIX &&
+                tokens[tokenIndex - 1].charAt(0) == REGISTER_PREFIX &&
+                tokens[tokenIndex - 1].charAt( tokens[tokenIndex - 1].length() - 1 ) == 'x') result[i] = DIRECT_WORD_MODE;
+
+                else if (tokens[tokenIndex].charAt(0) == INDIRECT_MEMORY_PREFIX &&
+                tokens[tokenIndex].charAt( tokens[tokenIndex].length() - 1 ) == 'x') result[i] = INDIRECT_MEMORY_WORD_MODE;
 
 
                 if (result[i] == 0x4){
@@ -489,20 +461,524 @@ public class CPUModule16BIT extends CPU {
     @Override
     public void executeCompiledCode(int[] machine_code){
 
-    }
+        Integer mainEntryPoint = functions.get("MAIN");
+        if (mainEntryPoint == null){
+            String err = "MAIN function label not found.";
+            triggerProgramError(new ErrorHandler.CodeCompilationError(err),
+                    err, ErrorHandler.ERR_CODE_MAIN_NOT_FOUND);
+        }
+        registers[PC] = (short) (int) mainEntryPoint;
+        I = true;
 
-    @Override
-    public void set(short[] destination, short[] source){
-        int operandValue = switch (source[0]){
-            case REGISTER_MODE -> getRegister(source[1]);
-            case DIRECT_MODE -> getMemory(source[1]);
-            case INDIRECT_MODE -> getRegister( getMemory( source[1] ) );
-            default -> max_pair_value + 1;
-        };
+        while (!programEnd && registers[PC] < machine_code.length){
+            if (canExecute) {
+                // System.out.printf("Executing machine code : 0x%X -> 0x%X -> %s.\n",
+                //       registers[PC], machine_code[registers[PC]], instructionSet.get( machine_code[registers[PC]] ));
+                switch (machine_code[registers[PC]]) {
+                    case INS_EXT -> {
+                        programEnd = true;
+                    }
+
+                    // step function increments PC and returns its value
+                    // we step two times for each operand. one step for mode. another step for value
+                    case INS_SET -> {
+                        int[] destination = getNextOperand();
+                        int[] source = getNextOperand();
+                        set(destination, source);
+                    }
+                    case INS_OUT -> {
+                        int[] destination = getNextOperand();
+                        out(destination);
+                    }
+
+
+                    case INS_ADD -> {
+                        int[] destination = getNextOperand();
+                        int[] source = getNextOperand();
+                        add(destination, source);
+                    }
+
+                    case INS_SUB -> {
+                        int[] destination = getNextOperand();
+                        int[] source = getNextOperand();
+                        sub(destination, source);
+                    }
+                    case INS_MUL -> {
+                        int[] destination = getNextOperand();
+                        int[] source = getNextOperand();
+                        mul(destination, source);
+                    }
+                    case INS_DIV -> {
+                        int[] destination = getNextOperand();
+                        int[] source = getNextOperand();
+                        div(destination, source);
+                    }
+
+                    /*
+                    case INS_POW -> {
+                        short[] destination = getNextOperand();
+                        short[] source = getNextOperand();
+                        pow(destination, source);
+                    }
+
+                    case INS_SQRT -> {
+                        short[] destination = getNextOperand();
+                        sqrt(destination);
+                    }
+
+                    case INS_RND -> {
+                        short[] destination = getNextOperand();
+                        short[] source = getNextOperand();
+                        rnd(destination, source);
+                    }
+
+                    case INS_INC -> {
+                        short[] destination = getNextOperand();
+                        inc(destination);
+                    }
+                    case INS_DEC -> {
+                        short[] destination = getNextOperand();
+                        dec(destination);
+                    }
+
+                    case INS_NOT -> {
+                        short[] source = getNextOperand();
+                        not(source);
+                    }
+
+                    case INS_AND -> {
+                        short[] destination = getNextOperand();
+                        short[] source = getNextOperand();
+                        and(destination, source);
+                    }
+
+                    case INS_OR -> {
+                        short[] destination = getNextOperand();
+                        short[] source = getNextOperand();
+                        or(destination, source);
+                    }
+
+                    case INS_XOR -> {
+                        short[] destination = getNextOperand();
+                        short[] source = getNextOperand();
+                        xor(destination, source);
+                    }
+
+                    case INS_NAND -> {
+                        short[] destination = getNextOperand();
+                        short[] source = getNextOperand();
+                        nand(destination, source);
+                    }
+
+                    case INS_NOR -> {
+                        short[] destination = getNextOperand();
+                        short[] source = getNextOperand();
+                        nor(destination, source);
+                    }
+
+                    case INS_LA -> {
+                        // Get the source (must be 16-bit compatible). step to the address. load into source
+                        short[] source = getNextOperand();
+                        step();
+                        step();
+                        la(source);
+                    }
+
+                    case INS_LLEN -> {
+                        short[] destination = getNextOperand();
+                        step();
+                        step();
+                        int start = machine_code[registers[PC]];
+                        short len = 0;
+                        while (getMemory(start) != NULL_TERMINATOR) {
+                            start++;
+                            len++;
+                        }
+
+                        switch (destination[0]) {
+                            case REGISTER_MODE -> setRegister(destination[1], len);
+                            case DIRECT_MODE -> setMemory(destination[1], len);
+                            case INDIRECT_MODE -> setMemory(getRegister(destination[1]), len);
+                            default -> E = true;
+                        }
+                    }
+
+                    case INS_OUTS -> {
+                        int start = registers[SS];
+                        while (getMemory(start) != NULL_TERMINATOR) {
+                            outputString.append((char) getMemory(start));
+                            start++;
+                        }
+                        outputString.append("\n");
+                    }
+
+                    case INS_PUSH -> {
+                        short[] source = getNextOperand();
+                        push(source);
+                    }
+
+                    case INS_POP -> {
+                        short[] source = getNextOperand();
+                        pop(source);
+                    }
+
+                    case INS_CALL -> {
+                        step();
+                        int address = machine_code[step()];
+                        int return_address = step() - 1;
+                        call(address, return_address);
+                    }
+                    case INS_RET -> {
+                        System.out.println(functionCallStack);
+                        int return_address = functionCallStack.pop();
+                        System.out.printf("Popping address 0x%X from the stack.\n", return_address);
+                        registers[PC] = (short) return_address;
+                    }
+
+                    case INS_CE -> {
+                        step();
+                        int address = machine_code[step()];
+                        int return_address = machine_code[step()];
+                        if (Z) call(address, return_address);
+                    }
+                    case INS_CNE -> {
+                        step();
+                        int address = machine_code[step()];
+                        int return_address = machine_code[step()];
+                        if (!Z) call(address, return_address);
+                    }
+                    case INS_CL -> {
+                        step();
+                        int address = machine_code[step()];
+                        int return_address = machine_code[step()];
+                        if (N) call(address, return_address);
+                    }
+                    case INS_CLE -> {
+                        step();
+                        int address = machine_code[step()];
+                        int return_address = machine_code[step()];
+                        if (N || Z) call(address, return_address);
+                    }
+                    case INS_CG -> {
+                        step();
+                        int address = machine_code[step()];
+                        int return_address = machine_code[step()];
+                        if (!N) call(address, return_address);
+                    }
+                    case INS_CGE -> {
+                        step();
+                        int address = machine_code[step()];
+                        int return_address = machine_code[step()];
+                        if (!N || Z) call(address, return_address);
+                    }
+
+                    case INS_JMP -> {
+                        step();
+                        step();
+                        jmp();
+                    }
+                    case INS_JE -> {
+                        step();
+                        step();
+                        if (Z) jmp();
+                    }
+                    case INS_JNE -> {
+                        step();
+                        step();
+                        if (!Z) jmp();
+                    }
+                    case INS_JL -> {
+                        step();
+                        step();
+                        if (N) jmp();
+                    }
+                    case INS_JLE -> {
+                        step();
+                        step();
+                        if (N || Z) jmp();
+                    }
+                    case INS_JG -> {
+                        step();
+                        step();
+                        if (!N) jmp();
+                    }
+                    case INS_JGE -> {
+                        step();
+                        step();
+                        if (!N || Z) jmp();
+                    }
+
+                    case INS_CMP -> {
+                        int[] destination = getNextOperand();
+                        int[] source = getNextOperand();
+                        cmp(destination, source);
+                    }
+
+                    case INS_LOOP -> {
+                        // if RC > 0: decrement RC and jump to the label address specified.
+                        step();
+                        step();
+                        //short address = (short) machine_code[ registers[PC] ];
+
+                        registers[2]--;
+                        if (registers[2] > 0) {
+                            jmp();
+                        }
+                    }
+
+                    case INS_INT -> {
+                        if (I) {
+                            boolean x = VirtualMachine.interruptHandler(registers, memory);
+                            if (!x) E = true;
+                        } else System.out.println("Interrupt flag not set. skipping.");
+                    }
+                    */
+
+
+                    default -> {
+                        String err = "Undefined instruction. please check the instruction codes : " + machine_code[registers[PC]];
+                        status_code = ErrorHandler.ERR_CODE_INVALID_INSTRUCTION_FORMAT;
+                        triggerProgramError(new ErrorHandler.InvalidInstructionException(err),
+                                err, status_code);
+                    }
+                }
+
+                if (E) {
+                    status_code = ErrorHandler.ERR_CODE_PROGRAM_ERROR;
+                    String err = String.format("The program triggered an error with code : %s", status_code);
+                    triggerProgramError(new ErrorHandler.ProgramErrorException(err),
+                            err, status_code);
+                }
+
+                canExecute = !T;
+                step();
+            }
+
+        }
+
+        outputString.append("Program terminated with code : ").append(status_code);
     }
 
     /// ///////////////////////////////////////////////////////////////////////////////////////////////////////
     /// //////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///
+    /// ///////////////////////////// INSTRUCTION SET ////////////////////////////////////////////////////////
+    ///
+    ///
+
+
+    public void set(int[] destination, int[] source){
+
+        int operandValue = getOperandValue(source);
+
+        switch (destination[0]){
+
+            case REGISTER_MODE, REGISTER_WORD_MODE -> setRegister( destination[1], operandValue );
+            case DIRECT_MODE -> setMemory( destination[1], operandValue );
+            case INDIRECT_MODE, INDIRECT_MEMORY_WORD_MODE -> setMemory( getRegister( destination[1] ), operandValue );
+            default -> E = true;
+        }
+    }
+
+
+    public void out(int[] source){
+
+        outputString.append(getOperandValue(source));
+    }
+
+
+    public void add(int[] destination, int[] source){
+
+        int operandValue = getOperandValue(source);
+
+        switch (destination[0]){
+            case REGISTER_MODE, REGISTER_WORD_MODE -> setRegister( destination[1],
+                    getRegister( destination[1] ) + operandValue);
+
+            case DIRECT_MODE -> setMemory( destination[1],
+                    readByte( destination[1] ) + operandValue);
+
+            case DIRECT_WORD_MODE -> setMemory( destination[1],
+                    bytePairToWordLE( readWord( destination[1] ) ) + operandValue);
+
+            case INDIRECT_MODE -> setMemory( getRegister( destination[1] ),
+                     readByte( getRegister( destination[1] ) ) + operandValue );
+
+            case INDIRECT_MEMORY_WORD_MODE -> setMemory( getRegister( destination[1] ),
+                    bytePairToWordLE( readWord( destination[1] ) ) + operandValue);
+
+            default -> E = true;
+        }
+        // TODO : Update flags
+    }
+
+
+    public void sub(int[] destination, int[] source){
+        int operandValue = getOperandValue(source);
+
+        switch (destination[0]){
+            case REGISTER_MODE, REGISTER_WORD_MODE -> setRegister( destination[1],
+                    getRegister( destination[1] ) - operandValue);
+
+            case DIRECT_MODE -> setMemory( destination[1],
+                    readByte( destination[1] ) - operandValue);
+
+            case DIRECT_WORD_MODE -> setMemory( destination[1],
+                    bytePairToWordLE( readWord( destination[1] ) ) - operandValue);
+
+            case INDIRECT_MODE -> setMemory( getRegister( destination[1] ),
+                     readByte( getRegister( destination[1] ) ) - operandValue );
+
+            case INDIRECT_MEMORY_WORD_MODE -> setMemory( getRegister( destination[1] ),
+                    bytePairToWordLE( readWord( destination[1] ) ) - operandValue);
+
+            default -> E = true;
+        }
+        // TODO : Update flags
+    }
+
+
+    public void mul(int[] destination, int[] source){
+        int operandValue = getOperandValue(source);
+
+        switch (destination[0]){
+            case REGISTER_MODE, REGISTER_WORD_MODE -> setRegister( destination[1],
+                    getRegister( destination[1] ) * operandValue);
+
+            case DIRECT_MODE -> setMemory( destination[1],
+                    readByte( destination[1] ) * operandValue);
+
+            case DIRECT_WORD_MODE -> setMemory( destination[1],
+                    bytePairToWordLE( readWord( destination[1] ) ) * operandValue);
+
+            case INDIRECT_MODE -> setMemory( getRegister( destination[1] ),
+                     readByte( getRegister( destination[1] ) ) * operandValue );
+
+            case INDIRECT_MEMORY_WORD_MODE -> setMemory( getRegister( destination[1] ),
+                    bytePairToWordLE( readWord( destination[1] ) ) * operandValue);
+
+            default -> E = true;
+        }
+        // TODO : Update flags
+    }
+
+
+    public void div(int[] destination, int[] source){
+        int operandValue = getOperandValue(source);
+
+        switch (destination[0]){
+            case REGISTER_MODE, REGISTER_WORD_MODE -> setRegister( destination[1],
+                    getRegister( destination[1] ) / operandValue);
+
+            case DIRECT_MODE -> setMemory( destination[1],
+                    readByte( destination[1] ) / operandValue);
+
+            case DIRECT_WORD_MODE -> setMemory( destination[1],
+                    bytePairToWordLE( readWord( destination[1] ) ) / operandValue);
+
+            case INDIRECT_MODE -> setMemory( getRegister( destination[1] ),
+                     readByte( getRegister( destination[1] ) ) / operandValue );
+
+            case INDIRECT_MEMORY_WORD_MODE -> setMemory( getRegister( destination[1] ),
+                    bytePairToWordLE( readWord( destination[1] ) ) / operandValue);
+
+            default -> E = true;
+        }
+        // TODO : Update flags
+    }
+
+
+    public void not(short[] source){
+
+    }
+
+
+    public void and(short[] destination, short[] source){
+
+    }
+
+
+    public void or(short[] destination, short[] source){
+
+    }
+
+
+    public void xor(short[] destination, short[] source){
+
+    }
+
+
+    public void nand(short[] destination, short[] source){
+
+    }
+
+
+    public void nor(short[] destination, short[] source){
+
+    }
+
+
+    public void pow(short[] destination, short[] source){
+
+    }
+
+
+    public void sqrt(short[] source){
+
+    }
+
+
+    public void rnd(short[] destination, short[] source){
+
+    }
+
+
+    public void inc(short[] source){
+
+    }
+
+
+    public void dec(short[] source){
+
+    }
+
+    public void la(short[] source){
+
+    }
+
+
+    public void push(short[] source){
+
+    }
+
+
+    public void pop(short[] source){
+
+    }
+
+
+    public void call(int address, int return_address){
+
+    }
+
+
+    public void jmp(){
+
+    }
+
+
+    public void cmp(short[] destination, short[] source){
+
+    }
+
+    /// //////////////////////////////////////////////////////////////////////////////////////////////////
+    /// ////
+    ///
+    /// ///////////////////////////////////////////////////////////////////////////////////////////////////
+    ///
+    ///
+    /// ///////////////////////////// CPU INITIALIZATION //////////////////////////////////////////////////
+
 
     public CPUModule16BIT(){
         super();
@@ -547,6 +1023,7 @@ public class CPUModule16BIT extends CPU {
 
 
     public void reset(){
+        System.out.println("Initializing memory.");
         memory = new short[mem_size_B];
 
         // al, ah => ax
@@ -561,6 +1038,9 @@ public class CPUModule16BIT extends CPU {
         // SE
         // DI
         // DP
+
+        System.out.println("Initializing registers.");
+        registerPairStart = 0;
 
         int totalRegisterCount = 6 * 2 + 6 + 6;
         registers = new int[totalRegisterCount];
@@ -599,7 +1079,10 @@ public class CPUModule16BIT extends CPU {
         registerNames[DI] = "di";
         registerNames[DP] = "dp";
 
+        RCX = registerPairStart + 2;
 
+
+        System.out.println("Setting the CPU state.");
         N = false;
         C = false;
         O = false;
@@ -624,11 +1107,11 @@ public class CPUModule16BIT extends CPU {
 
         data_start = stack_start - (dataSize * 1024);
 
-
-        System.out.println(dumpRegisters());
-        System.out.println("==============================");
-
-        System.out.println(dumpMemory(0x00, 39));
+        registers[SP] = (short) (stack_start + memory.length - stack_start - 1);
+        registers[PC] = 0;
     }
+    /// //////////////////////////////////////////////////////////////////////////////
+    /// /////////////////////////////////////////////////////////////////////////////
+    /// ////////////////////////////////////////////////////////////////////////////
 
 }
