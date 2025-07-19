@@ -132,6 +132,8 @@ public abstract class CPU {
     protected int DI = 11;
     ///
     /// ////////////////////////////////////////////
+    ///
+    String signature = "Made by T.K.Y";
     public CPU() {
         System.out.println("Setting up CPU.");
         instructionSet.put(INS_EXT, "ext");

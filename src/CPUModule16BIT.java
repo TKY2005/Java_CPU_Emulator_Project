@@ -3,7 +3,6 @@ import java.util.*;
 public class CPUModule16BIT extends CPU {
 
     // CPU specific variables //
-    public static final int bit_length = 16;
 
     public static final int min_byte_value = -127;
 
@@ -122,6 +121,17 @@ public class CPUModule16BIT extends CPU {
         return max_byte_value + 1;
     }
 
+    public int[] getRegisterWord(int registerID){
+        int low = 0, high = 0;
+        if (registerID >= registerPairStart){
+            int registerVal = registers[registerID];
+            low = registerVal & 0xff;
+            high = (registerVal >> 8) & 0xff;
+        }
+
+        return new int[] {low, high};
+    }
+
     public int getMemory(int address){
         if (isValidMemoryAddress(address)) return memory[address];
         else return max_pair_value + 1;
@@ -222,6 +232,15 @@ public class CPUModule16BIT extends CPU {
                 I ? 1 : 0));
 
         return result.toString();
+    }
+
+    public void updateFlags(int value){
+        short flagSetter = (short) value;
+
+        Z = flagSetter == 0;
+        N = ((flagSetter >>> 15) & 1) == 1;
+        if (N) O = value > Short.MAX_VALUE || value < Short.MIN_VALUE;
+        else C = value > max_pair_value;
     }
 
 
@@ -404,7 +423,7 @@ public class CPUModule16BIT extends CPU {
                                      data_start + offset, data_start + offset,
                                      Integer.parseInt(x[j].substring(1)), Integer.parseInt(x[j].substring(1)));
 
-                             setMemory(data_start + offset, Short.parseShort(x[j].substring(1)));
+                             setMemory(data_start + offset, Integer.parseInt(x[j].substring(1)));
                              offset++;
                          }
                          setMemory(offset, NULL_TERMINATOR);
@@ -453,6 +472,11 @@ public class CPUModule16BIT extends CPU {
                 machineCodeList.add(Integer.parseInt(eachNum[i]));
             }
         }
+
+        for(int i = 0; i < signature.length(); i++){
+            machineCodeList.add((int) signature.charAt(i));
+        }
+        machineCodeList.add( bit_length );
         machineCode = machineCodeList.stream().mapToInt(Integer::intValue).toArray();
 
         return machineCode;
@@ -461,13 +485,22 @@ public class CPUModule16BIT extends CPU {
     @Override
     public void executeCompiledCode(int[] machine_code){
 
+        if (machine_code[ machine_code.length - 1 ] != bit_length){
+            String err = String.format("This code has been compiled for %d-bit architecture." +
+                    " the current CPU architecture is %d-bit.\n",
+                    machine_code[ machine_code.length -1  ], bit_length
+                    );
+
+            triggerProgramError( new ErrorHandler.CodeCompilationError(err),
+                    err, ErrorHandler.ERR_COMP_INCOMPATIBLE_ARCHITECTURE);
+        }
         Integer mainEntryPoint = functions.get("MAIN");
         if (mainEntryPoint == null){
             String err = "MAIN function label not found.";
             triggerProgramError(new ErrorHandler.CodeCompilationError(err),
                     err, ErrorHandler.ERR_CODE_MAIN_NOT_FOUND);
         }
-        registers[PC] = (short) (int) mainEntryPoint;
+        registers[PC] = mainEntryPoint;
         I = true;
 
         while (!programEnd && registers[PC] < machine_code.length){
@@ -514,78 +547,78 @@ public class CPUModule16BIT extends CPU {
                         div(destination, source);
                     }
 
-                    /*
+
                     case INS_POW -> {
-                        short[] destination = getNextOperand();
-                        short[] source = getNextOperand();
+                        int[] destination = getNextOperand();
+                        int[] source = getNextOperand();
                         pow(destination, source);
                     }
 
                     case INS_SQRT -> {
-                        short[] destination = getNextOperand();
+                        int[] destination = getNextOperand();
                         sqrt(destination);
                     }
 
                     case INS_RND -> {
-                        short[] destination = getNextOperand();
-                        short[] source = getNextOperand();
+                        int[] destination = getNextOperand();
+                        int[] source = getNextOperand();
                         rnd(destination, source);
                     }
 
                     case INS_INC -> {
-                        short[] destination = getNextOperand();
+                        int[] destination = getNextOperand();
                         inc(destination);
                     }
                     case INS_DEC -> {
-                        short[] destination = getNextOperand();
+                        int[] destination = getNextOperand();
                         dec(destination);
                     }
 
                     case INS_NOT -> {
-                        short[] source = getNextOperand();
+                        int[] source = getNextOperand();
                         not(source);
                     }
 
                     case INS_AND -> {
-                        short[] destination = getNextOperand();
-                        short[] source = getNextOperand();
+                        int[] destination = getNextOperand();
+                        int[] source = getNextOperand();
                         and(destination, source);
                     }
 
                     case INS_OR -> {
-                        short[] destination = getNextOperand();
-                        short[] source = getNextOperand();
+                        int[] destination = getNextOperand();
+                        int[] source = getNextOperand();
                         or(destination, source);
                     }
 
                     case INS_XOR -> {
-                        short[] destination = getNextOperand();
-                        short[] source = getNextOperand();
+                        int[] destination = getNextOperand();
+                        int[] source = getNextOperand();
                         xor(destination, source);
                     }
 
                     case INS_NAND -> {
-                        short[] destination = getNextOperand();
-                        short[] source = getNextOperand();
+                        int[] destination = getNextOperand();
+                        int[] source = getNextOperand();
                         nand(destination, source);
                     }
 
                     case INS_NOR -> {
-                        short[] destination = getNextOperand();
-                        short[] source = getNextOperand();
+                        int[] destination = getNextOperand();
+                        int[] source = getNextOperand();
                         nor(destination, source);
                     }
 
                     case INS_LA -> {
                         // Get the source (must be 16-bit compatible). step to the address. load into source
-                        short[] source = getNextOperand();
+                        int[] source = getNextOperand();
                         step();
                         step();
                         la(source);
                     }
 
                     case INS_LLEN -> {
-                        short[] destination = getNextOperand();
+                        int[] destination = getNextOperand();
                         step();
                         step();
                         int start = machine_code[registers[PC]];
@@ -596,29 +629,30 @@ public class CPUModule16BIT extends CPU {
                         }
 
                         switch (destination[0]) {
-                            case REGISTER_MODE -> setRegister(destination[1], len);
-                            case DIRECT_MODE -> setMemory(destination[1], len);
-                            case INDIRECT_MODE -> setMemory(getRegister(destination[1]), len);
+                            case REGISTER_MODE, REGISTER_WORD_MODE -> setRegister(destination[1], len);
+                            case DIRECT_MODE, DIRECT_WORD_MODE -> setMemory(destination[1], len);
+                            case INDIRECT_MODE, INDIRECT_MEMORY_WORD_MODE -> setMemory(getRegister(destination[1]), len);
                             default -> E = true;
                         }
                     }
 
                     case INS_OUTS -> {
                         int start = registers[SS];
-                        while (getMemory(start) != NULL_TERMINATOR) {
-                            outputString.append((char) getMemory(start));
+                        while (readByte(start) != NULL_TERMINATOR) {
+                            outputString.append((char) memory[start]);
                             start++;
                         }
                         outputString.append("\n");
                     }
 
                     case INS_PUSH -> {
-                        short[] source = getNextOperand();
+                        int[] source = getNextOperand();
                         push(source);
                     }
 
+
                     case INS_POP -> {
-                        short[] source = getNextOperand();
+                        int[] source = getNextOperand();
                         pop(source);
                     }
 
@@ -715,13 +749,13 @@ public class CPUModule16BIT extends CPU {
                     }
 
                     case INS_LOOP -> {
-                        // if RC > 0: decrement RC and jump to the label address specified.
+                        // if RCX > 0: decrement RC and jump to the label address specified.
                         step();
                         step();
                         //short address = (short) machine_code[ registers[PC] ];
 
-                        registers[2]--;
-                        if (registers[2] > 0) {
+                        registers[RCX]--;
+                        if (registers[RCX] > 0) {
                             jmp();
                         }
                     }
@@ -732,7 +766,7 @@ public class CPUModule16BIT extends CPU {
                             if (!x) E = true;
                         } else System.out.println("Interrupt flag not set. skipping.");
                     }
-                    */
+
 
 
                     default -> {
@@ -790,97 +824,294 @@ public class CPUModule16BIT extends CPU {
     public void add(int[] destination, int[] source){
 
         int operandValue = getOperandValue(source);
+        int newVal = 0;
 
         switch (destination[0]){
-            case REGISTER_MODE, REGISTER_WORD_MODE -> setRegister( destination[1],
-                    getRegister( destination[1] ) + operandValue);
+            case REGISTER_MODE, REGISTER_WORD_MODE ->{
+                newVal = getRegister(destination[1]) + operandValue;
 
-            case DIRECT_MODE -> setMemory( destination[1],
-                    readByte( destination[1] ) + operandValue);
+                setRegister( destination[1], newVal);
+            }
 
-            case DIRECT_WORD_MODE -> setMemory( destination[1],
-                    bytePairToWordLE( readWord( destination[1] ) ) + operandValue);
+            case DIRECT_MODE ->{
+                newVal = readByte( destination[1] ) + operandValue;
+                setMemory( destination[1], newVal);
+            }
 
-            case INDIRECT_MODE -> setMemory( getRegister( destination[1] ),
-                     readByte( getRegister( destination[1] ) ) + operandValue );
+            case DIRECT_WORD_MODE ->{
+                newVal = bytePairToWordLE( readWord( destination[1] ) ) + operandValue;
+                setMemory( destination[1], newVal);
+            }
 
-            case INDIRECT_MEMORY_WORD_MODE -> setMemory( getRegister( destination[1] ),
-                    bytePairToWordLE( readWord( destination[1] ) ) + operandValue);
+            case INDIRECT_MODE ->{
+                newVal = readByte( getRegister( destination[1] ) ) + operandValue;
+                setMemory( getRegister( destination[1] ), newVal );
+            }
+
+            case INDIRECT_MEMORY_WORD_MODE -> {
+                newVal = bytePairToWordLE( readWord( getRegister( destination[1] ) ) ) + operandValue;
+                setMemory( getRegister( destination[1] ), newVal);
+            }
 
             default -> E = true;
         }
-        // TODO : Update flags
+        updateFlags(newVal);
     }
 
 
     public void sub(int[] destination, int[] source){
         int operandValue = getOperandValue(source);
+        int newVal = 0;
 
         switch (destination[0]){
-            case REGISTER_MODE, REGISTER_WORD_MODE -> setRegister( destination[1],
-                    getRegister( destination[1] ) - operandValue);
+            case REGISTER_MODE, REGISTER_WORD_MODE ->{
+                newVal = getRegister(destination[1]) - operandValue;
 
-            case DIRECT_MODE -> setMemory( destination[1],
-                    readByte( destination[1] ) - operandValue);
+                setRegister( destination[1], newVal);
+            }
 
-            case DIRECT_WORD_MODE -> setMemory( destination[1],
-                    bytePairToWordLE( readWord( destination[1] ) ) - operandValue);
+            case DIRECT_MODE ->{
+                newVal = readByte( destination[1] ) - operandValue;
+                setMemory( destination[1], newVal);
+            }
 
-            case INDIRECT_MODE -> setMemory( getRegister( destination[1] ),
-                     readByte( getRegister( destination[1] ) ) - operandValue );
+            case DIRECT_WORD_MODE ->{
+                newVal = bytePairToWordLE( readWord( destination[1] ) ) - operandValue;
+                setMemory( destination[1], newVal);
+            }
 
-            case INDIRECT_MEMORY_WORD_MODE -> setMemory( getRegister( destination[1] ),
-                    bytePairToWordLE( readWord( destination[1] ) ) - operandValue);
+            case INDIRECT_MODE ->{
+                newVal = readByte( getRegister( destination[1] ) ) - operandValue;
+                setMemory( getRegister( destination[1] ), newVal );
+            }
+
+            case INDIRECT_MEMORY_WORD_MODE -> {
+                newVal = bytePairToWordLE( readWord( getRegister( destination[1] ) ) ) - operandValue;
+                setMemory( getRegister( destination[1] ), newVal);
+            }
 
             default -> E = true;
         }
-        // TODO : Update flags
+        updateFlags(newVal);
     }
 
 
     public void mul(int[] destination, int[] source){
         int operandValue = getOperandValue(source);
+        int newVal = 0;
 
         switch (destination[0]){
-            case REGISTER_MODE, REGISTER_WORD_MODE -> setRegister( destination[1],
-                    getRegister( destination[1] ) * operandValue);
+            case REGISTER_MODE, REGISTER_WORD_MODE ->{
+                newVal = getRegister(destination[1]) * operandValue;
 
-            case DIRECT_MODE -> setMemory( destination[1],
-                    readByte( destination[1] ) * operandValue);
+                setRegister( destination[1], newVal);
+            }
 
-            case DIRECT_WORD_MODE -> setMemory( destination[1],
-                    bytePairToWordLE( readWord( destination[1] ) ) * operandValue);
+            case DIRECT_MODE ->{
+                newVal = readByte( destination[1] ) * operandValue;
+                setMemory( destination[1], newVal);
+            }
 
-            case INDIRECT_MODE -> setMemory( getRegister( destination[1] ),
-                     readByte( getRegister( destination[1] ) ) * operandValue );
+            case DIRECT_WORD_MODE ->{
+                newVal = bytePairToWordLE( readWord( destination[1] ) ) * operandValue;
+                setMemory( destination[1], newVal);
+            }
 
-            case INDIRECT_MEMORY_WORD_MODE -> setMemory( getRegister( destination[1] ),
-                    bytePairToWordLE( readWord( destination[1] ) ) * operandValue);
+            case INDIRECT_MODE ->{
+                newVal = readByte( getRegister( destination[1] ) ) * operandValue;
+                setMemory( getRegister( destination[1] ), newVal );
+            }
+
+            case INDIRECT_MEMORY_WORD_MODE -> {
+                newVal = bytePairToWordLE( readWord( getRegister( destination[1] ) ) ) * operandValue;
+                setMemory( getRegister( destination[1] ), newVal);
+            }
 
             default -> E = true;
         }
-        // TODO : Update flags
+        updateFlags(newVal);
     }
 
 
     public void div(int[] destination, int[] source){
         int operandValue = getOperandValue(source);
+        int newVal = 0;
 
         switch (destination[0]){
-            case REGISTER_MODE, REGISTER_WORD_MODE -> setRegister( destination[1],
-                    getRegister( destination[1] ) / operandValue);
+            case REGISTER_MODE, REGISTER_WORD_MODE ->{
+                newVal = getRegister(destination[1]) / operandValue;
 
-            case DIRECT_MODE -> setMemory( destination[1],
-                    readByte( destination[1] ) / operandValue);
+                setRegister( destination[1], newVal);
+            }
 
-            case DIRECT_WORD_MODE -> setMemory( destination[1],
-                    bytePairToWordLE( readWord( destination[1] ) ) / operandValue);
+            case DIRECT_MODE ->{
+                newVal = readByte( destination[1] ) / operandValue;
+                setMemory( destination[1], newVal);
+            }
 
-            case INDIRECT_MODE -> setMemory( getRegister( destination[1] ),
-                     readByte( getRegister( destination[1] ) ) / operandValue );
+            case DIRECT_WORD_MODE ->{
+                newVal = bytePairToWordLE( readWord( destination[1] ) ) / operandValue;
+                setMemory( destination[1], newVal);
+            }
 
-            case INDIRECT_MEMORY_WORD_MODE -> setMemory( getRegister( destination[1] ),
-                    bytePairToWordLE( readWord( destination[1] ) ) / operandValue);
+            case INDIRECT_MODE ->{
+                newVal = readByte( getRegister( destination[1] ) ) / operandValue;
+                setMemory( getRegister( destination[1] ), newVal );
+            }
+
+            case INDIRECT_MEMORY_WORD_MODE -> {
+                newVal = bytePairToWordLE( readWord( getRegister( destination[1] ) ) ) / operandValue;
+                setMemory( getRegister( destination[1] ), newVal);
+            }
+
+            default -> E = true;
+        }
+        updateFlags(newVal);
+    }
+
+
+    public void not(int[] source){
+        int newVal = 0;
+
+        switch (source[0]) {
+
+            case REGISTER_MODE, REGISTER_WORD_MODE ->{
+                newVal = ~getRegister(source[1]);
+                setRegister( source[1], newVal );
+            }
+
+            case DIRECT_MODE -> {
+                newVal = ~readByte( source[1] );
+                setMemory( source[1], newVal );
+            }
+
+            case DIRECT_WORD_MODE -> {
+                newVal = ~bytePairToWordLE( readWord( source[1] ) );
+                setMemory( source[1], newVal );
+            }
+
+            case INDIRECT_MODE -> {
+                newVal = ~readByte( getRegister(source[1]) );
+                setMemory( getRegister(source[1]), newVal );
+            }
+
+            case INDIRECT_MEMORY_WORD_MODE -> {
+                newVal = ~bytePairToWordLE( readWord( getRegister( source[1] ) ) );
+                setMemory( getRegister( source[1] ), newVal );
+            }
+
+            case IMMEDIATE_MODE -> newVal = ~source[1];
+
+            default -> E = true;
+        }
+        updateFlags(newVal);
+    }
+
+
+    public void and(int[] destination, int[] source){
+        int operandValue = getOperandValue(source);
+        int newVal = 0;
+
+        switch (destination[0]){
+            case REGISTER_MODE, REGISTER_WORD_MODE ->{
+                newVal = getRegister(destination[1]) & operandValue;
+
+                setRegister( destination[1], newVal);
+            }
+
+            case DIRECT_MODE ->{
+                newVal = readByte( destination[1] ) & operandValue;
+                setMemory( destination[1], newVal);
+            }
+
+            case DIRECT_WORD_MODE ->{
+                newVal = bytePairToWordLE( readWord( destination[1] ) ) & operandValue;
+                setMemory( destination[1], newVal);
+            }
+
+            case INDIRECT_MODE ->{
+                newVal = readByte( getRegister( destination[1] ) ) & operandValue;
+                setMemory( getRegister( destination[1] ), newVal );
+            }
+
+            case INDIRECT_MEMORY_WORD_MODE -> {
+                newVal = bytePairToWordLE( readWord( getRegister( destination[1] ) ) ) & operandValue;
+                setMemory( getRegister( destination[1] ), newVal);
+            }
+
+            default -> E = true;
+        }
+        updateFlags(newVal);
+    }
+
+
+    public void or(int[] destination, int[] source){
+        int operandValue = getOperandValue(source);
+        int newVal = 0;
+
+        switch (destination[0]){
+            case REGISTER_MODE, REGISTER_WORD_MODE ->{
+                newVal = getRegister(destination[1]) | operandValue;
+
+                setRegister( destination[1], newVal);
+            }
+
+            case DIRECT_MODE ->{
+                newVal = readByte( destination[1] ) | operandValue;
+                setMemory( destination[1], newVal);
+            }
+
+            case DIRECT_WORD_MODE ->{
+                newVal = bytePairToWordLE( readWord( destination[1] ) ) | operandValue;
+                setMemory( destination[1], newVal);
+            }
+
+            case INDIRECT_MODE ->{
+                newVal = readByte( getRegister( destination[1] ) ) | operandValue;
+                setMemory( getRegister( destination[1] ), newVal );
+            }
+
+            case INDIRECT_MEMORY_WORD_MODE -> {
+                newVal = bytePairToWordLE( readWord( getRegister( destination[1] ) ) ) | operandValue;
+                setMemory( getRegister( destination[1] ), newVal);
+            }
+
+            default -> E = true;
+        }
+        updateFlags(newVal);
+    }
+
+
+    public void xor(int[] destination, int[] source){
+        int operandValue = getOperandValue(source);
+        int newVal = 0;
+
+        switch (destination[0]){
+            case REGISTER_MODE, REGISTER_WORD_MODE ->{
+                newVal = getRegister(destination[1]) ^ operandValue;
+
+                setRegister( destination[1], newVal);
+            }
+
+            case DIRECT_MODE ->{
+                newVal = readByte( destination[1] ) ^ operandValue;
+                setMemory( destination[1], newVal);
+            }
+
+            case DIRECT_WORD_MODE ->{
+                newVal = bytePairToWordLE( readWord( destination[1] ) ) ^ operandValue;
+                setMemory( destination[1], newVal);
+            }
+
+            case INDIRECT_MODE ->{
+                newVal = readByte( getRegister( destination[1] ) ) ^ operandValue;
+                setMemory( getRegister( destination[1] ), newVal );
+            }
+
+            case INDIRECT_MEMORY_WORD_MODE -> {
+                newVal = bytePairToWordLE( readWord( getRegister( destination[1] ) ) ) ^ operandValue;
+                setMemory( getRegister( destination[1] ), newVal);
+            }
 
             default -> E = true;
         }
@@ -888,87 +1119,402 @@ public class CPUModule16BIT extends CPU {
     }
 
 
-    public void not(short[] source){
+    public void nand(int[] destination, int[] source){
+        int operandValue = getOperandValue(source);
+        int newVal = 0;
 
+        switch (destination[0]){
+            case REGISTER_MODE, REGISTER_WORD_MODE ->{
+                newVal = getRegister(destination[1]) & operandValue;
+
+                setRegister( destination[1], newVal);
+            }
+
+            case DIRECT_MODE ->{
+                newVal = ~(readByte( destination[1] ) & operandValue);
+                setMemory( destination[1], newVal);
+            }
+
+            case DIRECT_WORD_MODE ->{
+                newVal = ~(bytePairToWordLE( readWord( destination[1] ) ) & operandValue);
+                setMemory( destination[1], newVal);
+            }
+
+            case INDIRECT_MODE ->{
+                newVal = ~(readByte( getRegister( destination[1] ) ) & operandValue);
+                setMemory( getRegister( destination[1] ), newVal );
+            }
+
+            case INDIRECT_MEMORY_WORD_MODE -> {
+                newVal = ~(bytePairToWordLE( readWord( getRegister( destination[1] ) ) ) & operandValue);
+                setMemory( getRegister( destination[1] ), newVal);
+            }
+
+            default -> E = true;
+        }
+        updateFlags(newVal);
     }
 
 
-    public void and(short[] destination, short[] source){
+    public void nor(int[] destination, int[] source){
+        int operandValue = getOperandValue(source);
+        int newVal = 0;
 
+        switch (destination[0]){
+            case REGISTER_MODE, REGISTER_WORD_MODE ->{
+                newVal = ~(getRegister(destination[1]) | operandValue);
+
+                setRegister( destination[1], newVal);
+            }
+
+            case DIRECT_MODE ->{
+                newVal = ~(readByte( destination[1] ) | operandValue);
+                setMemory( destination[1], newVal);
+            }
+
+            case DIRECT_WORD_MODE ->{
+                newVal = ~(bytePairToWordLE( readWord( destination[1] ) ) | operandValue);
+                setMemory( destination[1], newVal);
+            }
+
+            case INDIRECT_MODE ->{
+                newVal = ~(readByte( getRegister( destination[1] ) ) | operandValue);
+                setMemory( getRegister( destination[1] ), newVal );
+            }
+
+            case INDIRECT_MEMORY_WORD_MODE -> {
+                newVal = ~(bytePairToWordLE( readWord( getRegister( destination[1] ) ) ) | operandValue);
+                setMemory( getRegister( destination[1] ), newVal);
+            }
+
+            default -> E = true;
+        }
+        updateFlags(newVal);
     }
 
 
-    public void or(short[] destination, short[] source){
+    public void pow(int[] destination, int[] source){
+        int operandValue = getOperandValue(source);
+        int newVal = 0;
 
+        switch (destination[0]){
+            case REGISTER_MODE, REGISTER_WORD_MODE ->{
+                newVal = (int) Math.pow( getRegister(destination[1]), operandValue );
+
+                setRegister( destination[1], newVal);
+            }
+
+            case DIRECT_MODE ->{
+                newVal = (int) Math.pow( readByte( destination[1] ) , operandValue);
+                setMemory( destination[1], newVal);
+            }
+
+            case DIRECT_WORD_MODE ->{
+                newVal = (int) Math.pow( bytePairToWordLE( readWord( destination[1] ) ), operandValue );
+                setMemory( destination[1], newVal);
+            }
+
+            case INDIRECT_MODE ->{
+                newVal = (int) Math.pow( readByte( getRegister( destination[1] ) ), operandValue );
+                setMemory( getRegister( destination[1] ), newVal );
+            }
+
+            case INDIRECT_MEMORY_WORD_MODE -> {
+                newVal = (int) Math.pow( bytePairToWordLE( readWord( getRegister( destination[1] ) ) ), operandValue );
+                setMemory( getRegister( destination[1] ), newVal);
+            }
+
+            default -> E = true;
+        }
+        updateFlags(newVal);
     }
 
 
-    public void xor(short[] destination, short[] source){
+    public void sqrt(int[] source){
+        int newVal = 0;
 
+        switch (source[0]) {
+
+            case REGISTER_MODE, REGISTER_WORD_MODE ->{
+                newVal = (int) Math.sqrt( getRegister( source[1] ) );
+                setRegister( source[1], newVal );
+            }
+
+            case DIRECT_MODE -> {
+                newVal = (int) Math.sqrt( readByte( source[1] ) );
+                setMemory( source[1], newVal );
+            }
+
+            case DIRECT_WORD_MODE -> {
+                newVal = (int) Math.sqrt( bytePairToWordLE( readWord( source[1] ) ) );
+                setMemory( source[1], newVal );
+            }
+
+            case INDIRECT_MODE -> {
+                newVal = (int) Math.sqrt( readByte( getRegister(source[1]) ) );
+                setMemory( getRegister(source[1]), newVal );
+            }
+
+            case INDIRECT_MEMORY_WORD_MODE -> {
+                newVal = (int) Math.sqrt( bytePairToWordLE( readWord( getRegister(source[1]) ) ) );
+                setMemory( getRegister( source[1] ), newVal );
+            }
+
+            case IMMEDIATE_MODE -> newVal = ~source[1];
+
+            default -> E = true;
+        }
+        updateFlags(newVal);
     }
 
 
-    public void nand(short[] destination, short[] source){
+    public void rnd(int[] destination, int[] source){
+        int operandValue = getOperandValue(source);
+        int newVal = 0;
 
+        switch (destination[0]){
+            case REGISTER_MODE, REGISTER_WORD_MODE ->{
+                newVal = (int) (Math.random() * operandValue);
+
+                setRegister( destination[1], newVal);
+            }
+
+            case DIRECT_MODE, DIRECT_WORD_MODE ->{
+                newVal = (int) (Math.random() * operandValue);
+                setMemory( destination[1], newVal);
+            }
+
+            case INDIRECT_MODE, INDIRECT_MEMORY_WORD_MODE ->{
+                newVal = (int) (Math.random() * operandValue);
+                setMemory( getRegister( destination[1] ), newVal );
+            }
+
+            default -> E = true;
+        }
+        updateFlags(newVal);
     }
 
 
-    public void nor(short[] destination, short[] source){
+    public void inc(int[] source){
+        int newVal = 0;
 
+        switch (source[0]) {
+
+            case REGISTER_MODE, REGISTER_WORD_MODE ->{
+                newVal = getRegister(source[1]) + 1;
+                setRegister( source[1], newVal );
+            }
+
+            case DIRECT_MODE -> {
+                newVal = readByte( source[1] ) + 1;
+                setMemory( source[1], newVal );
+            }
+
+            case DIRECT_WORD_MODE -> {
+                newVal = bytePairToWordLE( readWord( source[1] ) ) + 1;
+                setMemory( source[1], newVal );
+            }
+
+            case INDIRECT_MODE -> {
+                newVal = readByte( getRegister(source[1]) ) + 1;
+                setMemory( getRegister(source[1]), newVal );
+            }
+
+            case INDIRECT_MEMORY_WORD_MODE -> {
+                newVal = bytePairToWordLE( readWord( getRegister( source[1] ) ) ) + 1;
+                setMemory( getRegister( source[1] ), newVal );
+            }
+
+            case IMMEDIATE_MODE -> newVal = source[1] + 1;
+
+            default -> E = true;
+        }
+        updateFlags(newVal);
     }
 
 
-    public void pow(short[] destination, short[] source){
+    public void dec(int[] source){
+        int newVal = 0;
 
+        switch (source[0]) {
+
+            case REGISTER_MODE, REGISTER_WORD_MODE ->{
+                newVal = getRegister(source[1]) - 1;
+                setRegister( source[1], newVal );
+            }
+
+            case DIRECT_MODE -> {
+                newVal = readByte( source[1] ) - 1;
+                setMemory( source[1], newVal );
+            }
+
+            case DIRECT_WORD_MODE -> {
+                newVal = bytePairToWordLE( readWord( source[1] ) ) - 1;
+                setMemory( source[1], newVal );
+            }
+
+            case INDIRECT_MODE -> {
+                newVal = readByte( getRegister(source[1]) ) - 1;
+                setMemory( getRegister(source[1]), newVal );
+            }
+
+            case INDIRECT_MEMORY_WORD_MODE -> {
+                newVal = bytePairToWordLE( readWord( getRegister( source[1] ) ) ) - 1;
+                setMemory( getRegister( source[1] ), newVal );
+            }
+
+            case IMMEDIATE_MODE -> newVal = source[1] - 1;
+
+            default -> E = true;
+        }
+        updateFlags(newVal);
+    }
+
+    public void la(int[] source){
+        int address = machineCode[ registers[PC] ];
+        switch (source[0]){
+            case REGISTER_MODE, REGISTER_WORD_MODE -> setRegister( source[1], address);
+            case DIRECT_MODE, DIRECT_WORD_MODE -> setMemory( source[1], address );
+            case INDIRECT_MODE, INDIRECT_MEMORY_WORD_MODE -> setMemory( getRegister(source[1]) , address );
+        }
     }
 
 
-    public void sqrt(short[] source){
+    public void push(int[] source){
+        switch (source[0]){
 
+            case REGISTER_MODE ->{
+                memory[ registers[SP] ] = (short) getRegisterByte( source[1] );
+                registers[SP]--;
+            }
+
+            case REGISTER_WORD_MODE -> {
+                int[] val = getRegisterWord( source[1] );
+                for (int j : val) {
+                    memory[registers[SP]] = (short) j;
+                    registers[SP]--;
+                }
+
+            }
+
+            case DIRECT_MODE -> {
+                memory[ registers[SP] ] = (short) readByte( source[1] );
+                registers[SP]--;
+            }
+
+            case DIRECT_WORD_MODE -> {
+                int[] val = readWord( source[1] );
+                for (int j : val) {
+                    memory[registers[SP]] = (short) j;
+                    registers[SP]--;
+                }
+            }
+
+            case INDIRECT_MODE -> {
+                memory[ registers[ SP ]] = (short) readByte( getRegister( source[1] ) );
+                registers[SP]--;
+            }
+
+            case INDIRECT_MEMORY_WORD_MODE -> {
+                int[] val = readWord( getRegister(source[1]) );
+
+                for(int j : val){
+                    memory[ registers[SP] ] = (short) j;
+                    registers[SP]--;
+                }
+            }
+
+            case IMMEDIATE_MODE -> {
+                int val = source[1];
+                if (val <= max_byte_value) {
+                    memory[registers[SP]] = (short) val;
+                    registers[SP]--;
+                }
+                else{
+                    int low = val & 0xff;
+                    int high = (val >> 8) & 0xff;
+                    memory[registers[SP]] = (short) low;
+                    registers[SP]--;
+                    memory[registers[SP]] = (short) high;
+                    registers[SP]--;
+                }
+            }
+
+        }
     }
 
 
-    public void rnd(short[] destination, short[] source){
+    public void pop(int[] source){
 
-    }
+        switch (source[0]){
+            case REGISTER_MODE -> {
+                setRegister( source[1], memory[registers[SP]] );
+                memory[registers[SP]] = 0;
+                registers[SP]++;
+            }
 
+            case REGISTER_WORD_MODE -> {
+                int val = bytePairToWordLE( new int[] {memory[registers[SP]], memory[registers[SP] + 1]} );
+                memory[registers[SP]] = 0;
+                registers[SP]++;
+                memory[registers[SP]] = 0;
+                registers[SP]++;
 
-    public void inc(short[] source){
+                setRegister( source[1], val );
+            }
 
-    }
+            case DIRECT_MODE -> {
+                setMemory( source[1], memory[ registers[SP] ] );
+                setMemory( registers[SP], 0 );
+                registers[SP]++;
+            }
 
+            case DIRECT_WORD_MODE -> {
+                int val = bytePairToWordLE( new int[] {memory[registers[SP]], memory[registers[SP] + 1]} );
+                setMemory( source[1], val );
+                setMemory( registers[SP], 0 );
+                registers[SP]++;
+                setMemory( registers[SP], 0 );
+                registers[SP]++;
+            }
 
-    public void dec(short[] source){
+            case INDIRECT_MODE -> {
+                setMemory( getRegisterByte( source[1] ), memory[registers[SP]] );
+                registers[SP]++;
+            }
 
-    }
+            case INDIRECT_MEMORY_WORD_MODE -> {
+                setMemory( getRegister( source[1] ),
+                        bytePairToWordLE( new int[] {memory[registers[SP]], memory[registers[SP] + 1]} ) );
 
-    public void la(short[] source){
-
-    }
-
-
-    public void push(short[] source){
-
-    }
-
-
-    public void pop(short[] source){
-
+                setMemory( registers[SP], 0 );
+                registers[SP]++;
+                setMemory( registers[SP], 0 );
+                registers[SP]++;
+            }
+        }
     }
 
 
     public void call(int address, int return_address){
-
+        System.out.println("Pushing address : 0x" + Integer.toHexString(return_address));
+        functionCallStack.push(return_address); // save the return address
+        System.out.println(functionCallStack);
+        registers[PC] = address - 1; // sub 1 to nullify the step()
     }
 
 
     public void jmp(){
-
+        registers[PC] = machineCode[registers[PC]] - 1;
     }
 
 
-    public void cmp(short[] destination, short[] source){
+    public void cmp(int[] destination, int[] source){
+        int val1 = getOperandValue(source);
+        int val2 = getOperandValue(destination);
 
+        Z = val1 == val2;
+        N = val1 < val2;
     }
 
     /// //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -984,6 +1530,7 @@ public class CPUModule16BIT extends CPU {
         super();
 
         System.out.println("Starting 16-bit CPU module");
+        bit_length = 16;
 
         mem_size_B = memorySize * 1024;
         stack_start = mem_size_B - (stackSize * 1024);

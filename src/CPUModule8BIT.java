@@ -6,19 +6,19 @@ public class CPUModule8BIT extends CPU {
     public static final int max_value = 255;
     public static final int min_value = -127;
 
-    public int currentLine = 1;
+
     /// ///////////////////////////////////////
 
     // Memory related Variables //
     public int data_start;
     public int stack_start;
-    public int last_addressable_location;
+
 
     public int mem_size_B;
 
     public short[] registers;
     public String[] registerNames;
-    public short[] memory;
+
     /// ///////////////////////////////////////
     ///
     ///
@@ -35,6 +35,8 @@ public class CPUModule8BIT extends CPU {
 
     public CPUModule8BIT() {
         super();
+
+        bit_length = 8;
 
         System.out.println("Starting 8 bit cpu module.");
         mem_size_B = memorySize * 1024;
@@ -1183,6 +1185,11 @@ public class CPUModule8BIT extends CPU {
                 machineCodeList.add(Integer.parseInt(eachNum[i]));
             }
         }
+
+        for(int i = 0; i < signature.length(); i++){
+            machineCodeList.add((int) signature.charAt(i));
+        }
+        machineCodeList.add( bit_length );
         machineCode = machineCodeList.stream().mapToInt(Integer::intValue).toArray();
 
         return machineCode;
