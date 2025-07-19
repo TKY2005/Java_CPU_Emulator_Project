@@ -1448,48 +1448,53 @@ public class CPUModule16BIT extends CPU {
 
         switch (source[0]){
             case REGISTER_MODE -> {
+                registers[SP]++;
                 setRegister( source[1], memory[registers[SP]] );
                 memory[registers[SP]] = 0;
-                registers[SP]++;
             }
 
             case REGISTER_WORD_MODE -> {
-                int val = bytePairToWordLE( new int[] {memory[registers[SP]], memory[registers[SP] + 1]} );
-                memory[registers[SP]] = 0;
                 registers[SP]++;
+                int val = bytePairToWordBE( new int[] {memory[registers[SP]], memory[registers[SP] + 1]} );
+                memory[registers[SP] - 1] = 0;
                 memory[registers[SP]] = 0;
+                memory[registers[SP] + 1] = 0;
                 registers[SP]++;
 
                 setRegister( source[1], val );
             }
 
             case DIRECT_MODE -> {
-                setMemory( source[1], memory[ registers[SP] ] );
-                setMemory( registers[SP], 0 );
                 registers[SP]++;
+                memory[source[1]] = memory[registers[SP]];
+                memory[registers[SP]] = 0;
             }
 
             case DIRECT_WORD_MODE -> {
-                int val = bytePairToWordLE( new int[] {memory[registers[SP]], memory[registers[SP] + 1]} );
-                setMemory( source[1], val );
-                setMemory( registers[SP], 0 );
                 registers[SP]++;
-                setMemory( registers[SP], 0 );
+                int[] val = new int[] {memory[registers[SP]], memory[registers[SP] + 1]};
+                memory[ source[1] ] = (short) val[0];
+                memory[source[1] + 1] = (short) val[1];
+
+                memory[registers[SP] - 1] = 0;
+                memory[registers[SP]] = 0;
+                memory[registers[SP] + 1] = 0;
                 registers[SP]++;
             }
 
             case INDIRECT_MODE -> {
-                setMemory( getRegisterByte( source[1] ), memory[registers[SP]] );
                 registers[SP]++;
+                setMemory( getRegisterByte( source[1] ), memory[registers[SP]] );
             }
 
             case INDIRECT_MEMORY_WORD_MODE -> {
-                setMemory( getRegister( source[1] ),
-                        bytePairToWordLE( new int[] {memory[registers[SP]], memory[registers[SP] + 1]} ) );
-
-                setMemory( registers[SP], 0 );
                 registers[SP]++;
-                setMemory( registers[SP], 0 );
+                setMemory( getRegister( source[1] ),
+                        bytePairToWordBE( new int[] {memory[registers[SP]], memory[registers[SP] + 1]} ) );
+
+                memory[registers[SP] - 1] = 0;
+                memory[registers[SP]] = 0;
+                memory[registers[SP] + 1] = 0;
                 registers[SP]++;
             }
         }

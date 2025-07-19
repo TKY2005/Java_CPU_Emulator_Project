@@ -53,6 +53,9 @@ public class Settings extends JFrame {
         radioButtons.add(a32BitRadioButton);
         radioButtons.add(a64BitRadioButton);
 
+        a32BitRadioButton.setEnabled(false);
+        a64BitRadioButton.setEnabled(false);
+
         HashMap<String, String> settings = loadSettings();
 
         MemorySlider.setValue(Integer.parseInt(settings.get("MemSize")));

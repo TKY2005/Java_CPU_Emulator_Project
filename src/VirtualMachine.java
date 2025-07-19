@@ -160,8 +160,83 @@ public class VirtualMachine {
         return input_message;
     }
 
+    private static String getInputMessage(int[] registers, short[] memory) {
+        int input_message_pointer = registers[20]; // string message stored at : SS
+        String input_message = "";
+        if (memory[input_message_pointer] != CPU.NULL_TERMINATOR) {
+            //System.out.println("Message stored at : 0x" + Integer.toHexString(input_message_pointer));
+            for (int i = input_message_pointer; memory[i] != CPU.NULL_TERMINATOR; i++) {
+                //  System.out.println("adding char : " + (char) memory[i]);
+                input_message += (char) memory[i];
+            }
+        } else input_message = "Input : "; // no message provided
+        return input_message;
+    }
+
     public static boolean interruptHandler(int[] registers, short[] memory){
-        return true;
+         boolean validInterrupt = true;
+        switch (registers[1]){ // interrupt register : RAH
+
+            case CPU.INT_INPUT_STR -> {
+
+                System.out.println("Calling interrupt for input string");
+                String input_message = getInputMessage(registers, memory);
+                //System.out.println("Message is : " + input_message);
+                String input = "";
+                if (ui){
+                  //  System.out.println("Showing message for ui input");
+                    input = JOptionPane.showInputDialog(null, input_message,
+                            "Input", JOptionPane.INFORMATION_MESSAGE);
+
+                }else{
+                    System.out.print(input_message); input = new Scanner(System.in).nextLine();
+                }
+
+
+                int write_address = registers[22]; // write_pointer_register : DI
+
+                int index = 0;
+
+                for(int i = write_address; i < write_address + input.length(); i++){
+
+                    memory[i] = (short) input.charAt(index);
+                    index++;
+                }
+                memory[write_address + input.length() + 1] = CPU.NULL_TERMINATOR;
+                registers[21] = (short) (write_address + input.length()); // string end position stored in SE
+
+            }
+
+            case CPU.INT_INPUT_NUM -> {
+                System.out.println("Calling interrupt for numeric input");
+                String input_message = getInputMessage(registers, memory);
+
+                int input;
+
+                if (ui){
+                    System.out.println("Showing ui input prompt");
+                    input = Short.parseShort(JOptionPane.showInputDialog(null, input_message, "Numeric input : ",
+                            JOptionPane.INFORMATION_MESSAGE));
+                }else{
+                    System.out.print(input_message);
+                    input = new Scanner(System.in).nextShort();
+                }
+
+                registers[15] = input; // place input in RDX
+            }
+
+            case CPU.INT_DEBUG -> {
+                System.out.println("Calling debug interrupt.");
+                System.out.println("Press Enter to continue.");
+                Scanner s = new Scanner(System.in);
+                s.nextLine();
+            }
+
+
+            default -> validInterrupt = false;
+        }
+        System.out.println("done. returning to original program.");
+        return validInterrupt;
     }
 
     public static boolean interruptHandler(long[] registers, short[] memory){
