@@ -59,6 +59,9 @@ public abstract class CPU {
     public static final int INT_INPUT_NUM = 0x01;
     public static final int INT_STR_STRING = 0x02;
     public static final int INT_DEBUG = 0x03;
+    public static final int INT_DATE = 0x04;
+    public static final int INT_FILE = 0x05;
+
 
 
     public static final int REGISTER_MODE = 0;
@@ -73,6 +76,7 @@ public abstract class CPU {
     // General CPU variables
     protected final int REGISTER_COUNT = 6;
     protected int[] machineCode;
+    protected HashMap<Integer, Integer[]> eachInstruction;
     protected int currentByte = 0;
     public int bit_length = 0;
     protected boolean canExecute = true;
@@ -133,7 +137,9 @@ public abstract class CPU {
     ///
     /// ////////////////////////////////////////////
     ///
-    String signature = "Made by T.K.Y";
+    String signature = "Made by T.K.Y 19/7/2025";
+
+
     public CPU() {
         System.out.println("Setting up CPU.");
         instructionSet.put(INS_EXT, "ext");
@@ -288,6 +294,8 @@ public abstract class CPU {
         outputString.append("line " + currentLine + " : " + errMsg);
         programEnd = true;
         exceptionType = new RuntimeException("line " + currentLine + " : " + errMsg);
+        Logger.addLog("line : " + currentLine + " : " + errMsg);
+        Logger.addLog("Program terminated with code : " + status_code);
         throw exceptionType;
     }
 

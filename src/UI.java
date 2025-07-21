@@ -18,6 +18,7 @@ public class UI extends JFrame implements onStepListener {
     private JTextArea RegisterDumpArea;
     private JButton settingsButton;
     private JButton resetMemoryButton;
+    private JScrollPane MemoryScrollPane;
 
     //private LineNumberComponent lineNumbers;
 
@@ -58,6 +59,8 @@ public class UI extends JFrame implements onStepListener {
         CodeArea.setText(".MAIN\next");
         cpuModule.setUIupdateListener(this);
         updateUI();
+
+        MemoryDumpArea.setCaretPosition(0);
 
         if (!vm.readyToExecute) executeCodeButton.setEnabled(false);
 
@@ -157,9 +160,16 @@ public class UI extends JFrame implements onStepListener {
 
     @Override
     public void updateUI(){
+//        JScrollBar vertical = MemoryScrollPane.getVerticalScrollBar();
+//        JScrollBar horizontal = MemoryScrollPane.getHorizontalScrollBar();
+//         int verticalPosition = vertical.getValue();
+//         int horizontalPosition = horizontal.getValue();
         SwingUtilities.invokeLater( () -> {
+
             RegisterDumpArea.setText(cpuModule.dumpRegisters() + "\n\n" + cpuModule.dumpFlags());
             MemoryDumpArea.setText(cpuModule.dumpMemory());
+//            vertical.setValue(verticalPosition);
+//            horizontal.setValue( horizontalPosition );
             MemoryDumpArea.setCaretPosition(0);
             OutputDumpArea.setText(cpuModule.outputString.toString());
         });

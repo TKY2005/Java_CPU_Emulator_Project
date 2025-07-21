@@ -80,13 +80,14 @@ public class VirtualMachine {
         readyToExecute = false;
     }
 
+    // 8-BIT INTERRUPT HANDLER
     public static boolean interruptHandler(short[] registers, short[] memory){
         boolean validInterrupt = true;
         switch (registers[0]){ // interrupt register : RA
 
             case CPU.INT_INPUT_STR -> {
 
-                System.out.println("Calling interrupt for input string");
+                Logger.addLog("Calling interrupt for input string");
                 String input_message = getInputMessage(registers, memory);
                 //System.out.println("Message is : " + input_message);
                 String input = "";
@@ -115,13 +116,13 @@ public class VirtualMachine {
             }
 
             case CPU.INT_INPUT_NUM -> {
-                System.out.println("Calling interrupt for numeric input");
+                Logger.addLog("Calling interrupt for numeric input");
                 String input_message = getInputMessage(registers, memory);
 
                 short input;
 
                 if (ui){
-                    System.out.println("Showing ui input prompt");
+                    Logger.addLog("Showing ui input prompt");
                     input = Short.parseShort(JOptionPane.showInputDialog(null, input_message, "Numeric input : ",
                             JOptionPane.INFORMATION_MESSAGE));
                 }else{
@@ -134,7 +135,7 @@ public class VirtualMachine {
             }
 
             case CPU.INT_DEBUG -> {
-                System.out.println("Calling debug interrupt.");
+                Logger.addLog("Calling debug interrupt.");
                 System.out.println("Press Enter to continue.");
                 Scanner s = new Scanner(System.in);
                 s.nextLine();
@@ -143,7 +144,7 @@ public class VirtualMachine {
 
             default -> validInterrupt = false;
         }
-        System.out.println("done. returning to original program.");
+        Logger.addLog("done. returning to original program.");
         return validInterrupt;
     }
 
@@ -173,13 +174,14 @@ public class VirtualMachine {
         return input_message;
     }
 
+    // 16-BIT INTERRUPT HANDLER
     public static boolean interruptHandler(int[] registers, short[] memory){
          boolean validInterrupt = true;
         switch (registers[1]){ // interrupt register : RAH
 
             case CPU.INT_INPUT_STR -> {
 
-                System.out.println("Calling interrupt for input string");
+                Logger.addLog("Calling interrupt for input string");
                 String input_message = getInputMessage(registers, memory);
                 //System.out.println("Message is : " + input_message);
                 String input = "";
@@ -208,13 +210,13 @@ public class VirtualMachine {
             }
 
             case CPU.INT_INPUT_NUM -> {
-                System.out.println("Calling interrupt for numeric input");
+                Logger.addLog("Calling interrupt for numeric input");
                 String input_message = getInputMessage(registers, memory);
 
                 int input;
 
                 if (ui){
-                    System.out.println("Showing ui input prompt");
+                    Logger.addLog("Showing ui input prompt");
                     input = Short.parseShort(JOptionPane.showInputDialog(null, input_message, "Numeric input : ",
                             JOptionPane.INFORMATION_MESSAGE));
                 }else{
@@ -226,7 +228,7 @@ public class VirtualMachine {
             }
 
             case CPU.INT_DEBUG -> {
-                System.out.println("Calling debug interrupt.");
+                Logger.addLog("Calling debug interrupt.");
                 System.out.println("Press Enter to continue.");
                 Scanner s = new Scanner(System.in);
                 s.nextLine();
@@ -235,7 +237,7 @@ public class VirtualMachine {
 
             default -> validInterrupt = false;
         }
-        System.out.println("done. returning to original program.");
+        Logger.addLog("done. returning to original program.");
         return validInterrupt;
     }
 
