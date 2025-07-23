@@ -76,6 +76,116 @@ public class CPUModule8BIT extends CPU {
 
 
     @Override
+    public int[] compileToFileBinary(String code){
+        String[] lines = code.split("\n");
+        List<Integer> machineCodeList = new ArrayList<>();
+
+        StringBuilder machineCodeString = new StringBuilder();
+
+
+        // Step 1- Calculate the function offset addresses, add .DATA variables to the data section, and build a raw code string
+        String fullCode = "";
+        for(int i = 0; i < lines.length; i++){
+            currentLine++;
+            // Which section are we in? (is it a line of code? is it a function. and if it starts with '.' is it the data section?)
+            if (lines[i].equals(".DATA")){
+                System.out.println("Data section detected.");
+                int offset = 0;
+                i++; // skip .DATA line
+
+             while (!lines[i].equals("end")) {
+
+                 String[] x = lines[i].trim().split(" ");
+                 if (x[0].equals("org")) data_start = Integer.parseInt(x[1].substring(1)) - offset;
+
+                 else {
+                     dataMap.put(x[0], data_start + offset);
+                     if (x[1].startsWith(String.valueOf(STRING_PREFIX))) { // 34 in decimal 0x22 in hex
+                         String fullString = String.join(" ", x);
+
+                         int startIndex = fullString.indexOf(34) + 1;
+                         int endIndex = fullString.length() - 1;
+                         fullString = fullString.substring(startIndex, endIndex);
+                         for (int j = 0; j < fullString.length(); j++) {
+                             System.out.printf("Setting memory location 0x%X(%d) to char %c\n",
+                                     data_start + offset, data_start + offset, fullString.charAt(j));
+                             setMemory(data_start + offset, (short) fullString.charAt(j));
+                             offset++;
+                         }
+                         setMemory(offset, NULL_TERMINATOR);
+                         offset++;
+                     } else {
+                         for (int j = 1; j < x.length; j++) {
+                             System.out.printf("Setting memory location 0x%X(%d) to value 0x%X(%d)\n",
+                                     data_start + offset, data_start + offset,
+                                     Integer.parseInt(x[j].substring(1)), Integer.parseInt(x[j].substring(1)));
+
+                             setMemory(data_start + offset, Integer.parseInt(x[j].substring(1)));
+                             offset++;
+                         }
+                         setMemory(offset, NULL_TERMINATOR);
+                         offset++;
+                     }
+                 }
+                 i++;
+             }
+            }
+            else if (lines[i].startsWith(".")){ // regular function. add the function along with the calculated offset
+                functions.put(lines[i].substring(1), currentByte);
+            }
+            else{ // code line. append the offset based on the string length.
+                // in this architecture there's only 3 possible cases
+                // no-operand instruction = 1 byte
+                // single-operand instruction = 3 bytes
+                // 2 operand instruction = 5 bytes
+                if (lines[i].isEmpty() || lines[i].startsWith(COMMENT_PREFIX)) continue;
+                int len = lines[i].trim().split(" ").length;
+                if (len == 3) currentByte += 5;
+                else if (len == 2) currentByte += 3;
+                else currentByte += 1;
+
+                fullCode += lines[i] + "\n";
+            }
+        }
+        System.out.println(functions);
+        System.out.println(dataMap);
+
+        // Step 2- convert the raw code to machine code array.
+        String[] fullLines = fullCode.split("\n");
+
+        currentLine = 1;
+        eachInstruction = new HashMap<>();
+        for(int i = 0; i < fullLines.length; i++){
+
+            currentLine++;
+            String a = Arrays.toString(toMachineCode(fullLines[i])).replace("[", "").replace("]", "");
+            //eachInstruction.put(i, toMachineCode(fullLines[i]));
+            machineCodeString.append(a);
+            if (i < fullLines.length - 1) machineCodeString.append(", ");
+        }
+
+        String[] eachNum = machineCodeString.toString().split(", ");
+
+        for(int i = 0; i < eachNum.length; i++){ // The TEXT section
+            if (isNumber(eachNum[i])){
+                machineCodeList.add(Integer.parseInt(eachNum[i]));
+            }
+        }
+
+        for(int i = 0; i < memory.length; i++){ // The DATA and STACK sections
+            machineCodeList.add((int) memory[i]);
+        }
+
+        for(int i = 0; i < signature.length(); i++){ // My signature
+            machineCodeList.add((int) signature.charAt(i));
+        }
+        machineCodeList.add( bit_length ); // the CPU architecture flag
+        machineCode = machineCodeList.stream().mapToInt(Integer::intValue).toArray();
+
+        return machineCode;
+    }
+
+    @Override
     public void reset(){
 
         // 6 General purpose registers + 6 Special purpose registers

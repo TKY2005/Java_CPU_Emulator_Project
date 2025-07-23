@@ -126,6 +126,8 @@ public abstract class CPU {
     public static final String COMMENT_PREFIX = ";";
 
     public static final byte NULL_TERMINATOR = 0x00;
+    public static final byte TEXT_SECTION_END = (byte) 0xEA;
+    public static final byte MEMORY_SECTION_END = (byte) 0xCC;
 
     // Special Purpose Register Codes for faster access
     protected int PC = 6;
@@ -137,7 +139,7 @@ public abstract class CPU {
     ///
     /// ////////////////////////////////////////////
     ///
-    String signature = "Made by T.K.Y 19/7/2025";
+    String signature = "Made by T.K.Y 23/7/2025";
 
 
     public CPU() {
@@ -211,6 +213,7 @@ public abstract class CPU {
 
    public abstract int[] toMachineCode(String instruction);
     public abstract int[] compileCode(String code);
+    public abstract int[] compileToFileBinary(String code);
     public abstract void executeCompiledCode(int[] machine_code);
 
     public String dumpROM(){
@@ -222,7 +225,7 @@ public abstract class CPU {
                 hexDump.append(String.format("%04X : \t", i));
             }
 
-            hexDump.append(String.format("0x%X" ,machineCode[i])).append(" ");
+            hexDump.append(String.format("0x%02X" ,machineCode[i])).append(" ");
             //hexDump.append("0x").append(leftPad(Integer.toHexString(machineCode[i]).toUpperCase(), padding, '0')).append(" ");
         }
         return hexDump.toString();
@@ -296,6 +299,12 @@ public abstract class CPU {
         exceptionType = new RuntimeException("line " + currentLine + " : " + errMsg);
         Logger.addLog("line : " + currentLine + " : " + errMsg);
         Logger.addLog("Program terminated with code : " + status_code);
+        Logger.addLog("==============================");
+        Logger.addLog(dumpRegisters());
+        Logger.addLog(dumpFlags());
+        Logger.addLog("================================");
+        Logger.addLog(dumpMemory());
+        Logger.writeLogFile("ErrLog.log");
         throw exceptionType;
     }
 

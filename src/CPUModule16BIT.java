@@ -310,10 +310,15 @@ public class CPUModule16BIT extends CPU {
 
 
         // Instruction format: opcode (1 byte) optional: operand1 (2 bytes) optional: operand2 (2 bytes)
+        // NOTE: if the instruction has an address, then operand size will be 3 bytes (1 byte for mode, 2 bytes for address)
         // Output machine code: opcode operand1_addressing_mode operand1_value operand2_addressing_mode operand2_value
         int length = 1; // 1 byte for opcode
         for(int i = 1; i < tokens.length; i++){
-            length += 2; // 2 bytes for all remaining operands
+            //length += 2; // 2 bytes for all remaining operands
+            switch (tokens[i].charAt(0)){
+                case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX, IMMEDIATE_PREFIX -> length += 2;
+                default -> length += 3;
+            }
         }
         int[] result = new int[length];
 
@@ -365,7 +370,10 @@ public class CPUModule16BIT extends CPU {
                     }
 
                     else {
-                        result[i + 1] = dataPointer;
+                        int low = dataPointer & 0xff;
+                        int high = (dataPointer >> 8) & 0xff;
+                        result[i + 1] = high;
+                        result[i + 2] = low;
                         tokenIndex++;
                         break;
                     }
@@ -383,7 +391,10 @@ public class CPUModule16BIT extends CPU {
                     }
 
                     else {
-                        result[i + 1] = functions.get(tokens[tokenIndex]);
+                        int low = functionPointer & 0xff;
+                        int high = (functionPointer >> 8) & 0xff;
+                        result[i + 1] = high;
+                        result[i + 2] = low;
                         tokenIndex++;
                         break;
                     }
@@ -475,8 +486,32 @@ public class CPUModule16BIT extends CPU {
                 // 2 operand instruction = 5 bytes
                 if (lines[i].isEmpty() || lines[i].startsWith(COMMENT_PREFIX)) continue;
                 int len = lines[i].trim().split(" ").length;
-                if (len == 3) currentByte += 5;
-                else if (len == 2) currentByte += 3;
+
+                if (len == 3){
+                    switch (lines[i].trim().split(" ")[2].charAt(0)){
+                        case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX, IMMEDIATE_PREFIX -> {
+                            currentByte += 5;
+                        }
+                        default -> {
+                            System.out.println("Address loading detected. adding 6 bytes");
+                            currentByte += 6;
+                        }
+                    }
+                    //currentByte += 5;
+                }
+                else if (len == 2) {
+                    switch (lines[i].trim().split(" ")[1].charAt(0)){
+                        case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX, IMMEDIATE_PREFIX -> {
+                            System.out.println("Adding 3 bytes due to no function.");
+                            currentByte += 3;
+                        }
+                        default ->{
+                            System.out.println("Function detected. adding 4 bytes.");
+                            currentByte += 4;
+                        }
+                    }
+                    //currentByte += 3;
+                }
                 else currentByte += 1;
 
                 fullCode += lines[i] + "\n";
@@ -505,11 +540,150 @@ public class CPUModule16BIT extends CPU {
                 machineCodeList.add(Integer.parseInt(eachNum[i]));
             }
         }
+        machineCodeList.add((int) TEXT_SECTION_END);
 
-        for(int i = 0; i < signature.length(); i++){
+        for(int i = 0; i < signature.length(); i++){ // My signature
             machineCodeList.add((int) signature.charAt(i));
         }
-        machineCodeList.add( bit_length );
+        machineCodeList.add( bit_length ); // the CPU architecture flag
+        machineCode = machineCodeList.stream().mapToInt(Integer::intValue).toArray();
+
+        return machineCode;
+    }
+
+
+
+
+    @Override
+    public int[] compileToFileBinary(String code){
+        String[] lines = code.split("\n");
+        List<Integer> machineCodeList = new ArrayList<>();
+
+        StringBuilder machineCodeString = new StringBuilder();
+
+
+        // Step 1- Calculate the function offset addresses, add .DATA variables to the data section, and build a raw code string
+        String fullCode = "";
+        for(int i = 0; i < lines.length; i++){
+            currentLine++;
+            // Which section are we in? (is it a line of code? is it a function. and if it starts with '.' is it the data section?)
+            if (lines[i].equals(".DATA")){
+                System.out.println("Data section detected.");
+                int offset = 0;
+                i++; // skip .DATA line
+
+             while (!lines[i].equals("end")) {
+
+                 String[] x = lines[i].trim().split(" ");
+                 if (x[0].equals("org")) data_start = Integer.parseInt(x[1].substring(1)) - offset;
+
+                 else {
+                     dataMap.put(x[0], data_start + offset);
+                     if (x[1].startsWith(String.valueOf(STRING_PREFIX))) { // 34 in decimal 0x22 in hex
+                         String fullString = String.join(" ", x);
+
+                         int startIndex = fullString.indexOf(34) + 1;
+                         int endIndex = fullString.length() - 1;
+                         fullString = fullString.substring(startIndex, endIndex);
+                         for (int j = 0; j < fullString.length(); j++) {
+                             System.out.printf("Setting memory location 0x%X(%d) to char %c\n",
+                                     data_start + offset, data_start + offset, fullString.charAt(j));
+                             setMemory(data_start + offset, (short) fullString.charAt(j));
+                             offset++;
+                         }
+                         setMemory(offset, NULL_TERMINATOR);
+                         offset++;
+                     } else {
+                         for (int j = 1; j < x.length; j++) {
+                             System.out.printf("Setting memory location 0x%X(%d) to value 0x%X(%d)\n",
+                                     data_start + offset, data_start + offset,
+                                     Integer.parseInt(x[j].substring(1)), Integer.parseInt(x[j].substring(1)));
+
+                             setMemory(data_start + offset, Integer.parseInt(x[j].substring(1)));
+                             offset++;
+                         }
+                         setMemory(offset, NULL_TERMINATOR);
+                         offset++;
+                     }
+                 }
+                 i++;
+             }
+            }
+            else if (lines[i].startsWith(".")){ // regular function. add the function along with the calculated offset
+                functions.put(lines[i].substring(1), currentByte);
+            }
+            else{ // code line. append the offset based on the string length.
+                // in this architecture there's only 3 possible cases
+                // no-operand instruction = 1 byte
+                // single-operand instruction = 3 bytes
+                // 2 operand instruction = 5 bytes
+                if (lines[i].isEmpty() || lines[i].startsWith(COMMENT_PREFIX)) continue;
+                int len = lines[i].trim().split(" ").length;
+                if (len == 3){
+                    switch (lines[i].trim().split(" ")[2].charAt(0)){
+                        case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX, IMMEDIATE_PREFIX -> {
+                            currentByte += 5;
+                        }
+                        default -> {
+                            System.out.println("Address loading detected. adding 6 bytes");
+                            currentByte += 6;
+                        }
+                    }
+                    //currentByte += 5;
+                }
+                else if (len == 2) {
+                    switch (lines[i].trim().split(" ")[1].charAt(0)){
+                        case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX, IMMEDIATE_PREFIX -> {
+                            System.out.println("Adding 3 bytes due to no function.");
+                            currentByte += 3;
+                        }
+                        default ->{
+                            System.out.println("Function detected. adding 4 bytes.");
+                            currentByte += 4;
+                        }
+                    }
+                    //currentByte += 3;
+                }
+                else currentByte += 1;
+
+                fullCode += lines[i] + "\n";
+            }
+        }
+        System.out.println(functions);
+        System.out.println(dataMap);
+
+        // Step 2- convert the raw code to machine code array.
+        String[] fullLines = fullCode.split("\n");
+
+        currentLine = 1;
+        eachInstruction = new HashMap<>();
+        for(int i = 0; i < fullLines.length; i++){
+
+            currentLine++;
+            String a = Arrays.toString(toMachineCode(fullLines[i])).replace("[", "").replace("]", "");
+            //eachInstruction.put(i, toMachineCode(fullLines[i]));
+            machineCodeString.append(a);
+            if (i < fullLines.length - 1) machineCodeString.append(", ");
+        }
+
+        String[] eachNum = machineCodeString.toString().split(", ");
+
+        for(int i = 0; i < eachNum.length; i++){ // The TEXT section
+            if (isNumber(eachNum[i])){
+                machineCodeList.add(Integer.parseInt(eachNum[i]));
+            }
+        }
+        machineCodeList.add((int) TEXT_SECTION_END);
+
+        for(int i = 0; i < memory.length; i++){ // The DATA and STACK sections
+            machineCodeList.add((int) memory[i]);
+        }
+        machineCodeList.add((int) MEMORY_SECTION_END);
+
+        for(int i = 0; i < signature.length(); i++){ // My signature
+            machineCodeList.add((int) signature.charAt(i));
+        }
+        machineCodeList.add( bit_length ); // the CPU architecture flag
         machineCode = machineCodeList.stream().mapToInt(Integer::intValue).toArray();
 
         return machineCode;
@@ -536,7 +710,7 @@ public class CPUModule16BIT extends CPU {
         registers[PC] = mainEntryPoint;
         I = true;
 
-        while (!programEnd && registers[PC] < machine_code.length){
+        while (!programEnd && registers[PC] != TEXT_SECTION_END){
             if (canExecute) {
                 Logger.addLog( String.format("Executing instruction 0x%X -> %s at ROM address 0x%X",
                         machine_code[registers[PC]],
@@ -648,18 +822,18 @@ public class CPUModule16BIT extends CPU {
                     }
 
                     case INS_LA -> {
-                        // Get the source (must be 16-bit compatible). step to the address. load into source
-                        int[] source = getNextOperand();
+                        // Get the destination (must be 16-bit compatible). step to the address. load into source
+                        int[] destination = getNextOperand();
                         step();
                         step();
-                        la(source);
+                        la(destination);
                     }
 
                     case INS_LLEN -> {
                         int[] destination = getNextOperand();
                         step();
                         step();
-                        int start = machine_code[registers[PC]];
+                        int start = ( machine_code[registers[PC]] << 8 ) | machine_code[step()];
                         short len = 0;
                         while (getMemory(start) != NULL_TERMINATOR) {
                             start++;
@@ -696,7 +870,7 @@ public class CPUModule16BIT extends CPU {
 
                     case INS_CALL -> {
                         step();
-                        int address = machine_code[step()];
+                        int address = ( ( machine_code[step()] << 8 ) | machine_code[step()] );
                         int return_address = step() - 1;
                         call(address, return_address);
                     }
@@ -713,6 +887,7 @@ public class CPUModule16BIT extends CPU {
                         int address = machine_code[step()];
                         int return_address = machine_code[step()];
                         if (Z) call(address, return_address);
+                        else step();
                     }
                     case INS_CNE -> {
                         step();
@@ -725,24 +900,28 @@ public class CPUModule16BIT extends CPU {
                         int address = machine_code[step()];
                         int return_address = machine_code[step()];
                         if (N) call(address, return_address);
+                        else step();
                     }
                     case INS_CLE -> {
                         step();
                         int address = machine_code[step()];
                         int return_address = machine_code[step()];
                         if (N || Z) call(address, return_address);
+                        else step();
                     }
                     case INS_CG -> {
                         step();
                         int address = machine_code[step()];
                         int return_address = machine_code[step()];
                         if (!N) call(address, return_address);
+                        else step();
                     }
                     case INS_CGE -> {
                         step();
                         int address = machine_code[step()];
                         int return_address = machine_code[step()];
                         if (!N || Z) call(address, return_address);
+                        else step();
                     }
 
                     case INS_JMP -> {
@@ -754,31 +933,37 @@ public class CPUModule16BIT extends CPU {
                         step();
                         step();
                         if (Z) jmp();
+                        else step();
                     }
                     case INS_JNE -> {
                         step();
                         step();
                         if (!Z) jmp();
+                        else step();
                     }
                     case INS_JL -> {
                         step();
                         step();
                         if (N) jmp();
+                        else step();
                     }
                     case INS_JLE -> {
                         step();
                         step();
                         if (N || Z) jmp();
+                        else step();
                     }
                     case INS_JG -> {
                         step();
                         step();
                         if (!N) jmp();
+                        else step();
                     }
                     case INS_JGE -> {
                         step();
                         step();
                         if (!N || Z) jmp();
+                        else step();
                     }
 
                     case INS_CMP -> {
@@ -791,12 +976,11 @@ public class CPUModule16BIT extends CPU {
                         // if RCX > 0: decrement RC and jump to the label address specified.
                         step();
                         step();
-                        //short address = (short) machine_code[ registers[PC] ];
 
                         registers[RCX]--;
                         if (registers[RCX] > 0) {
                             jmp();
-                        }
+                        }else step();
                     }
 
                     case INS_INT -> {
@@ -1431,8 +1615,8 @@ public class CPUModule16BIT extends CPU {
     }
 
     public void la(int[] source){
-        int address = machineCode[ registers[PC] ];
-        Logger.addLog(String.format("Loading address present in PC : %X", address));
+        int address = (machineCode[ registers[PC] ] << 8) | machineCode[step()];
+        Logger.addLog(String.format("Loading address present in PC : 0x%X", address));
         switch (source[0]){
             case REGISTER_MODE, REGISTER_WORD_MODE -> setRegister( source[1], address);
             case DIRECT_MODE, DIRECT_WORD_MODE -> setMemory( source[1], address );
@@ -1566,14 +1750,14 @@ public class CPUModule16BIT extends CPU {
         Logger.addLog(String.format("Pushing return address %X into function call stack.", return_address));
         functionCallStack.push(return_address); // save the return address
         Logger.addLog(String.format("Updating PC to point to caller's address : %X", address));
-        registers[PC] = address - 1; // sub 1 to nullify the step()
+        registers[PC] = address - 1; // sub 2 to nullify the step() and the address byte
     }
 
 
     public void jmp(){
         Logger.addLog("Updating PC to point to caller's address : 0x" +
-                Integer.toHexString(machineCode[ registers[PC] ]));
-        registers[PC] = machineCode[registers[PC]] - 1;
+                Integer.toHexString( (machineCode[registers[PC]] << 8) | machineCode[registers[PC] + 1] ));
+        registers[PC] = ( ( machineCode[registers[PC]] << 8 ) | machineCode[step()] ) - 1;
     }
 
 

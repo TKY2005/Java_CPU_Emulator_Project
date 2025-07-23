@@ -7,6 +7,7 @@ public class VirtualMachine {
     public boolean readyToExecute = false;
     public boolean UIMode = false;
     public static boolean ui = false;
+    public byte compileDirection = 0;
 
     public String err_msg = "";
 
@@ -55,7 +56,8 @@ public class VirtualMachine {
         }
 
         try {
-            cpuModule.machineCode = cpuModule.compileCode(result.toString());
+            if (compileDirection == 0) cpuModule.machineCode = cpuModule.compileCode(result.toString());
+            else if (compileDirection == 1) cpuModule.machineCode = cpuModule.compileToFileBinary(result.toString());
             System.out.println(cpuModule.dumpROM());
             ui = UIMode;
         }catch (RuntimeException e) {

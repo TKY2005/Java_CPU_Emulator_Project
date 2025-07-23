@@ -1,9 +1,8 @@
 import javax.swing.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
+import java.io.*;
+import java.nio.file.Files;
 import java.util.*;
 
 public class UI extends JFrame implements onStepListener {
@@ -68,6 +67,7 @@ public class UI extends JFrame implements onStepListener {
         compileCodeButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                vm.compileDirection = 0;
                 String code = CodeArea.getText();
                 try {
                     vm.sendCode(code);
@@ -154,6 +154,30 @@ public class UI extends JFrame implements onStepListener {
                     e.printStackTrace();
                     JOptionPane.showMessageDialog(panel1, "Error reading from file.", "Error", JOptionPane.ERROR_MESSAGE);
                 }
+            }
+        });
+
+
+        compileCodeToFileButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+
+                vm.compileDirection = 1;
+                vm.sendCode(CodeArea.getText());
+
+                String filename = JOptionPane.showInputDialog(panel1, "Enter the file name.",
+                        "Input", JOptionPane.INFORMATION_MESSAGE);
+
+                try{
+                    File file = new File("./"+filename+".tky");
+                    byte[] codeBinary = new byte[cpuModule.machineCode.length];
+
+                    for(int i = 0; i < codeBinary.length; i++)
+                        codeBinary[i] = (byte) cpuModule.machineCode[i];
+
+                    Files.write(file.toPath(), codeBinary);
+
+                }catch (Exception e) {e.printStackTrace();}
             }
         });
     }
