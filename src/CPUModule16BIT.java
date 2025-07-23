@@ -545,6 +545,7 @@ public class CPUModule16BIT extends CPU {
         for(int i = 0; i < signature.length(); i++){ // My signature
             machineCodeList.add((int) signature.charAt(i));
         }
+        machineCodeList.add( memorySize ); // The memory size in KB
         machineCodeList.add( bit_length ); // the CPU architecture flag
         machineCode = machineCodeList.stream().mapToInt(Integer::intValue).toArray();
 
@@ -683,6 +684,8 @@ public class CPUModule16BIT extends CPU {
         for(int i = 0; i < signature.length(); i++){ // My signature
             machineCodeList.add((int) signature.charAt(i));
         }
+
+        machineCodeList.add( memorySize ); // The memory size in KB
         machineCodeList.add( bit_length ); // the CPU architecture flag
         machineCode = machineCodeList.stream().mapToInt(Integer::intValue).toArray();
 
@@ -692,7 +695,7 @@ public class CPUModule16BIT extends CPU {
     @Override
     public void executeCompiledCode(int[] machine_code){
 
-        if (machine_code[ machine_code.length - 1 ] != bit_length){
+        if (machine_code[ machine_code.length - 1 ] != bit_length){ // Check the architecture
             String err = String.format("This code has been compiled for %d-bit architecture." +
                     " the current CPU architecture is %d-bit.\n",
                     machine_code[ machine_code.length -1  ], bit_length
@@ -700,6 +703,15 @@ public class CPUModule16BIT extends CPU {
 
             triggerProgramError( new ErrorHandler.CodeCompilationError(err),
                     err, ErrorHandler.ERR_CODE_INCOMPATIBLE_ARCHITECTURE);
+        }
+
+        if (machine_code [machine_code.length - 2] > memorySize ){ // Check the allocated memory
+            String err = String.format("The selected binary file is generated with %dKB of memory." +
+                    "The current configuration uses %dKB. make sure current CPU uses the same or bigger memory size.",
+                    machine_code[machine_code.length - 2], memorySize);
+
+            triggerProgramError(new ErrorHandler.CodeCompilationError(err),
+                    err, ErrorHandler.ERR_CODE_INSUFFICIENT_MEMORY);
         }
         Integer mainEntryPoint = functions.get("MAIN");
         if (mainEntryPoint == null){
