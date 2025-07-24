@@ -27,6 +27,14 @@ public class CLI {
         vm.UIMode = false;
         loadBinaryFile();
 
+
+        if (cpuModule.machineCode[ cpuModule.machineCode.length - 3 ] != cpuModule.bit_length){
+            System.out.printf("This code has been compiled for %d-bit architecture." +
+                    " the current CPU architecture is %d-bit.\n",
+                    cpuModule.machineCode[cpuModule.machineCode.length - 3], cpuModule.bit_length);
+
+            System.exit(-1);
+        }
         vm.readyToExecute = true;
         int entryPointLow = cpuModule.machineCode[ cpuModule.machineCode.length - 1 ];
         int entryPointHigh = cpuModule.machineCode[ cpuModule.machineCode.length - 2 ];
@@ -48,6 +56,14 @@ public class CLI {
 
             for(int i = ROMsize + 1; machineCode[i] != CPU.MEMORY_SECTION_END; i++) MEMsize++;
 
+
+            if (MEMsize > cpuModule.memory.length){
+                System.out.printf("The selected binary file is generated with %dKB of memory." +
+                    "The current configuration uses %dKB. make sure current CPU uses the same or bigger memory size.\n",
+                        MEMsize / 1024, cpuModule.memory.length / 1024);
+
+                System.exit(-1);
+            }
 
             List<Integer> machineCodeList = new ArrayList<>();
             for(int i = 0; i <= ROMsize; i++) machineCodeList.add(machineCode[i] & 0xff);
