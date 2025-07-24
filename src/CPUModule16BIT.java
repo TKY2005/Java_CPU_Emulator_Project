@@ -547,6 +547,16 @@ public class CPUModule16BIT extends CPU {
         }
         machineCodeList.add( memorySize ); // The memory size in KB
         machineCodeList.add( bit_length ); // the CPU architecture flag
+
+        // Add the program's entry point.
+        int entryPoint = functions.get("MAIN");
+
+        int entryPointLow = entryPoint & 0xff;
+        int entryPointHigh = (entryPoint >> 8) & 0xff;
+
+        machineCodeList.add(entryPointHigh);
+        machineCodeList.add(entryPointLow);
+
         machineCode = machineCodeList.stream().mapToInt(Integer::intValue).toArray();
 
         return machineCode;
@@ -687,6 +697,16 @@ public class CPUModule16BIT extends CPU {
 
         machineCodeList.add( memorySize ); // The memory size in KB
         machineCodeList.add( bit_length ); // the CPU architecture flag
+
+        // Add the program's entry point.
+        int entryPoint = functions.get("MAIN");
+
+        int entryPointLow = entryPoint & 0xff;
+        int entryPointHigh = (entryPoint >> 8) & 0xff;
+
+        machineCodeList.add(entryPointHigh);
+        machineCodeList.add(entryPointLow);
+
         machineCode = machineCodeList.stream().mapToInt(Integer::intValue).toArray();
 
         return machineCode;
@@ -695,24 +715,6 @@ public class CPUModule16BIT extends CPU {
     @Override
     public void executeCompiledCode(int[] machine_code){
 
-        if (machine_code[ machine_code.length - 1 ] != bit_length){ // Check the architecture
-            String err = String.format("This code has been compiled for %d-bit architecture." +
-                    " the current CPU architecture is %d-bit.\n",
-                    machine_code[ machine_code.length -1  ], bit_length
-                    );
-
-            triggerProgramError( new ErrorHandler.CodeCompilationError(err),
-                    err, ErrorHandler.ERR_CODE_INCOMPATIBLE_ARCHITECTURE);
-        }
-
-        if (machine_code [machine_code.length - 2] > memorySize ){ // Check the allocated memory
-            String err = String.format("The selected binary file is generated with %dKB of memory." +
-                    "The current configuration uses %dKB. make sure current CPU uses the same or bigger memory size.",
-                    machine_code[machine_code.length - 2], memorySize);
-
-            triggerProgramError(new ErrorHandler.CodeCompilationError(err),
-                    err, ErrorHandler.ERR_CODE_INSUFFICIENT_MEMORY);
-        }
         Integer mainEntryPoint = functions.get("MAIN");
         if (mainEntryPoint == null){
             String err = "MAIN function label not found.";
@@ -721,6 +723,25 @@ public class CPUModule16BIT extends CPU {
         }
         registers[PC] = mainEntryPoint;
         I = true;
+
+        if (machine_code[ machine_code.length - 3 ] != bit_length){ // Check the architecture
+            String err = String.format("This code has been compiled for %d-bit architecture." +
+                    " the current CPU architecture is %d-bit.\n",
+                    machine_code[ machine_code.length - 3  ], bit_length
+                    );
+
+            triggerProgramError( new ErrorHandler.CodeCompilationError(err),
+                    err, ErrorHandler.ERR_CODE_INCOMPATIBLE_ARCHITECTURE);
+        }
+
+        if (machine_code [machine_code.length - 4] > memorySize ){ // Check the allocated memory
+            String err = String.format("The selected binary file is generated with %dKB of memory." +
+                    "The current configuration uses %dKB. make sure current CPU uses the same or bigger memory size.",
+                    machine_code[machine_code.length - 2], memorySize);
+
+            triggerProgramError(new ErrorHandler.CodeCompilationError(err),
+                    err, ErrorHandler.ERR_CODE_INSUFFICIENT_MEMORY);
+        }
 
         while (!programEnd && registers[PC] != TEXT_SECTION_END){
             if (canExecute) {
@@ -864,9 +885,11 @@ public class CPUModule16BIT extends CPU {
                         int start = registers[SS];
                         while (readByte(start) != NULL_TERMINATOR) {
                             outputString.append((char) memory[start]);
+                            output += (char) memory[start];
                             start++;
                         }
                         //outputString.append("\n");
+                        System.out.print(output);
                     }
 
                     case INS_PUSH -> {
@@ -887,9 +910,7 @@ public class CPUModule16BIT extends CPU {
                         call(address, return_address);
                     }
                     case INS_RET -> {
-                        System.out.println(functionCallStack);
                         int return_address = functionCallStack.pop();
-                        System.out.printf("Popping address 0x%X from the stack.\n", return_address);
                         Logger.addLog(String.format("Popping return address 0x%X from function call stack", return_address));
                         registers[PC] = return_address;
                     }
@@ -1020,12 +1041,14 @@ public class CPUModule16BIT extends CPU {
                 }
 
                 canExecute = !T;
+                output = "";
                 step();
             }
 
         }
 
         outputString.append("Program terminated with code : ").append(status_code);
+        output = "Program terminated with code : " + status_code;
         Logger.addLog( "Program terminated with code : " + status_code );
 
         Logger.addLog(String.format("""
@@ -1073,6 +1096,8 @@ public class CPUModule16BIT extends CPU {
 
         Logger.addLog("Fetching operands");
         outputString.append(getOperandValue(source));
+        output = String.valueOf(getOperandValue(source));
+        System.out.print(output);
     }
 
 

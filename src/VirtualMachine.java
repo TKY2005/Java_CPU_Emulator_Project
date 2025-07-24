@@ -70,7 +70,6 @@ public class VirtualMachine {
     }
 
     public void executeCode(){
-        // Implement delay and stepping logic and update UI components
         cpuModule.executeCompiledCode(cpuModule.machineCode);
     }
 

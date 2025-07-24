@@ -64,5 +64,14 @@ public class Launcher{
             System.out.println("No arguments. Going into UI mode.");
             new UI("T.K.Y CPU Emulator V" + Launcher.version);
         }
+        else if (args[0].equals("cli")){
+            System.out.println("Starting in CLI mode.");
+            if (args[1] == null){
+                System.out.println("Please enter the binary file path.");
+                System.exit(-1);
+            }
+            String filePath = args[1];
+            new CLI(filePath);
+        }
     }
 }

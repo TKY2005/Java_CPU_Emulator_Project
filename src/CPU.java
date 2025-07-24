@@ -93,6 +93,7 @@ public abstract class CPU {
 
 
     protected StringBuilder outputString = new StringBuilder();
+    protected String output = "";
 
     protected int status_code = 0;
 
