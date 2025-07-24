@@ -73,5 +73,17 @@ public class Launcher{
             String filePath = args[1];
             new CLI(filePath);
         }
+
+        else if (args[0].equals("compile")){
+
+            if (args[1] == null || args[2] == null){
+                System.out.println("Please provide the source code file path and the output binary path");
+                System.exit(-1);
+            }
+            String sourceCodeFilePath = args[1];
+            String outputPath = args[2];
+
+            CLICompiler compiler = new CLICompiler(sourceCodeFilePath, outputPath);
+        }
     }
 }
