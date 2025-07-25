@@ -51,6 +51,7 @@ public abstract class CPU {
     public static final int INS_RET = 0x2e;
     public static final int INS_END = 0x2f;
     public static final int INS_INT = 0x30;
+    public static final int INS_OUTC = 0x31;
 
 
 
@@ -140,7 +141,9 @@ public abstract class CPU {
     ///
     /// ////////////////////////////////////////////
     ///
-    String signature = "Made by T.K.Y 23/7/2025";
+    String signature = "Made by T.K.Y";
+    String lastUpdateDate = " 23/7/2025";
+    String compilerVersion = " V1.0";
 
 
     public CPU() {
@@ -194,6 +197,7 @@ public abstract class CPU {
         instructionSet.put(INS_RET, "ret");
         instructionSet.put(INS_END, "end");
         instructionSet.put(INS_INT, "int");
+        instructionSet.put(INS_OUTC, "outc");
 
 
         translationMap = createTranslationMap(instructionSet);

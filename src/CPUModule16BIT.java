@@ -542,13 +542,19 @@ public class CPUModule16BIT extends CPU {
         }
         machineCodeList.add((int) TEXT_SECTION_END);
 
-        for(int i = 0; i < signature.length(); i++){ // My signature
+        for(int i = 0; i < signature.length(); i++) // My signature, last release date and compiler version
             machineCodeList.add((int) signature.charAt(i));
-        }
+
+        for(int i = 0; i < lastUpdateDate.length(); i++)
+            machineCodeList.add((int) lastUpdateDate.charAt(i));
+
+        for(int i = 0; i < compilerVersion.length(); i++)
+            machineCodeList.add((int) compilerVersion.charAt(i));
+
         machineCodeList.add( memorySize ); // The memory size in KB
         machineCodeList.add( bit_length ); // the CPU architecture flag
 
-        // Add the program's entry point.
+        // The program's entry point.
         int entryPoint = functions.get("MAIN");
 
         int entryPointLow = entryPoint & 0xff;
@@ -691,9 +697,14 @@ public class CPUModule16BIT extends CPU {
         }
         machineCodeList.add((int) MEMORY_SECTION_END);
 
-        for(int i = 0; i < signature.length(); i++){ // My signature
+        for(int i = 0; i < signature.length(); i++) // My signature, last release date and compiler version
             machineCodeList.add((int) signature.charAt(i));
-        }
+
+        for(int i = 0; i < lastUpdateDate.length(); i++)
+            machineCodeList.add((int) lastUpdateDate.charAt(i));
+
+        for(int i = 0; i < compilerVersion.length(); i++)
+            machineCodeList.add((int) compilerVersion.charAt(i));
 
         machineCodeList.add( memorySize ); // The memory size in KB
         machineCodeList.add( bit_length ); // the CPU architecture flag
@@ -767,6 +778,11 @@ public class CPUModule16BIT extends CPU {
                     case INS_OUT -> {
                         int[] destination = getNextOperand();
                         out(destination);
+                    }
+
+                    case INS_OUTC -> {
+                        int[] source = getNextOperand();
+                        outc(source);
                     }
 
 
@@ -1097,6 +1113,13 @@ public class CPUModule16BIT extends CPU {
         Logger.addLog("Fetching operands");
         outputString.append(getOperandValue(source));
         output = String.valueOf(getOperandValue(source));
+        System.out.print(output);
+    }
+
+    public void outc(int[] source){
+        Logger.addLog("Fetching operands");
+        outputString.append( (char) getOperandValue(source) );
+        output = String.valueOf( (char) getOperandValue(source) );
         System.out.print(output);
     }
 
