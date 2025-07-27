@@ -382,4 +382,23 @@ public abstract class CPU {
     public boolean isValidMemoryAddress(int address){
         return address <= last_addressable_location && address >= 0;
     }
+
+    public String dumpMemoryDebug(int startAddress){
+        int chunkSize = 10;
+        StringBuilder result = new StringBuilder();
+        StringBuilder charSet = new StringBuilder();
+        for(int i = startAddress; i <= startAddress + 30; i++){
+
+            if (i % chunkSize == 0) result.append(String.format("%05X :\t", i));
+
+            result.append(String.format("0x%02X\t", memory[i] & 0xff));
+            charSet.append( (Character.isLetterOrDigit(memory[i])) ? (char) memory[i] : "." );
+
+            if ((i + 1) % chunkSize == 0){
+                result.append("\t\t").append("|").append(charSet).append("|").append("\n");
+                charSet.setLength(0);
+            }
+        }
+        return result.toString();
+    }
 }

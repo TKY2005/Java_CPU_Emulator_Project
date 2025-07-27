@@ -1,0 +1,26 @@
+#! /bin/python3
+
+import sys
+
+
+filename = sys.argv[1]
+memsize = int(sys.argv[2])
+architecture = int(sys.argv[3])
+entryPoint = int(sys.argv[4])
+
+x = bytearray([0x00] * memsize * 1024)
+x.append(0xCC)
+
+
+x.append(memsize)
+x.append(architecture)
+
+higher = (entryPoint >> 8) & 0xFF
+lower = entryPoint & 0xFF
+
+x.append(higher)
+x.append(lower)
+
+file = open(filename, "wb")
+file.write(x)
+file.close()

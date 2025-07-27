@@ -137,9 +137,25 @@ public class VirtualMachine {
 
             case CPU.INT_DEBUG -> {
                 Logger.addLog("Calling debug interrupt.");
-                System.out.println("Press Enter to continue.");
+                System.out.println(cpuModule.dumpRegisters());
                 Scanner s = new Scanner(System.in);
-                s.nextLine();
+
+                boolean debugPause = true;
+
+                while (debugPause){
+                    System.out.print(">> ");
+                    String[] x = s.nextLine().trim().split(" ");
+                    if (x[0].equals("d")){
+                        int address = 0;
+                        if (x[1].charAt(x[1].length() - 1) == 'h') address = Integer.parseInt(
+                                x[1].substring(0, x[1].length() - 1), 16
+                        );
+                        else address = Integer.parseInt(x[1]);
+                        System.out.println(cpuModule.dumpMemoryDebug(address));
+                    }
+                    else if (x[0].equals("g")) debugPause = false;
+                    else System.out.println("Unknown command '" + x[0] + "'");
+                }
             }
 
 
@@ -230,9 +246,25 @@ public class VirtualMachine {
 
             case CPU.INT_DEBUG -> {
                 Logger.addLog("Calling debug interrupt.");
-                System.out.println("Press Enter to continue.");
+                System.out.println(cpuModule.dumpRegisters());
                 Scanner s = new Scanner(System.in);
-                s.nextLine();
+
+                boolean debugPause = true;
+
+                while (debugPause){
+                    System.out.print(">> ");
+                    String[] x = s.nextLine().trim().split(" ");
+                    if (x[0].equals("d")){
+                        int address = 0;
+                        if (x[1].charAt(x[1].length() - 1) == 'h') address = Integer.parseInt(
+                                x[1].substring(0, x[1].length() - 1), 16
+                        );
+                        else address = Integer.parseInt(x[1]);
+                        System.out.println(cpuModule.dumpMemoryDebug(address));
+                    }
+                    else if (x[0].equals("g")) debugPause = false;
+                    else System.out.println("Unknown command '" + x[0] + "'");
+                }
             }
 
 
