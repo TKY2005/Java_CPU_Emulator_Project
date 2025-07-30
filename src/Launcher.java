@@ -65,7 +65,7 @@ public class Launcher{
             System.out.println("No arguments. Going into UI mode.");
             new UI("T.K.Y CPU Emulator V" + Launcher.version);
         }
-        else if (args[0].equals("cli")){
+        else if (args[0].equalsIgnoreCase("cli")){
             System.out.println("Starting in CLI mode.");
             if (args[1] == null){
                 System.out.println("Please enter the binary file path.");
@@ -75,7 +75,7 @@ public class Launcher{
             new CLI(filePath);
         }
 
-        else if (args[0].equals("compile")){
+        else if (args[0].equalsIgnoreCase("compile")){
 
             if (args[1] == null || args[2] == null){
                 System.out.println("Please provide the source code file path and the output binary path");
@@ -87,7 +87,7 @@ public class Launcher{
             CLICompiler compiler = new CLICompiler(sourceCodeFilePath, outputPath);
         }
 
-        else if (args[0].equals("disassemble")){
+        else if (args[0].equalsIgnoreCase("decompile")){
             if (args[1] == null || args[2] == null){
                 System.out.println("Please provide the path to the binary file and the output file.");
                 System.exit(1);
@@ -97,6 +97,15 @@ public class Launcher{
             String outputFilePath = args[2];
 
             Disassembler disassembler = new Disassembler(binaryFilePath, outputFilePath);
+        }
+        else{
+            System.out.println("""
+                    Available commands:
+                    None -> go into UI
+                    CLI path/to/binary_file.tky -> execute a binary file with the CPU config in the config file.
+                    COMPILE -> /path/to/source_code_file.ast /path/to/output_file.tky -> compile source code to binary file.
+                    DECOMPILE /path/to/binary_file.tky /path/to/output_file.ast -> disassemble the given binary file.
+                    """);
         }
     }
 }

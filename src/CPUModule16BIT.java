@@ -1124,7 +1124,7 @@ public class CPUModule16BIT extends CPU {
 
         StringBuilder code = new StringBuilder();
 
-        code.append("Disassembled by T.K.Y CPU compiler V1.0\n");
+        code.append("Disassembled by T.K.Y CPU compiler ").append(compilerVersion).append("\n");
         registers[PC] = 0;
         delayAmountMilliseconds = 0;
 
