@@ -76,6 +76,11 @@ public class CPUModule8BIT extends CPU {
 
 
     @Override
+    public String disassembleMachineCode(int[] machineCode){
+        return "";
+    }
+
+    @Override
     public int[] compileToFileBinary(String code){
         String[] lines = code.split("\n");
         List<Integer> machineCodeList = new ArrayList<>();

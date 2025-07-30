@@ -16,6 +16,7 @@ public class ErrorHandler{
     public static final int ERR_CODE_PC_MODIFY_UNALLOWED = 14;
     public static final int ERR_CODE_INCOMPATIBLE_ARCHITECTURE = 15;
     public static final int ERR_CODE_INSUFFICIENT_MEMORY = 16;
+    public static final int ERR_CODE_PC_ACCESS_VIOLATION = 17;
 
     static class InvalidMemoryLayoutException extends RuntimeException{
         public InvalidMemoryLayoutException(String err) {super(err);}

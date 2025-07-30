@@ -1,3 +1,4 @@
+import java.awt.*;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.PrintWriter;
@@ -78,12 +79,24 @@ public class Launcher{
 
             if (args[1] == null || args[2] == null){
                 System.out.println("Please provide the source code file path and the output binary path");
-                System.exit(-1);
+                System.exit(1);
             }
             String sourceCodeFilePath = args[1];
             String outputPath = args[2];
 
             CLICompiler compiler = new CLICompiler(sourceCodeFilePath, outputPath);
+        }
+
+        else if (args[0].equals("disassemble")){
+            if (args[1] == null || args[2] == null){
+                System.out.println("Please provide the path to the binary file and the output file.");
+                System.exit(1);
+            }
+
+            String binaryFilePath = args[1];
+            String outputFilePath = args[2];
+
+            Disassembler disassembler = new Disassembler(binaryFilePath, outputFilePath);
         }
     }
 }

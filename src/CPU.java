@@ -219,6 +219,7 @@ public abstract class CPU {
    public abstract int[] toMachineCode(String instruction);
     public abstract int[] compileCode(String code);
     public abstract int[] compileToFileBinary(String code);
+    public abstract String disassembleMachineCode(int[] machine_code);
     public abstract void executeCompiledCode(int[] machine_code);
 
     public String dumpROM(){
