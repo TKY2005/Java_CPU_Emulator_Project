@@ -1065,6 +1065,7 @@ public class CPUModule16BIT extends CPU {
                         step();
 
                         registers[RCX]--;
+                        updateRegisterBytes();
                         if (registers[RCX] > 0) {
                             jmp();
                         }else step();
@@ -1076,6 +1077,9 @@ public class CPUModule16BIT extends CPU {
                             if (!x) E = true;
                         } else System.out.println("Interrupt flag not set. skipping.");
                     }
+
+
+                    case INS_NOP -> System.out.println("do nothing.");
 
 
 
