@@ -98,7 +98,16 @@ public class VirtualMachine {
                             "Input", JOptionPane.INFORMATION_MESSAGE);
 
                 }else{
-                    System.out.print(input_message); input = new Scanner(System.in).nextLine();
+                    //System.out.print(input_message);
+                    for(int i = 0; i < input_message.length(); i++) {
+                        try {
+                            System.out.print(input_message.charAt(i));
+                            Thread.sleep(cpuModule.delayAmountMilliseconds);
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                    input = new Scanner(System.in).nextLine();
                 }
 
 
@@ -208,7 +217,16 @@ public class VirtualMachine {
                             "Input", JOptionPane.INFORMATION_MESSAGE);
 
                 }else{
-                    System.out.print(input_message); input = new Scanner(System.in).nextLine();
+                    //System.out.print(input_message);
+                    for(int i = 0; i < input_message.length(); i++) {
+                        try {
+                            System.out.print(input_message.charAt(i));
+                            Thread.sleep(cpuModule.delayAmountMilliseconds);
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                    input = new Scanner(System.in).nextLine();
                 }
 
 
@@ -237,7 +255,15 @@ public class VirtualMachine {
                     input = Short.parseShort(JOptionPane.showInputDialog(null, input_message, "Numeric input : ",
                             JOptionPane.INFORMATION_MESSAGE));
                 }else{
-                    System.out.print(input_message);
+                    //System.out.print(input_message);
+                    for(int i = 0; i < input_message.length(); i++) {
+                        try {
+                            System.out.print(input_message.charAt(i));
+                            Thread.sleep(cpuModule.delayAmountMilliseconds);
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
                     input = new Scanner(System.in).nextShort();
                 }
 
