@@ -310,7 +310,7 @@ public abstract class CPU {
         Logger.addLog(dumpFlags());
         Logger.addLog("================================");
         Logger.addLog(dumpMemory());
-        Logger.writeLogFile("ErrLog.log");
+        Logger.writeLogFile("./ErrLog.log");
         throw exceptionType;
     }
 

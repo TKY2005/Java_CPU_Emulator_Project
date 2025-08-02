@@ -136,7 +136,14 @@ public class VirtualMachine {
                     input = Short.parseShort(JOptionPane.showInputDialog(null, input_message, "Numeric input : ",
                             JOptionPane.INFORMATION_MESSAGE));
                 }else{
-                    System.out.print(input_message);
+                    for(int i = 0; i < input_message.length(); i++) {
+                        try {
+                            Thread.sleep(cpuModule.delayAmountMilliseconds);
+                            System.out.print(input_message.charAt(i));
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
                     input = new Scanner(System.in).nextShort();
                 }
 

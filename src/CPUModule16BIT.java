@@ -80,7 +80,7 @@ public class CPUModule16BIT extends CPU {
             case DATA_MODE-> {
                 int high = operand[1], low = operand[2];
                 int address = (high << 8) | low;
-                yield "#" + Integer.toHexString(address).toUpperCase();
+                yield "[#" + Integer.toHexString(address).toUpperCase() + "]";
             }
 
             case FUNCTION_MODE -> {
@@ -242,7 +242,9 @@ public class CPUModule16BIT extends CPU {
         for(int i = registerPairStart; i < registers.length; i++){
 
             if ( i  % registersPerLine == 0) result.append("\n");
-            result.append(registerNames[i].toUpperCase()).append(": ").append(String.format("0x%04X", registers[i])).append("\t");
+
+            result.append( String.format("%-20s",
+                    String.format("%s: 0x%04X", registerNames[i].toUpperCase(), registers[i])) );
         }
         return result.toString();
     }
@@ -305,29 +307,6 @@ public class CPUModule16BIT extends CPU {
     ///
     /// //////////////////////////// CPU FUNCTIONALITY ////////////////////////////////////////////////////////
     ///
-    public String disassemble(int[] machine_code){
-        StringBuilder instruction = new StringBuilder();
-
-        instruction.append(instructionSet.get(machine_code[0])).append(" ");
-
-        if (machine_code.length > 1) {
-            for (int i = 1; i < machine_code.length; i += 2) {
-                switch (machine_code[i]) {
-                    case REGISTER_MODE, REGISTER_WORD_MODE -> instruction.append
-                            ('$').append(getRegisterName(machine_code[i + 1])).append(" ");
-                    case DIRECT_MODE, DIRECT_WORD_MODE ->
-                            instruction.append('%').append(machine_code[i + 1]).append(" ");
-                    case INDIRECT_MODE, INDIRECT_WORD_MODE ->
-                            instruction.append('&').append(getRegisterName(machine_code[i + 1])).append(" ");
-                    case IMMEDIATE_MODE -> instruction.append('!').append(machine_code[i + 1]).append(" ");
-                    case 0x4, 0x6 -> instruction.append('#').append(String.format("%X", machine_code[i + 1])).append(" ");
-                    default -> instruction.append("??").append(" ");
-                }
-            }
-        }
-        return instruction.toString();
-    }
-
 
     public String getRegisterName(int registerID){
         return registerNames[registerID];
@@ -943,7 +922,6 @@ public class CPUModule16BIT extends CPU {
                             }catch (Exception e) {e.printStackTrace();}
                             start++;
                         }
-                        //outputString.append("\n");
                     }
 
                     case INS_PUSH -> {
@@ -971,44 +949,45 @@ public class CPUModule16BIT extends CPU {
 
                     case INS_CE -> {
                         step();
-                        int address = machine_code[step()];
-                        int return_address = machine_code[step()];
+                        int address = ( ( machine_code[step()] << 8 ) | machine_code[step()] );
+                        int return_address = step() - 1;
                         if (Z) call(address, return_address);
-                        else step();
+                        else registers[PC] = return_address;
                     }
                     case INS_CNE -> {
                         step();
-                        int address = machine_code[step()];
-                        int return_address = machine_code[step()];
+                        int address = ( ( machine_code[step()] << 8 ) | machine_code[step()] );
+                        int return_address = step() - 1;
                         if (!Z) call(address, return_address);
+                        else registers[PC] = return_address;
                     }
                     case INS_CL -> {
                         step();
-                        int address = machine_code[step()];
-                        int return_address = machine_code[step()];
+                        int address = ( ( machine_code[step()] << 8 ) | machine_code[step()] );
+                        int return_address = step() - 1;
                         if (N) call(address, return_address);
-                        else step();
+                        else registers[PC] = return_address;
                     }
                     case INS_CLE -> {
                         step();
-                        int address = machine_code[step()];
-                        int return_address = machine_code[step()];
+                        int address = ( ( machine_code[step()] << 8 ) | machine_code[step()] );
+                        int return_address = step() - 1;
                         if (N || Z) call(address, return_address);
-                        else step();
+                        else registers[PC] = return_address;
                     }
                     case INS_CG -> {
                         step();
-                        int address = machine_code[step()];
-                        int return_address = machine_code[step()];
+                        int address = ( ( machine_code[step()] << 8 ) | machine_code[step()] );
+                        int return_address = step() - 1;
                         if (!N) call(address, return_address);
-                        else step();
+                        else registers[PC] = return_address;
                     }
                     case INS_CGE -> {
                         step();
-                        int address = machine_code[step()];
-                        int return_address = machine_code[step()];
+                        int address = ( ( machine_code[step()] << 8 ) | machine_code[step()] );
+                        int return_address = step() - 1;
                         if (!N || Z) call(address, return_address);
-                        else step();
+                        else registers[PC] = return_address;
                     }
 
                     case INS_JMP -> {
@@ -1133,6 +1112,9 @@ public class CPUModule16BIT extends CPU {
     code = new StringBuilder();
 
     code.append("Disassembled by T.K.Y CPU compiler ").append(compilerVersion).append("\n");
+    code.append("Target architecture: ").append(machine_code[machine_code.length - 3]).append("-bit").append("\n");
+    code.append("Memory size: ").append(machine_code[machine_code.length - 4]).append("KB").append("\n");
+
     registers[PC] = 0;
     delayAmountMilliseconds = 0;
 
@@ -1156,6 +1138,7 @@ public class CPUModule16BIT extends CPU {
     }
 
     int mainEntryPoint = ((machine_code[machine_code.length - 2] & 0xff) | machine_code[machine_code.length - 1]);
+    code.append("Program's entry point: ").append("0x").append(Integer.toHexString(mainEntryPoint).toUpperCase()).append("\n");
 
     if (machine_code[machine_code.length - 3] != bit_length) { // Check the architecture
         String err = String.format("This code has been compiled for %d-bit architecture." +
