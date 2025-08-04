@@ -8,7 +8,7 @@ import java.util.Arrays;
 
 public class Disassembler {
 
-    private String architecture = Launcher.appConfig.get("Architecture");
+    private String architecture;
     private VirtualMachine vm;
     private CPU cpuModule;
 
@@ -21,6 +21,9 @@ public class Disassembler {
             int[] machine_code = new int[x.length];
 
             for(int i = 0; i < machine_code.length; i++) machine_code[i] = x[i] & 0xff;
+
+            architecture = Integer.toString(machine_code[machine_code.length - 3]);
+            System.out.println("This has been compiled for " + architecture + "-bit module.");
 
             if (architecture.equals("8")) cpuModule = new CPUModule8BIT();
             else if (architecture.equals("16")) cpuModule = new CPUModule16BIT();

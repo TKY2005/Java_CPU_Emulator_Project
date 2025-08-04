@@ -81,10 +81,20 @@ public class Launcher{
                 System.out.println("Please provide the source code file path and the output binary path");
                 System.exit(1);
             }
+
+
             String sourceCodeFilePath = args[1];
             String outputPath = args[2];
+            if (args.length == 4) {
+                String architecture = args[3];
+                System.out.println("Compiling for " + architecture + "-bit module");
+                new CLICompiler(sourceCodeFilePath, outputPath, architecture);
+            }
 
-            CLICompiler compiler = new CLICompiler(sourceCodeFilePath, outputPath);
+            else if (args.length == 3){
+                System.out.println("Compiling for architecture present in config file.");
+                new CLICompiler(sourceCodeFilePath, outputPath);
+            }
         }
 
         else if (args[0].equalsIgnoreCase("decompile")){
@@ -96,14 +106,14 @@ public class Launcher{
             String binaryFilePath = args[1];
             String outputFilePath = args[2];
 
-            Disassembler disassembler = new Disassembler(binaryFilePath, outputFilePath);
+            new Disassembler(binaryFilePath, outputFilePath);
         }
         else{
             System.out.println("""
                     Available commands:
                     None -> go into UI
                     CLI path/to/binary_file.tky -> execute a binary file with the CPU config in the config file.
-                    COMPILE -> /path/to/source_code_file.ast /path/to/output_file.tky -> compile source code to binary file.
+                    COMPILE -> /path/to/source_code_file.ast /path/to/output_file.tky (optional)architecture -> compile source code to binary file.
                     DECOMPILE /path/to/binary_file.tky /path/to/output_file.ast -> disassemble the given binary file.
                     """);
         }
