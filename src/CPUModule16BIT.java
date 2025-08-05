@@ -57,27 +57,27 @@ public class CPUModule16BIT extends CPU {
     /// /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-    public int getOperandValue(int[] source){
+    public int getOperandValue(int[] source) {
         Logger.addLog("Fetching source");
-        return switch (source[0]){
+        return switch (source[0]) {
             case REGISTER_MODE, REGISTER_WORD_MODE -> getRegister(source[1]);
             case DIRECT_MODE -> readByte(source[1]);
-            case DIRECT_WORD_MODE -> bytePairToWordLE((readWord( source[1] )));
-            case INDIRECT_MODE -> readByte( getRegister( source[1] ) );
-            case INDIRECT_WORD_MODE -> bytePairToWordLE( readWord( getRegister( source[1] ) ) );
+            case DIRECT_WORD_MODE -> bytePairToWordLE((readWord(source[1])));
+            case INDIRECT_MODE -> readByte(getRegister(source[1]));
+            case INDIRECT_WORD_MODE -> bytePairToWordLE(readWord(getRegister(source[1])));
             case IMMEDIATE_MODE -> source[1];
             default -> max_pair_value + 1;
         };
     }
 
-    public String getDisassembledOperand(int[] operand){
-        return switch (operand[0]){
+    public String getDisassembledOperand(int[] operand) {
+        return switch (operand[0]) {
             case REGISTER_MODE, REGISTER_WORD_MODE -> "$" + getRegisterName(operand[1]);
             case DIRECT_MODE, DIRECT_WORD_MODE -> "*" + Integer.toHexString(operand[1]);
             case INDIRECT_MODE, INDIRECT_WORD_MODE -> "&" + getRegisterName(operand[1]);
             case IMMEDIATE_MODE -> "#" + Integer.toHexString(operand[1]).toUpperCase();
 
-            case DATA_MODE-> {
+            case DATA_MODE -> {
                 int high = operand[1], low = operand[2];
                 int address = (high << 8) | low;
                 yield "[#" + Integer.toHexString(address).toUpperCase() + "]";
@@ -94,38 +94,34 @@ public class CPUModule16BIT extends CPU {
     }
 
 
-    public void setRegister(int registerID, int value){
+    public void setRegister(int registerID, int value) {
 
-        if (registerID < registers.length){
+        if (registerID < registers.length) {
 
-            if (registerID == PC && Launcher.appConfig.get("OverwritePC").equals("false")){
-                 String err = "Direct modification of PC register is not allowed." +
-                            " if you wish to proceed, change that in the settings.";
-                    triggerProgramError(new ErrorHandler.InvalidMemoryOperationException(err),
-                            err, ErrorHandler.ERR_CODE_PC_MODIFY_UNALLOWED);
-            }
-            else if (registerID < registerPairStart){
+            if (registerID == PC && Launcher.appConfig.get("OverwritePC").equals("false")) {
+                String err = "Direct modification of PC register is not allowed." +
+                        " if you wish to proceed, change that in the settings.";
+                triggerProgramError(new ErrorHandler.InvalidMemoryOperationException(err),
+                        err, ErrorHandler.ERR_CODE_PC_MODIFY_UNALLOWED);
+            } else if (registerID < registerPairStart) {
 
                 if (value > max_byte_value) {
                     String err = String.format("The value 0x%X(%d) is bigger than the selected register (%s) bit width.",
                             value, value, registerNames[registerID]);
                     triggerProgramError(new ErrorHandler.InvalidMemoryOperationException(err),
                             err, ErrorHandler.ERR_CODE_CPU_SIZE_VIOLATION);
-                }
-                else {
+                } else {
                     registers[registerID] = value;
                     updateRegisterPairs();
                 }
-            }
-            else if (registerID >= registerPairStart){
+            } else if (registerID >= registerPairStart) {
 
-                if (value > max_pair_value){
+                if (value > max_pair_value) {
                     String err = String.format("The value 0x%X(%d) is bigger than the selected register (%s) bit width.",
                             value, value, registerNames[registerID]);
                     triggerProgramError(new ErrorHandler.InvalidMemoryOperationException(err),
                             err, ErrorHandler.ERR_CODE_CPU_SIZE_VIOLATION);
-                }
-                else{
+                } else {
                     registers[registerID] = value;
                     updateRegisterBytes();
                 }
@@ -134,57 +130,57 @@ public class CPUModule16BIT extends CPU {
     }
 
 
-    public int getRegisterCode(String registerName){
-        for(int i = 0; i < registerNames.length; i++){
+    public int getRegisterCode(String registerName) {
+        for (int i = 0; i < registerNames.length; i++) {
             if (registerNames[i].equals(registerName)) return i;
         }
         return -1;
     }
 
-    public int getRegister(int registerID){
+    public int getRegister(int registerID) {
         return registers[registerID];
     }
 
-    public int getRegisterByte(int registerID){
-        if (registerID < registerPairStart){
+    public int getRegisterByte(int registerID) {
+        if (registerID < registerPairStart) {
             return registers[registerID];
         }
         return max_byte_value + 1;
     }
 
-    public int[] getRegisterWord(int registerID){
+    public int[] getRegisterWord(int registerID) {
         int low = 0, high = 0;
-        if (registerID >= registerPairStart){
+        if (registerID >= registerPairStart) {
             int registerVal = registers[registerID];
             low = registerVal & 0xff;
             high = (registerVal >> 8) & 0xff;
         }
 
-        return new int[] {low, high};
+        return new int[]{low, high};
     }
 
-    public int getMemory(int address){
+    public int getMemory(int address) {
         if (isValidMemoryAddress(address)) return memory[address];
         else return max_pair_value + 1;
     }
 
 
-    public void updateRegisterPairs(){
+    public void updateRegisterPairs() {
         int lowByteIndex = 0;
         int highByteIndex = 1;
 
-        for(int i = registerPairStart; i < registerPairStart + 6; i++){
+        for (int i = registerPairStart; i < registerPairStart + 6; i++) {
             registers[i] = (registers[highByteIndex] << 8) | registers[lowByteIndex];
             lowByteIndex += 2;
             highByteIndex += 2;
         }
     }
 
-    public void updateRegisterBytes(){
+    public void updateRegisterBytes() {
         int registerLowByteIndex = 0;
         int registerHighByteIndex = 1;
 
-        for(int i = registerPairStart; i < registerPairStart + 6; i++){
+        for (int i = registerPairStart; i < registerPairStart + 6; i++) {
 
             registers[registerLowByteIndex] = registers[i] & 0xff;
             registers[registerHighByteIndex] = (registers[i] >> 8) & 0xff;
@@ -195,18 +191,18 @@ public class CPUModule16BIT extends CPU {
     }
 
 
-    public String dumpMemory(){
+    public String dumpMemory() {
         int chunkSize = 10;
         StringBuilder result = new StringBuilder();
         StringBuilder charSet = new StringBuilder();
-        for(int i = 0; i < memory.length; i++){
+        for (int i = 0; i < memory.length; i++) {
 
             if (i % chunkSize == 0) result.append(String.format("%05X :\t", i));
 
             result.append(String.format("0x%02X\t", memory[i]));
-            charSet.append( (Character.isLetterOrDigit(memory[i])) ? (char) memory[i] : "." );
+            charSet.append((Character.isLetterOrDigit(memory[i])) ? (char) memory[i] : ".");
 
-            if ((i + 1) % chunkSize == 0){
+            if ((i + 1) % chunkSize == 0) {
                 result.append("\t\t").append("|").append(charSet).append("|").append("\n");
                 charSet.setLength(0);
             }
@@ -215,18 +211,18 @@ public class CPUModule16BIT extends CPU {
     }
 
 
-    public String dumpMemory(int start, int end){
+    public String dumpMemory(int start, int end) {
         int chunkSize = 10;
         StringBuilder result = new StringBuilder();
         StringBuilder charSet = new StringBuilder();
-        for(int i = start; i <= end; i++){
+        for (int i = start; i <= end; i++) {
 
             if (i % chunkSize == 0) result.append(String.format("%05X :\t", i));
 
             result.append(String.format("0x%02X\t", memory[i]));
-            charSet.append( (Character.isLetterOrDigit(memory[i])) ? (char) memory[i] : "." );
+            charSet.append((Character.isLetterOrDigit(memory[i])) ? (char) memory[i] : ".");
 
-            if ((i + 1) % chunkSize == 0){
+            if ((i + 1) % chunkSize == 0) {
                 result.append("\t\t").append("|").append(charSet).append("|").append("\n");
                 charSet.setLength(0);
             }
@@ -235,22 +231,21 @@ public class CPUModule16BIT extends CPU {
     }
 
 
-
-    public String dumpRegisters(){
+    public String dumpRegisters() {
         int registersPerLine = 3;
         StringBuilder result = new StringBuilder();
-        for(int i = registerPairStart; i < registers.length; i++){
+        for (int i = registerPairStart; i < registers.length; i++) {
 
-            if ( i  % registersPerLine == 0) result.append("\n");
+            if (i % registersPerLine == 0) result.append("\n");
 
-            result.append( String.format("%-20s",
-                    String.format("%s: 0x%04X", registerNames[i].toUpperCase(), registers[i])) );
+            result.append(String.format("%-20s",
+                    String.format("%s: 0x%04X", registerNames[i].toUpperCase(), registers[i])));
         }
         return result.toString();
     }
 
     @Override
-    public String dumpFlags(){
+    public String dumpFlags() {
         StringBuilder result = new StringBuilder();
 
         result.append(String.format("N = %d\tO = %d\tC = %d\n" +
@@ -267,7 +262,7 @@ public class CPUModule16BIT extends CPU {
         return result.toString();
     }
 
-    public void updateFlags(int value){
+    public void updateFlags(int value) {
         Logger.addLog("Updating flags.");
         short flagSetter = (short) value;
 
@@ -278,41 +273,41 @@ public class CPUModule16BIT extends CPU {
     }
 
 
-    public int step(){
+    public int step() {
 
         registers[PC]++;
         if (stepListener != null) stepListener.updateUI();
         try {
             Thread.sleep(delayAmountMilliseconds);
-        }catch (Exception e){
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
         return registers[PC];
     }
 
-    public int[] getNextOperand(){
-        return new int[] {machineCode[ step() ], machineCode[ step() ]};
+    public int[] getNextOperand() {
+        return new int[]{machineCode[step()], machineCode[step()]};
     }
 
 
-    public void setUIupdateListener(onStepListener listener){
+    public void setUIupdateListener(onStepListener listener) {
         this.stepListener = listener;
     }
 
 
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// ////////////////////////////////////////////////////////////////////////////////////////////////////////
     /// ///////////////////////////////////////////////////////////////////////////////////////////////////////
     ///
     ///
     ///
     /// //////////////////////////// CPU FUNCTIONALITY ////////////////////////////////////////////////////////
-    ///
 
-    public String getRegisterName(int registerID){
+    public String getRegisterName(int registerID) {
         return registerNames[registerID];
     }
+
     @Override
-    public int[] toMachineCode(String instruction){
+    public int[] toMachineCode(String instruction) {
         String[] tokens = instruction.trim().split(" ");
 
 
@@ -320,9 +315,9 @@ public class CPUModule16BIT extends CPU {
         // NOTE: if the instruction has an address, then operand size will be 3 bytes (1 byte for mode, 2 bytes for address)
         // Output machine code: opcode operand1_addressing_mode operand1_value operand2_addressing_mode operand2_value
         int length = 1; // 1 byte for opcode
-        for(int i = 1; i < tokens.length; i++){
+        for (int i = 1; i < tokens.length; i++) {
             //length += 2; // 2 bytes for all remaining operands
-            switch (tokens[i].charAt(0)){
+            switch (tokens[i].charAt(0)) {
                 case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX, IMMEDIATE_PREFIX -> length += 2;
                 default -> length += 3;
             }
@@ -330,12 +325,11 @@ public class CPUModule16BIT extends CPU {
         int[] result = new int[length];
 
         Integer opCode = translationMap.get(tokens[0]);
-        if (opCode == null){
+        if (opCode == null) {
             String err = String.format("Unknown instruction : %s\n", tokens[0]);
             status_code = ErrorHandler.ERR_COMP_UNDEFINED_INSTRUCTION;
             triggerProgramError(new ErrorHandler.CodeCompilationError(err), err, status_code);
-        }
-        else result[0] = opCode; // tokens[0] should always be the opcode.
+        } else result[0] = opCode; // tokens[0] should always be the opcode.
 
         // figure out which addressing mode is used.
         if (tokens.length > 1) {
@@ -354,29 +348,30 @@ public class CPUModule16BIT extends CPU {
 
                 // decide if we are dealing with a byte or a word depending on the register name
                 if (tokens[tokenIndex].charAt(0) == REGISTER_PREFIX &&
-                tokens[tokenIndex].charAt( tokens[tokenIndex].length() - 1 ) == 'x') result[i] = REGISTER_WORD_MODE;
+                        tokens[tokenIndex].charAt(tokens[tokenIndex].length() - 1) == 'x')
+                    result[i] = REGISTER_WORD_MODE;
 
                 if (tokens[tokenIndex].charAt(0) == DIRECT_MEMORY_PREFIX &&
-                tokens[tokenIndex - 1].charAt(0) == REGISTER_PREFIX &&
-                tokens[tokenIndex - 1].charAt( tokens[tokenIndex - 1].length() - 1 ) == 'x') result[i] = DIRECT_WORD_MODE;
+                        tokens[tokenIndex - 1].charAt(0) == REGISTER_PREFIX &&
+                        tokens[tokenIndex - 1].charAt(tokens[tokenIndex - 1].length() - 1) == 'x')
+                    result[i] = DIRECT_WORD_MODE;
 
                 else if (tokens[tokenIndex].charAt(0) == INDIRECT_MEMORY_PREFIX &&
-                tokens[tokenIndex].charAt( tokens[tokenIndex].length() - 1 ) == 'x') result[i] = INDIRECT_WORD_MODE;
+                        tokens[tokenIndex].charAt(tokens[tokenIndex].length() - 1) == 'x')
+                    result[i] = INDIRECT_WORD_MODE;
 
 
-                if (result[i] == 0x4){
+                if (result[i] == 0x4) {
                     Integer dataPointer = dataMap.get(tokens[tokenIndex].substring(1));
 
-                    if (dataPointer == null){
+                    if (dataPointer == null) {
                         String err = String.format("The variable '%s' doesn't exist in the data section.\n",
                                 tokens[tokenIndex].substring(1));
                         status_code = ErrorHandler.ERR_COMP_NULL_DATA_POINTER;
                         triggerProgramError(new ErrorHandler.CodeCompilationError(err),
                                 err, status_code);
-                        return new int[] {-1};
-                    }
-
-                    else {
+                        return new int[]{-1};
+                    } else {
                         int low = dataPointer & 0xff;
                         int high = (dataPointer >> 8) & 0xff;
                         result[i + 1] = high;
@@ -385,19 +380,17 @@ public class CPUModule16BIT extends CPU {
                         break;
                     }
                 }
-                if (result[i] == 0x6){
+                if (result[i] == 0x6) {
                     Integer functionPointer = functions.get(tokens[tokenIndex]);
 
-                    if (functionPointer == null){
+                    if (functionPointer == null) {
                         String err = String.format("The function '%s' doesn't exist in the ROM.\n",
                                 tokens[tokenIndex]);
                         status_code = ErrorHandler.ERR_COMP_NULL_FUNCTION_POINTER;
                         triggerProgramError(new ErrorHandler.CodeCompilationError(err),
                                 err, status_code);
-                        return new int[] {-1};
-                    }
-
-                    else {
+                        return new int[]{-1};
+                    } else {
                         int low = functionPointer & 0xff;
                         int high = (functionPointer >> 8) & 0xff;
                         result[i + 1] = high;
@@ -407,16 +400,15 @@ public class CPUModule16BIT extends CPU {
                     }
                 }
 
-                if (isNumber(tokens[tokenIndex].substring(1))){
+                if (isNumber(tokens[tokenIndex].substring(1))) {
                     result[i + 1] = Integer.parseInt(tokens[tokenIndex].substring(1));
-                }else{
+                } else {
                     int registerCode = getRegisterCode(tokens[tokenIndex].substring(1));
-                    if (registerCode == -1){
+                    if (registerCode == -1) {
                         String err = String.format("Unknown register '%s'.\n", tokens[tokenIndex].substring(1));
                         status_code = ErrorHandler.ERR_COMP_INVALID_CPU_CODE;
                         triggerProgramError(new ErrorHandler.CodeCompilationError(err), err, status_code);
-                    }
-                    else result[i + 1] = registerCode;
+                    } else result[i + 1] = registerCode;
                 }
                 tokenIndex++;
             }
@@ -429,7 +421,7 @@ public class CPUModule16BIT extends CPU {
 
 
     @Override
-    public int[] compileCode(String code){
+    public int[] compileCode(String code) {
         String[] lines = code.split("\n");
         List<Integer> machineCodeList = new ArrayList<>();
 
@@ -438,55 +430,53 @@ public class CPUModule16BIT extends CPU {
 
         // Step 1- Calculate the function offset addresses, add .DATA variables to the data section, and build a raw code string
         String fullCode = "";
-        for(int i = 0; i < lines.length; i++){
+        for (int i = 0; i < lines.length; i++) {
             currentLine++;
             // Which section are we in? (is it a line of code? is it a function. and if it starts with '.' is it the data section?)
-            if (lines[i].equals(".DATA")){
+            if (lines[i].equals(".DATA")) {
                 System.out.println("Data section detected.");
                 int offset = 0;
                 i++; // skip .DATA line
 
-             while (!lines[i].equals("end")) {
+                while (!lines[i].equals("end")) {
 
-                 String[] x = lines[i].trim().split(" ");
-                 if (x[0].equals("org")) data_start = Integer.parseInt(x[1].substring(1)) - offset;
+                    String[] x = lines[i].trim().split(" ");
+                    if (x[0].equals("org")) data_start = Integer.parseInt(x[1].substring(1)) - offset;
 
-                 else {
-                     dataMap.put(x[0], data_start + offset);
-                     if (x[1].startsWith(String.valueOf(STRING_PREFIX))) { // 34 in decimal 0x22 in hex
-                         String fullString = String.join(" ", x);
+                    else {
+                        dataMap.put(x[0], data_start + offset);
+                        if (x[1].startsWith(String.valueOf(STRING_PREFIX))) { // 34 in decimal 0x22 in hex
+                            String fullString = String.join(" ", x);
 
-                         int startIndex = fullString.indexOf(34) + 1;
-                         int endIndex = fullString.length() - 1;
-                         fullString = fullString.substring(startIndex, endIndex);
-                         for (int j = 0; j < fullString.length(); j++) {
-                             System.out.printf("Setting memory location 0x%X(%d) to char %c\n",
-                                     data_start + offset, data_start + offset, fullString.charAt(j));
-                             setMemory(data_start + offset, (short) fullString.charAt(j));
-                             offset++;
-                         }
-                         setMemory(offset, NULL_TERMINATOR);
-                         offset++;
-                     } else {
-                         for (int j = 1; j < x.length; j++) {
-                             System.out.printf("Setting memory location 0x%X(%d) to value 0x%X(%d)\n",
-                                     data_start + offset, data_start + offset,
-                                     Integer.parseInt(x[j].substring(1)), Integer.parseInt(x[j].substring(1)));
+                            int startIndex = fullString.indexOf(34) + 1;
+                            int endIndex = fullString.length() - 1;
+                            fullString = fullString.substring(startIndex, endIndex);
+                            for (int j = 0; j < fullString.length(); j++) {
+                                System.out.printf("Setting memory location 0x%X(%d) to char %c\n",
+                                        data_start + offset, data_start + offset, fullString.charAt(j));
+                                setMemory(data_start + offset, (short) fullString.charAt(j));
+                                offset++;
+                            }
+                            setMemory(offset, NULL_TERMINATOR);
+                            offset++;
+                        } else {
+                            for (int j = 1; j < x.length; j++) {
+                                System.out.printf("Setting memory location 0x%X(%d) to value 0x%X(%d)\n",
+                                        data_start + offset, data_start + offset,
+                                        Integer.parseInt(x[j].substring(1)), Integer.parseInt(x[j].substring(1)));
 
-                             setMemory(data_start + offset, Integer.parseInt(x[j].substring(1)));
-                             offset++;
-                         }
-                         setMemory(offset, NULL_TERMINATOR);
-                         offset++;
-                     }
-                 }
-                 i++;
-             }
-            }
-            else if (lines[i].startsWith(".")){ // regular function. add the function along with the calculated offset
+                                setMemory(data_start + offset, Integer.parseInt(x[j].substring(1)));
+                                offset++;
+                            }
+                            setMemory(offset, NULL_TERMINATOR);
+                            offset++;
+                        }
+                    }
+                    i++;
+                }
+            } else if (lines[i].startsWith(".")) { // regular function. add the function along with the calculated offset
                 functions.put(lines[i].substring(1), currentByte);
-            }
-            else{ // code line. append the offset based on the string length.
+            } else { // code line. append the offset based on the string length.
                 // in this architecture there's only 3 possible cases
                 // no-operand instruction = 1 byte
                 // single-operand instruction = 3 bytes
@@ -494,8 +484,8 @@ public class CPUModule16BIT extends CPU {
                 if (lines[i].isEmpty() || lines[i].startsWith(COMMENT_PREFIX)) continue;
                 int len = lines[i].trim().split(" ").length;
 
-                if (len == 3){
-                    switch (lines[i].trim().split(" ")[2].charAt(0)){
+                if (len == 3) {
+                    switch (lines[i].trim().split(" ")[2].charAt(0)) {
                         case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX, IMMEDIATE_PREFIX -> {
                             currentByte += 5;
                         }
@@ -505,21 +495,19 @@ public class CPUModule16BIT extends CPU {
                         }
                     }
                     //currentByte += 5;
-                }
-                else if (len == 2) {
-                    switch (lines[i].trim().split(" ")[1].charAt(0)){
+                } else if (len == 2) {
+                    switch (lines[i].trim().split(" ")[1].charAt(0)) {
                         case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX, IMMEDIATE_PREFIX -> {
                             System.out.println("Adding 3 bytes due to no function.");
                             currentByte += 3;
                         }
-                        default ->{
+                        default -> {
                             System.out.println("Function detected. adding 4 bytes.");
                             currentByte += 4;
                         }
                     }
                     //currentByte += 3;
-                }
-                else currentByte += 1;
+                } else currentByte += 1;
 
                 fullCode += lines[i] + "\n";
             }
@@ -532,7 +520,7 @@ public class CPUModule16BIT extends CPU {
 
         currentLine = 1;
         eachInstruction = new HashMap<>();
-        for(int i = 0; i < fullLines.length; i++){
+        for (int i = 0; i < fullLines.length; i++) {
 
             currentLine++;
             String a = Arrays.toString(toMachineCode(fullLines[i])).replace("[", "").replace("]", "");
@@ -542,24 +530,24 @@ public class CPUModule16BIT extends CPU {
         }
 
         String[] eachNum = machineCodeString.toString().split(", ");
-        for(int i = 0; i < eachNum.length; i++){
-            if (isNumber(eachNum[i])){
+        for (int i = 0; i < eachNum.length; i++) {
+            if (isNumber(eachNum[i])) {
                 machineCodeList.add(Integer.parseInt(eachNum[i]));
             }
         }
         machineCodeList.add((int) TEXT_SECTION_END);
 
-        for(int i = 0; i < signature.length(); i++) // My signature, last release date and compiler version
+        for (int i = 0; i < signature.length(); i++) // My signature, last release date and compiler version
             machineCodeList.add((int) signature.charAt(i));
 
-        for(int i = 0; i < lastUpdateDate.length(); i++)
+        for (int i = 0; i < lastUpdateDate.length(); i++)
             machineCodeList.add((int) lastUpdateDate.charAt(i));
 
-        for(int i = 0; i < compilerVersion.length(); i++)
+        for (int i = 0; i < compilerVersion.length(); i++)
             machineCodeList.add((int) compilerVersion.charAt(i));
 
-        machineCodeList.add( memorySize ); // The memory size in KB
-        machineCodeList.add( bit_length ); // the CPU architecture flag
+        machineCodeList.add(memorySize); // The memory size in KB
+        machineCodeList.add(bit_length); // the CPU architecture flag
 
         // The program's entry point.
         int entryPoint = functions.get("MAIN");
@@ -576,10 +564,8 @@ public class CPUModule16BIT extends CPU {
     }
 
 
-
-
     @Override
-    public int[] compileToFileBinary(String code){
+    public int[] compileToFileBinary(String code) {
         String[] lines = code.split("\n");
         List<Integer> machineCodeList = new ArrayList<>();
 
@@ -588,63 +574,61 @@ public class CPUModule16BIT extends CPU {
 
         // Step 1- Calculate the function offset addresses, add .DATA variables to the data section, and build a raw code string
         String fullCode = "";
-        for(int i = 0; i < lines.length; i++){
+        for (int i = 0; i < lines.length; i++) {
             currentLine++;
             // Which section are we in? (is it a line of code? is it a function. and if it starts with '.' is it the data section?)
-            if (lines[i].equals(".DATA")){
+            if (lines[i].equals(".DATA")) {
                 System.out.println("Data section detected.");
                 int offset = 0;
                 i++; // skip .DATA line
 
-             while (!lines[i].equals("end")) {
+                while (!lines[i].equals("end")) {
 
-                 String[] x = lines[i].trim().split(" ");
-                 if (x[0].equals("org")) data_start = Integer.parseInt(x[1].substring(1)) - offset;
+                    String[] x = lines[i].trim().split(" ");
+                    if (x[0].equals("org")) data_start = Integer.parseInt(x[1].substring(1)) - offset;
 
-                 else {
-                     dataMap.put(x[0], data_start + offset);
-                     if (x[1].startsWith(String.valueOf(STRING_PREFIX))) { // 34 in decimal 0x22 in hex
-                         String fullString = String.join(" ", x);
+                    else {
+                        dataMap.put(x[0], data_start + offset);
+                        if (x[1].startsWith(String.valueOf(STRING_PREFIX))) { // 34 in decimal 0x22 in hex
+                            String fullString = String.join(" ", x);
 
-                         int startIndex = fullString.indexOf(34) + 1;
-                         int endIndex = fullString.length() - 1;
-                         fullString = fullString.substring(startIndex, endIndex);
-                         for (int j = 0; j < fullString.length(); j++) {
-                             System.out.printf("Setting memory location 0x%X(%d) to char %c\n",
-                                     data_start + offset, data_start + offset, fullString.charAt(j));
-                             setMemory(data_start + offset, (short) fullString.charAt(j));
-                             offset++;
-                         }
-                         setMemory(offset, NULL_TERMINATOR);
-                         offset++;
-                     } else {
-                         for (int j = 1; j < x.length; j++) {
-                             System.out.printf("Setting memory location 0x%X(%d) to value 0x%X(%d)\n",
-                                     data_start + offset, data_start + offset,
-                                     Integer.parseInt(x[j].substring(1)), Integer.parseInt(x[j].substring(1)));
+                            int startIndex = fullString.indexOf(34) + 1;
+                            int endIndex = fullString.length() - 1;
+                            fullString = fullString.substring(startIndex, endIndex);
+                            for (int j = 0; j < fullString.length(); j++) {
+                                System.out.printf("Setting memory location 0x%X(%d) to char %c\n",
+                                        data_start + offset, data_start + offset, fullString.charAt(j));
+                                setMemory(data_start + offset, (short) fullString.charAt(j));
+                                offset++;
+                            }
+                            setMemory(offset, NULL_TERMINATOR);
+                            offset++;
+                        } else {
+                            for (int j = 1; j < x.length; j++) {
+                                System.out.printf("Setting memory location 0x%X(%d) to value 0x%X(%d)\n",
+                                        data_start + offset, data_start + offset,
+                                        Integer.parseInt(x[j].substring(1)), Integer.parseInt(x[j].substring(1)));
 
-                             setMemory(data_start + offset, Integer.parseInt(x[j].substring(1)));
-                             offset++;
-                         }
-                         setMemory(offset, NULL_TERMINATOR);
-                         offset++;
-                     }
-                 }
-                 i++;
-             }
-            }
-            else if (lines[i].startsWith(".")){ // regular function. add the function along with the calculated offset
+                                setMemory(data_start + offset, Integer.parseInt(x[j].substring(1)));
+                                offset++;
+                            }
+                            setMemory(offset, NULL_TERMINATOR);
+                            offset++;
+                        }
+                    }
+                    i++;
+                }
+            } else if (lines[i].startsWith(".")) { // regular function. add the function along with the calculated offset
                 functions.put(lines[i].substring(1), currentByte);
-            }
-            else{ // code line. append the offset based on the string length.
+            } else { // code line. append the offset based on the string length.
                 // in this architecture there's only 3 possible cases
                 // no-operand instruction = 1 byte
                 // single-operand instruction = 3 bytes
                 // 2 operand instruction = 5 bytes
                 if (lines[i].isEmpty() || lines[i].startsWith(COMMENT_PREFIX)) continue;
                 int len = lines[i].trim().split(" ").length;
-                if (len == 3){
-                    switch (lines[i].trim().split(" ")[2].charAt(0)){
+                if (len == 3) {
+                    switch (lines[i].trim().split(" ")[2].charAt(0)) {
                         case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX, IMMEDIATE_PREFIX -> {
                             currentByte += 5;
                         }
@@ -654,21 +638,19 @@ public class CPUModule16BIT extends CPU {
                         }
                     }
                     //currentByte += 5;
-                }
-                else if (len == 2) {
-                    switch (lines[i].trim().split(" ")[1].charAt(0)){
+                } else if (len == 2) {
+                    switch (lines[i].trim().split(" ")[1].charAt(0)) {
                         case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX, IMMEDIATE_PREFIX -> {
                             System.out.println("Adding 3 bytes due to no function.");
                             currentByte += 3;
                         }
-                        default ->{
+                        default -> {
                             System.out.println("Function detected. adding 4 bytes.");
                             currentByte += 4;
                         }
                     }
                     //currentByte += 3;
-                }
-                else currentByte += 1;
+                } else currentByte += 1;
 
                 fullCode += lines[i] + "\n";
             }
@@ -681,7 +663,7 @@ public class CPUModule16BIT extends CPU {
 
         currentLine = 1;
         eachInstruction = new HashMap<>();
-        for(int i = 0; i < fullLines.length; i++){
+        for (int i = 0; i < fullLines.length; i++) {
 
             currentLine++;
             String a = Arrays.toString(toMachineCode(fullLines[i])).replace("[", "").replace("]", "");
@@ -692,29 +674,29 @@ public class CPUModule16BIT extends CPU {
 
         String[] eachNum = machineCodeString.toString().split(", ");
 
-        for(int i = 0; i < eachNum.length; i++){ // The TEXT section
-            if (isNumber(eachNum[i])){
+        for (int i = 0; i < eachNum.length; i++) { // The TEXT section
+            if (isNumber(eachNum[i])) {
                 machineCodeList.add(Integer.parseInt(eachNum[i]));
             }
         }
         machineCodeList.add((int) TEXT_SECTION_END);
 
-        for(int i = 0; i < memory.length; i++){ // The DATA and STACK sections
+        for (int i = 0; i < memory.length; i++) { // The DATA and STACK sections
             machineCodeList.add((int) memory[i]);
         }
         machineCodeList.add((int) MEMORY_SECTION_END);
 
-        for(int i = 0; i < signature.length(); i++) // My signature, last release date and compiler version
+        for (int i = 0; i < signature.length(); i++) // My signature, last release date and compiler version
             machineCodeList.add((int) signature.charAt(i));
 
-        for(int i = 0; i < lastUpdateDate.length(); i++)
+        for (int i = 0; i < lastUpdateDate.length(); i++)
             machineCodeList.add((int) lastUpdateDate.charAt(i));
 
-        for(int i = 0; i < compilerVersion.length(); i++)
+        for (int i = 0; i < compilerVersion.length(); i++)
             machineCodeList.add((int) compilerVersion.charAt(i));
 
-        machineCodeList.add( memorySize ); // The memory size in KB
-        machineCodeList.add( bit_length ); // the CPU architecture flag
+        machineCodeList.add(memorySize); // The memory size in KB
+        machineCodeList.add(bit_length); // the CPU architecture flag
 
         // Add the program's entry point.
         int entryPoint = functions.get("MAIN");
@@ -731,10 +713,10 @@ public class CPUModule16BIT extends CPU {
     }
 
     @Override
-    public void executeCompiledCode(int[] machine_code){
+    public void executeCompiledCode(int[] machine_code) {
 
         Integer mainEntryPoint = functions.get("MAIN");
-        if (mainEntryPoint == null){
+        if (mainEntryPoint == null) {
             String err = "MAIN function label not found.";
             triggerProgramError(new ErrorHandler.CodeCompilationError(err),
                     err, ErrorHandler.ERR_CODE_MAIN_NOT_FOUND);
@@ -742,26 +724,26 @@ public class CPUModule16BIT extends CPU {
         registers[PC] = mainEntryPoint;
         I = true;
 
-        if (machine_code[ machine_code.length - 3 ] != bit_length){ // Check the architecture
+        if (machine_code[machine_code.length - 3] != bit_length) { // Check the architecture
             String err = String.format("This code has been compiled for %d-bit architecture." +
-                    " the current CPU architecture is %d-bit.\n",
-                    machine_code[ machine_code.length - 3  ], bit_length
-                    );
+                            " the current CPU architecture is %d-bit.\n",
+                    machine_code[machine_code.length - 3], bit_length
+            );
 
-            triggerProgramError( new ErrorHandler.CodeCompilationError(err),
+            triggerProgramError(new ErrorHandler.CodeCompilationError(err),
                     err, ErrorHandler.ERR_CODE_INCOMPATIBLE_ARCHITECTURE);
         }
 
-        if (machine_code [machine_code.length - 4] > memorySize ){ // Check the allocated memory
+        if (machine_code[machine_code.length - 4] > memorySize) { // Check the allocated memory
             String err = String.format("The selected binary file is generated with %dKB of memory." +
-                    "The current configuration uses %dKB. make sure current CPU uses the same or bigger memory size.",
+                            "The current configuration uses %dKB. make sure current CPU uses the same or bigger memory size.",
                     machine_code[machine_code.length - 2], memorySize);
 
             triggerProgramError(new ErrorHandler.CodeCompilationError(err),
                     err, ErrorHandler.ERR_CODE_INSUFFICIENT_MEMORY);
         }
 
-        while (!programEnd && registers[PC] != TEXT_SECTION_END){
+        while (!programEnd && registers[PC] != TEXT_SECTION_END) {
 
             if (registers[PC] >= machine_code.length) {
                 String err = String.format("PC access violation detected. PC => %04X, last available ROM address: %04X",
@@ -770,14 +752,14 @@ public class CPUModule16BIT extends CPU {
                         err, ErrorHandler.ERR_CODE_PC_ACCESS_VIOLATION);
             }
             if (canExecute) {
-                Logger.addLog( String.format("Executing instruction 0x%X -> %s at ROM address 0x%X",
+                Logger.addLog(String.format("Executing instruction 0x%X -> %s at ROM address 0x%X",
                         machine_code[registers[PC]],
-                        instructionSet.get(machine_code[registers[PC]]), registers[PC]) );
+                        instructionSet.get(machine_code[registers[PC]]), registers[PC]));
 
                 switch (machine_code[registers[PC]]) {
 
                     case INS_EXT -> {
-                        Logger.addLog( "Terminating program." );
+                        Logger.addLog("Terminating program.");
                         programEnd = true;
                     }
 
@@ -799,6 +781,17 @@ public class CPUModule16BIT extends CPU {
                         outc(source);
                     }
 
+                    case INS_SHL -> {
+                        int[] destination = getNextOperand();
+                        int[] source = getNextOperand();
+                        shift_left(destination, source);
+                    }
+
+                    case INS_SHR -> {
+                        int[] destination = getNextOperand();
+                        int[] source = getNextOperand();
+                        shift_right(destination, source);
+                    }
 
                     case INS_ADD -> {
                         int[] destination = getNextOperand();
@@ -896,7 +889,7 @@ public class CPUModule16BIT extends CPU {
                         int[] destination = getNextOperand();
                         step();
                         step();
-                        int start = ( machine_code[registers[PC]] << 8 ) | machine_code[step()];
+                        int start = (machine_code[registers[PC]] << 8) | machine_code[step()];
                         short len = 0;
                         while (getMemory(start) != NULL_TERMINATOR) {
                             start++;
@@ -916,10 +909,12 @@ public class CPUModule16BIT extends CPU {
                         while (readByte(start) != NULL_TERMINATOR) {
                             outputString.append((char) memory[start]);
                             output += (char) memory[start];
-                            try{
+                            try {
                                 System.out.print((char) memory[start]);
                                 Thread.sleep(delayAmountMilliseconds);
-                            }catch (Exception e) {e.printStackTrace();}
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
                             start++;
                         }
                     }
@@ -937,7 +932,7 @@ public class CPUModule16BIT extends CPU {
 
                     case INS_CALL -> {
                         step();
-                        int address = ( ( machine_code[step()] << 8 ) | machine_code[step()] );
+                        int address = ((machine_code[step()] << 8) | machine_code[step()]);
                         int return_address = step() - 1;
                         call(address, return_address);
                     }
@@ -949,42 +944,42 @@ public class CPUModule16BIT extends CPU {
 
                     case INS_CE -> {
                         step();
-                        int address = ( ( machine_code[step()] << 8 ) | machine_code[step()] );
+                        int address = ((machine_code[step()] << 8) | machine_code[step()]);
                         int return_address = step() - 1;
                         if (Z) call(address, return_address);
                         else registers[PC] = return_address;
                     }
                     case INS_CNE -> {
                         step();
-                        int address = ( ( machine_code[step()] << 8 ) | machine_code[step()] );
+                        int address = ((machine_code[step()] << 8) | machine_code[step()]);
                         int return_address = step() - 1;
                         if (!Z) call(address, return_address);
                         else registers[PC] = return_address;
                     }
                     case INS_CL -> {
                         step();
-                        int address = ( ( machine_code[step()] << 8 ) | machine_code[step()] );
+                        int address = ((machine_code[step()] << 8) | machine_code[step()]);
                         int return_address = step() - 1;
                         if (N) call(address, return_address);
                         else registers[PC] = return_address;
                     }
                     case INS_CLE -> {
                         step();
-                        int address = ( ( machine_code[step()] << 8 ) | machine_code[step()] );
+                        int address = ((machine_code[step()] << 8) | machine_code[step()]);
                         int return_address = step() - 1;
                         if (N || Z) call(address, return_address);
                         else registers[PC] = return_address;
                     }
                     case INS_CG -> {
                         step();
-                        int address = ( ( machine_code[step()] << 8 ) | machine_code[step()] );
+                        int address = ((machine_code[step()] << 8) | machine_code[step()]);
                         int return_address = step() - 1;
                         if (!N) call(address, return_address);
                         else registers[PC] = return_address;
                     }
                     case INS_CGE -> {
                         step();
-                        int address = ( ( machine_code[step()] << 8 ) | machine_code[step()] );
+                        int address = ((machine_code[step()] << 8) | machine_code[step()]);
                         int return_address = step() - 1;
                         if (!N || Z) call(address, return_address);
                         else registers[PC] = return_address;
@@ -1047,7 +1042,7 @@ public class CPUModule16BIT extends CPU {
                         updateRegisterBytes();
                         if (registers[RCX] > 0) {
                             jmp();
-                        }else step();
+                        } else step();
                     }
 
                     case INS_INT -> {
@@ -1059,7 +1054,6 @@ public class CPUModule16BIT extends CPU {
 
 
                     case INS_NOP -> System.out.println("do nothing.");
-
 
 
                     default -> {
@@ -1086,7 +1080,7 @@ public class CPUModule16BIT extends CPU {
 
         outputString.append("Program terminated with code : ").append(status_code);
         output = "Program terminated with code : " + status_code;
-        Logger.addLog( "Program terminated with code : " + status_code );
+        Logger.addLog("Program terminated with code : " + status_code);
 
         Logger.addLog(String.format("""
                 ==============================================
@@ -1098,7 +1092,7 @@ public class CPUModule16BIT extends CPU {
                 """, dumpRegisters(), dumpFlags(), dumpMemory()));
 
 
-        if (Launcher.appConfig.get("WriteDump").equals("true")){
+        if (Launcher.appConfig.get("WriteDump").equals("true")) {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd hh.mm.ss");
             LocalDateTime time = LocalDateTime.now();
             String filename = time.format(formatter);
@@ -1109,229 +1103,239 @@ public class CPUModule16BIT extends CPU {
 
     public String disassembleMachineCode(int[] machine_code) {
 
-    code = new StringBuilder();
+        code = new StringBuilder();
 
-    code.append("Disassembled by T.K.Y CPU compiler ").append(compilerVersion).append("\n");
-    code.append("Target architecture: ").append(machine_code[machine_code.length - 3]).append("-bit").append("\n");
-    code.append("Memory size: ").append(machine_code[machine_code.length - 4]).append("KB").append("\n");
+        code.append("Disassembled by T.K.Y CPU compiler ").append(compilerVersion).append("\n");
+        code.append("Target architecture: ").append(machine_code[machine_code.length - 3]).append("-bit").append("\n");
+        code.append("Memory size: ").append(machine_code[machine_code.length - 4]).append("KB").append("\n");
 
-    registers[PC] = 0;
-    delayAmountMilliseconds = 0;
+        registers[PC] = 0;
+        delayAmountMilliseconds = 0;
 
-    Set<Integer> functionCollector = new TreeSet<>();
+        Set<Integer> functionCollector = new TreeSet<>();
 
-    for (int i = 0; machine_code[i] != (TEXT_SECTION_END & 0xff); i++) {
+        for (int i = 0; machine_code[i] != (TEXT_SECTION_END & 0xff); i++) {
 
-        if (machine_code[i] >= INS_CALL && machine_code[i] <= INS_JB || machine_code[i] == INS_LOOP) {
-            if (machine_code[i + 1] == FUNCTION_MODE) {
-                int high = machine_code[i + 2], low = machine_code[i + 3];
-                int address = bytePairToWordLE(low, high);
-                functionCollector.add(address);
+            if (machine_code[i] >= INS_CALL && machine_code[i] <= INS_JB || machine_code[i] == INS_LOOP) {
+                if (machine_code[i + 1] == FUNCTION_MODE) {
+                    int high = machine_code[i + 2], low = machine_code[i + 3];
+                    int address = bytePairToWordLE(low, high);
+                    functionCollector.add(address);
+                }
             }
         }
-    }
-    functionPointers = functionCollector.stream().mapToInt(Integer::intValue).toArray();
-    functionAddresses = new HashMap<>();
+        functionPointers = functionCollector.stream().mapToInt(Integer::intValue).toArray();
+        functionAddresses = new HashMap<>();
 
-    for (int i = 0; i < functionPointers.length; i++) {
-        functionAddresses.put(functionPointers[i], "func_" + i);
-    }
+        for (int i = 0; i < functionPointers.length; i++) {
+            functionAddresses.put(functionPointers[i], "func_" + i);
+        }
 
-    int mainEntryPoint = ((machine_code[machine_code.length - 2] & 0xff) | machine_code[machine_code.length - 1]);
-    code.append("Program's entry point: ").append("0x").append(Integer.toHexString(mainEntryPoint).toUpperCase()).append("\n");
+        int mainEntryPoint = ((machine_code[machine_code.length - 2] & 0xff) | machine_code[machine_code.length - 1]);
+        code.append("Program's entry point: ").append("0x").append(Integer.toHexString(mainEntryPoint).toUpperCase()).append("\n");
 
-    if (machine_code[machine_code.length - 3] != bit_length) { // Check the architecture
-        String err = String.format("This code has been compiled for %d-bit architecture." +
-                        " the current CPU architecture is %d-bit.\n",
-                machine_code[machine_code.length - 3], bit_length
-        );
+        if (machine_code[machine_code.length - 3] != bit_length) { // Check the architecture
+            String err = String.format("This code has been compiled for %d-bit architecture." +
+                            " the current CPU architecture is %d-bit.\n",
+                    machine_code[machine_code.length - 3], bit_length
+            );
 
-        triggerProgramError(new ErrorHandler.CodeCompilationError(err),
-                err, ErrorHandler.ERR_CODE_INCOMPATIBLE_ARCHITECTURE);
-    }
+            triggerProgramError(new ErrorHandler.CodeCompilationError(err),
+                    err, ErrorHandler.ERR_CODE_INCOMPATIBLE_ARCHITECTURE);
+        }
 
 
-    while (!programEnd && machine_code[registers[PC]] != TEXT_SECTION_END) {
-        if (canExecute) {
+        while (!programEnd && machine_code[registers[PC]] != TEXT_SECTION_END) {
+            if (canExecute) {
 
-            if (registers[PC] == mainEntryPoint)
-                code.append("\n<.MAIN @0x").append(String.format("%04X>", registers[PC])).append("\n");
-            else {
-                for (int i = 0; i < functionPointers.length; i++) {
-                    if (registers[PC] == functionPointers[i])
-                        code.append("\n<").append(functionAddresses.get(functionPointers[i])).
-                                append(" @0x").append(String.format("%04X", functionPointers[i])).append(">").append("\n");
-                }
-            }
-
-            code.append(String.format("%04X:\t",
-                    registers[PC]));
-
-            StringBuilder byteStr = new StringBuilder();
-            int numBytes = 0;
-
-            switch (machine_code[registers[PC]]) {
-
-                // step function increments PC and returns its value
-                // we step two times for each operand. one step for mode. another step for value
-                case INS_SET -> {
-                    numBytes = 5;
-                    for (int i = 0; i < numBytes; i++) byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                    code.append(String.format("%-20s", byteStr.toString()));
-                    code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
-                    int[] destination = getNextOperand();
-                    code.append(getDisassembledOperand(destination)).append(" ");
-                    int[] source = getNextOperand();
-                    code.append(getDisassembledOperand(source));
-                }
-                case INS_OUT,
-                        INS_SQRT,
-                        INS_INC, INS_DEC,
-                        INS_NOT, INS_PUSH, INS_POP -> {
-                    numBytes = 3;
-                    for (int i = 0; i < numBytes; i++) byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                    code.append(String.format("%-20s", byteStr.toString()));
-                    code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
-                    int[] destination = getNextOperand();
-                    code.append(getDisassembledOperand(destination));
+                if (registers[PC] == mainEntryPoint)
+                    code.append("\n<.MAIN @0x").append(String.format("%04X>", registers[PC])).append("\n");
+                else {
+                    for (int i = 0; i < functionPointers.length; i++) {
+                        if (registers[PC] == functionPointers[i])
+                            code.append("\n<").append(functionAddresses.get(functionPointers[i])).
+                                    append(" @0x").append(String.format("%04X", functionPointers[i])).append(">").append("\n");
+                    }
                 }
 
-                case INS_OUTC -> {
-                    numBytes = 3;
-                    for (int i = 0; i < numBytes; i++) byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                    code.append(String.format("%-20s", byteStr.toString()));
-                    code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
-                    int[] source = getNextOperand();
-                    code.append(getDisassembledOperand(source));
-                    outc(source);
+                code.append(String.format("%04X:\t",
+                        registers[PC]));
+
+                StringBuilder byteStr = new StringBuilder();
+                int numBytes = 0;
+
+                switch (machine_code[registers[PC]]) {
+
+                    // step function increments PC and returns its value
+                    // we step two times for each operand. one step for mode. another step for value
+                    case INS_SET -> {
+                        numBytes = 5;
+                        for (int i = 0; i < numBytes; i++)
+                            byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
+                        code.append(String.format("%-20s", byteStr.toString()));
+                        code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
+                        int[] destination = getNextOperand();
+                        code.append(getDisassembledOperand(destination)).append(" ");
+                        int[] source = getNextOperand();
+                        code.append(getDisassembledOperand(source));
+                    }
+                    case INS_OUT,
+                         INS_SQRT,
+                         INS_INC, INS_DEC,
+                         INS_NOT, INS_PUSH, INS_POP -> {
+                        numBytes = 3;
+                        for (int i = 0; i < numBytes; i++)
+                            byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
+                        code.append(String.format("%-20s", byteStr.toString()));
+                        code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
+                        int[] destination = getNextOperand();
+                        code.append(getDisassembledOperand(destination));
+                    }
+
+                    case INS_OUTC -> {
+                        numBytes = 3;
+                        for (int i = 0; i < numBytes; i++)
+                            byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
+                        code.append(String.format("%-20s", byteStr.toString()));
+                        code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
+                        int[] source = getNextOperand();
+                        code.append(getDisassembledOperand(source));
+                        outc(source);
+                    }
+
+
+                    case INS_ADD, INS_SUB, INS_MUL, INS_DIV, INS_POW,
+                         INS_RND, INS_AND, INS_OR, INS_XOR, INS_NAND, INS_NOR -> {
+                        numBytes = 5;
+                        for (int i = 0; i < numBytes; i++)
+                            byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
+                        code.append(String.format("%-20s", byteStr.toString()));
+                        code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
+                        int[] destination = getNextOperand();
+                        code.append(getDisassembledOperand(destination)).append(" ");
+                        int[] source = getNextOperand();
+                        code.append(getDisassembledOperand(source));
+                    }
+
+
+                    case INS_LA -> {
+                        // Get the destination (must be 16-bit compatible). step to the address. load into source
+                        numBytes = 6;
+                        for (int i = 0; i < numBytes; i++)
+                            byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
+                        code.append(String.format("%-20s", byteStr.toString()));
+                        code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
+                        int[] destination = getNextOperand();
+                        code.append(getDisassembledOperand(destination)).append(" ");
+                        int[] source = new int[]{machineCode[step()], machineCode[step()], machineCode[step()]};
+                        code.append(getDisassembledOperand(source));
+                    }
+
+                    case INS_LLEN -> {
+                        numBytes = 6;
+                        for (int i = 0; i < numBytes; i++)
+                            byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
+                        code.append(String.format("%-20s", byteStr.toString()));
+                        code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
+                        int[] destination = getNextOperand();
+                        code.append(getDisassembledOperand(destination)).append(" ");
+                        int[] source = new int[]{machineCode[step()], machineCode[step()], machineCode[step()]};
+                        code.append(getDisassembledOperand(source));
+                    }
+
+
+                    case INS_CALL -> {
+                        numBytes = 4;
+                        for (int i = 0; i < numBytes; i++)
+                            byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
+                        code.append(String.format("%-20s", byteStr.toString()));
+                        code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
+                        int source[] = new int[]{machineCode[step()], machineCode[step()], machineCode[step()]};
+                        code.append(getDisassembledOperand(source));
+                    }
+
+
+                    case INS_CE, INS_CNE, INS_CL, INS_CLE, INS_CG, INS_CGE, INS_JMP, INS_JE, INS_JNE, INS_JL, INS_JLE,
+                         INS_JG, INS_JGE -> {
+                        numBytes = 4;
+                        for (int i = 0; i < numBytes; i++)
+                            byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
+                        code.append(String.format("%-20s", byteStr.toString()));
+                        code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
+                        int[] source = new int[]{machineCode[step()], machineCode[step()], machineCode[step()]};
+                        code.append(getDisassembledOperand(source));
+                    }
+
+                    case INS_CMP -> {
+                        numBytes = 5;
+                        for (int i = 0; i < numBytes; i++)
+                            byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
+                        code.append(String.format("%-20s", byteStr.toString()));
+                        code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
+                        int[] destination = getNextOperand();
+                        code.append(getDisassembledOperand(destination)).append(" ");
+                        int[] source = getNextOperand();
+                        code.append(getDisassembledOperand(source));
+                    }
+
+                    case INS_LOOP -> {
+                        numBytes = 4;
+                        for (int i = 0; i < numBytes; i++)
+                            byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
+                        code.append(String.format("%-20s", byteStr.toString()));
+                        code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
+                        // if RCX > 0: decrement RC and jump to the label address specified.
+                        int[] source = new int[]{machineCode[step()], machineCode[step()], machineCode[step()]};
+                        code.append(getDisassembledOperand(source));
+                    }
+
+                    case INS_INT, INS_OUTS, INS_EXT, INS_RET,
+                         INS_END, INS_NOP -> {
+                        numBytes = 1;
+                        byteStr.append(String.format("%02X ", machine_code[registers[PC]]));
+                        code.append(String.format("%-20s", byteStr.toString()));
+                        code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
+                    }
+
+
+                    case TEXT_SECTION_END & 0xff -> {
+                        System.out.println("Code ends here.");
+                        programEnd = true;
+                        break;
+                    }
+                    default -> {
+                        numBytes = 1;
+                        byteStr.append(String.format("%02X ", machine_code[registers[PC]]));
+                        code.append(String.format("%-20s", byteStr.toString()));
+                        String err = "Undefined instruction. please check the instruction codes : " + machine_code[registers[PC]];
+                        status_code = ErrorHandler.ERR_CODE_INVALID_INSTRUCTION_FORMAT;
+                        triggerProgramError(new ErrorHandler.InvalidInstructionException(err),
+                                err, status_code);
+                    }
+
                 }
 
-
-                case INS_ADD, INS_SUB, INS_MUL, INS_DIV, INS_POW,
-                        INS_RND, INS_AND, INS_OR, INS_XOR, INS_NAND, INS_NOR -> {
-                    numBytes = 5;
-                    for (int i = 0; i < numBytes; i++) byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                    code.append(String.format("%-20s", byteStr.toString()));
-                    code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
-                    int[] destination = getNextOperand();
-                    code.append(getDisassembledOperand(destination)).append(" ");
-                    int[] source = getNextOperand();
-                    code.append(getDisassembledOperand(source));
-                }
-
-
-                case INS_LA -> {
-                    // Get the destination (must be 16-bit compatible). step to the address. load into source
-                    numBytes = 6;
-                    for (int i = 0; i < numBytes; i++) byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                    code.append(String.format("%-20s", byteStr.toString()));
-                    code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
-                    int[] destination = getNextOperand();
-                    code.append(getDisassembledOperand(destination)).append(" ");
-                    int[] source = new int[]{machineCode[step()], machineCode[step()], machineCode[step()]};
-                    code.append(getDisassembledOperand(source));
-                }
-
-                case INS_LLEN -> {
-                    numBytes = 6;
-                    for (int i = 0; i < numBytes; i++) byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                    code.append(String.format("%-20s", byteStr.toString()));
-                    code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
-                    int[] destination = getNextOperand();
-                    code.append(getDisassembledOperand(destination)).append(" ");
-                    int[] source = new int[]{machineCode[step()], machineCode[step()], machineCode[step()]};
-                    code.append(getDisassembledOperand(source));
-                }
-
-
-                case INS_CALL -> {
-                    numBytes = 4;
-                    for (int i = 0; i < numBytes; i++) byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                    code.append(String.format("%-20s", byteStr.toString()));
-                    code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
-                    int source[] = new int[]{machineCode[step()], machineCode[step()], machineCode[step()]};
-                    code.append(getDisassembledOperand(source));
-                }
-
-
-                case INS_CE, INS_CNE, INS_CL, INS_CLE, INS_CG, INS_CGE, INS_JMP, INS_JE, INS_JNE, INS_JL, INS_JLE,
-                        INS_JG, INS_JGE -> {
-                    numBytes = 4;
-                    for (int i = 0; i < numBytes; i++) byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                    code.append(String.format("%-20s", byteStr.toString()));
-                    code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
-                    int[] source = new int[]{machineCode[step()], machineCode[step()], machineCode[step()]};
-                    code.append(getDisassembledOperand(source));
-                }
-
-                case INS_CMP -> {
-                    numBytes = 5;
-                    for (int i = 0; i < numBytes; i++) byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                    code.append(String.format("%-20s", byteStr.toString()));
-                    code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
-                    int[] destination = getNextOperand();
-                    code.append(getDisassembledOperand(destination)).append(" ");
-                    int[] source = getNextOperand();
-                    code.append(getDisassembledOperand(source));
-                }
-
-                case INS_LOOP -> {
-                    numBytes = 4;
-                    for (int i = 0; i < numBytes; i++) byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                    code.append(String.format("%-20s", byteStr.toString()));
-                    code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
-                    // if RCX > 0: decrement RC and jump to the label address specified.
-                    int[] source = new int[]{machineCode[step()], machineCode[step()], machineCode[step()]};
-                    code.append(getDisassembledOperand(source));
-                }
-
-                case INS_INT, INS_OUTS, INS_EXT, INS_RET,
-                        INS_END, INS_NOP -> {
-                    numBytes = 1;
-                    byteStr.append(String.format("%02X ", machine_code[registers[PC]]));
-                    code.append(String.format("%-20s", byteStr.toString()));
-                    code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
-                }
-
-
-                case TEXT_SECTION_END & 0xff -> {
-                    System.out.println("Code ends here.");
-                    programEnd = true;
-                    break;
-                }
-                default -> {
-                    numBytes = 1;
-                    byteStr.append(String.format("%02X ", machine_code[registers[PC]]));
-                    code.append(String.format("%-20s", byteStr.toString()));
-                    String err = "Undefined instruction. please check the instruction codes : " + machine_code[registers[PC]];
-                    status_code = ErrorHandler.ERR_CODE_INVALID_INSTRUCTION_FORMAT;
-                    triggerProgramError(new ErrorHandler.InvalidInstructionException(err),
+                if (E) {
+                    status_code = ErrorHandler.ERR_CODE_PROGRAM_ERROR;
+                    String err = String.format("The program triggered an error with code : %s", status_code);
+                    triggerProgramError(new ErrorHandler.ProgramErrorException(err),
                             err, status_code);
                 }
 
+                canExecute = !T;
+                output = "";
+                code.append("\n");
+                currentLine++;
+                step();
             }
 
-            if (E) {
-                status_code = ErrorHandler.ERR_CODE_PROGRAM_ERROR;
-                String err = String.format("The program triggered an error with code : %s", status_code);
-                triggerProgramError(new ErrorHandler.ProgramErrorException(err),
-                        err, status_code);
-            }
-
-            canExecute = !T;
-            output = "";
-            code.append("\n");
-            currentLine++;
-            step();
         }
 
-    }
+        outputString.append("Program terminated with code : ").append(status_code);
+        output = "Program terminated with code : " + status_code;
+        Logger.addLog("Program terminated with code : " + status_code);
 
-    outputString.append("Program terminated with code : ").append(status_code);
-    output = "Program terminated with code : " + status_code;
-    Logger.addLog("Program terminated with code : " + status_code);
-
-    Logger.addLog(String.format("""
+        Logger.addLog(String.format("""
                 ==============================================
                 %s
                 %s
@@ -1341,40 +1345,39 @@ public class CPUModule16BIT extends CPU {
                 """, dumpRegisters(), dumpFlags(), dumpMemory()));
 
 
-    if (Launcher.appConfig.get("WriteDump").equals("true")) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd hh.mm.ss");
-        LocalDateTime time = LocalDateTime.now();
-        String filename = time.format(formatter);
-        Logger.writeLogFile("./" + filename + ".log");
-    }
+        if (Launcher.appConfig.get("WriteDump").equals("true")) {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd hh.mm.ss");
+            LocalDateTime time = LocalDateTime.now();
+            String filename = time.format(formatter);
+            Logger.writeLogFile("./" + filename + ".log");
+        }
 
-    return code.toString();
-}
+        return code.toString();
+    }
 
     /// ///////////////////////////////////////////////////////////////////////////////////////////////////////
     /// //////////////////////////////////////////////////////////////////////////////////////////////////////
     ///
     /// ///////////////////////////// INSTRUCTION SET ////////////////////////////////////////////////////////
     ///
-    ///
 
 
-    public void set(int[] destination, int[] source){
+    public void set(int[] destination, int[] source) {
 
         int operandValue = getOperandValue(source);
 
         Logger.addLog("Fetching destination.");
-        switch (destination[0]){
+        switch (destination[0]) {
 
-            case REGISTER_MODE, REGISTER_WORD_MODE -> setRegister( destination[1], operandValue );
-            case DIRECT_MODE -> setMemory( destination[1], operandValue );
-            case INDIRECT_MODE, INDIRECT_WORD_MODE -> setMemory( getRegister( destination[1] ), operandValue );
+            case REGISTER_MODE, REGISTER_WORD_MODE -> setRegister(destination[1], operandValue);
+            case DIRECT_MODE -> setMemory(destination[1], operandValue);
+            case INDIRECT_MODE, INDIRECT_WORD_MODE -> setMemory(getRegister(destination[1]), operandValue);
             default -> E = true;
         }
     }
 
 
-    public void out(int[] source){
+    public void out(int[] source) {
 
         Logger.addLog("Fetching operands");
         outputString.append(getOperandValue(source));
@@ -1382,11 +1385,71 @@ public class CPUModule16BIT extends CPU {
         System.out.print(output);
     }
 
-    public void outc(int[] source){
+    public void outc(int[] source) {
         Logger.addLog("Fetching operands");
-        outputString.append( (char) getOperandValue(source) );
-        output = String.valueOf( (char) getOperandValue(source) );
+        outputString.append((char) getOperandValue(source));
+        output = String.valueOf((char) getOperandValue(source));
         System.out.print(output);
+    }
+
+    public void shift_left(int[] destination, int[] source) {
+        int operandValue = getOperandValue(source);
+        int newVal = 0;
+
+        switch (destination[0]) {
+            case REGISTER_MODE, REGISTER_WORD_MODE -> {
+                newVal = getRegister(destination[1]) << operandValue;
+                setRegister(destination[1], newVal);
+            }
+            case DIRECT_MODE -> {
+                newVal = readByte(destination[1]) << operandValue;
+                setRegister(destination[1], newVal);
+            }
+            case DIRECT_WORD_MODE -> {
+                newVal = bytePairToWordLE(readWord(destination[1])) << operandValue;
+                setMemory(destination[1], newVal);
+            }
+            case INDIRECT_MODE -> {
+                newVal = readByte(getRegister(destination[1])) << operandValue;
+                setMemory(getRegister(destination[1]), newVal);
+            }
+            case INDIRECT_WORD_MODE -> {
+                newVal = bytePairToWordLE(readWord(getRegister(destination[1]))) << operandValue;
+                setMemory(getRegister(destination[1]), newVal);
+            }
+            default -> E = true;
+        }
+        updateFlags(newVal);
+    }
+
+    public void shift_right(int[] destination, int[] source) {
+        int operandValue = getOperandValue(source);
+        int newVal = 0;
+
+        switch (destination[0]) {
+            case REGISTER_MODE, REGISTER_WORD_MODE -> {
+                newVal = getRegister(destination[1]) >> operandValue;
+                setRegister(destination[1], newVal);
+            }
+            case DIRECT_MODE -> {
+                newVal = readByte(destination[1]) >> operandValue;
+                setRegister(destination[1], newVal);
+            }
+            case DIRECT_WORD_MODE -> {
+                newVal = bytePairToWordLE(readWord(destination[1])) >> operandValue;
+                setMemory(destination[1], newVal);
+            }
+            case INDIRECT_MODE -> {
+                newVal = readByte(getRegister(destination[1])) >> operandValue;
+                setMemory(getRegister(destination[1]), newVal);
+            }
+            case INDIRECT_WORD_MODE -> {
+                newVal = bytePairToWordLE(readWord(getRegister(destination[1]))) >> operandValue;
+                setMemory(getRegister(destination[1]), newVal);
+            }
+            default -> E = true;
+        }
+        updateFlags(newVal);
     }
 
 

@@ -208,7 +208,7 @@ public class CPUModule8BIT extends CPU {
 
 
                 case INS_ADD, INS_SUB, INS_MUL, INS_DIV, INS_POW,
-                        INS_RND, INS_AND, INS_OR, INS_XOR, INS_NAND, INS_NOR -> {
+                        INS_RND, INS_AND, INS_OR, INS_XOR, INS_NAND, INS_NOR, INS_SHL, INS_SHR -> {
                     numBytes = 5;
                     for (int i = 0; i < numBytes; i++) byteStr.append(String.format("%02X ", machineCode[registers[PC] + i]));
                     code.append(String.format("%-20s", byteStr.toString()));
@@ -580,6 +580,17 @@ public class CPUModule8BIT extends CPU {
                     case INS_OUTC -> {
                         short[] source = getNextOperand();
                         outc(source);
+                    }
+
+                    case INS_SHL -> {
+                        short[] destination = getNextOperand();
+                        short[] source = getNextOperand();
+                        shift_left(destination, source);
+                    }
+                    case INS_SHR -> {
+                        short[] destination = getNextOperand();
+                        short[] source = getNextOperand();
+                        shift_right(destination, source);
                     }
 
                     case INS_ADD -> {
@@ -963,6 +974,72 @@ public class CPUModule8BIT extends CPU {
         System.out.print(output);
     }
 
+
+    public void shift_left(short[] destination, short[] source){
+        short value = 0;
+        short operandValue = switch (source[0]){
+            case REGISTER_MODE -> getRegister(source[1]);
+            case DIRECT_MODE -> getMemory(source[1]);
+            case INDIRECT_MODE -> getMemory(getRegister(source[1]));
+            case IMMEDIATE_MODE -> source[1];
+
+            default -> 256;
+        };
+        if (operandValue == 256) E = true;
+
+        switch (destination[0]){
+            case REGISTER_MODE -> {
+                value = (short) (getRegister(destination[1]) << operandValue);
+                setRegister(destination[1], value);
+            }
+
+            case DIRECT_MODE -> {
+                value = (short) (getMemory( destination[1] ) << operandValue);
+                setMemory( destination[1], value );
+            }
+
+            case INDIRECT_MODE -> {
+                value = (short) (getMemory( getRegister( destination[1]) ) << operandValue);
+                setMemory( getRegister( destination[1] ), value );
+            }
+            default -> E = true;
+        }
+        updateFlags(value);
+    }
+
+    public void shift_right(short[] destination, short[] source){
+        short value = 0;
+        short operandValue = switch (source[0]){
+            case REGISTER_MODE -> getRegister(source[1]);
+            case DIRECT_MODE -> getMemory(source[1]);
+            case INDIRECT_MODE -> getMemory(getRegister(source[1]));
+            case IMMEDIATE_MODE -> source[1];
+
+            default -> 256;
+        };
+        if (operandValue == 256) E = true;
+
+        switch (destination[0]){
+            case REGISTER_MODE -> {
+                value = (short) (getRegister(destination[1]) >> operandValue);
+                setRegister(destination[1], value);
+            }
+
+            case DIRECT_MODE -> {
+                value = (short) (getMemory( destination[1] ) >> operandValue);
+                setMemory( destination[1], value );
+            }
+
+            case INDIRECT_MODE -> {
+                value = (short) (getMemory( getRegister( destination[1]) ) >> operandValue);
+                setMemory( getRegister( destination[1] ), value );
+            }
+
+            default -> E = true;
+        }
+
+        updateFlags(value);
+    }
 
     public void add(short[] destination, short[] source){
 

@@ -52,6 +52,8 @@ public abstract class CPU {
     public static final int INS_END = 0x2f;
     public static final int INS_INT = 0x30;
     public static final int INS_OUTC = 0x31;
+    public static final int INS_SHL = 0x32;
+    public static final int INS_SHR = 0x33;
 
 
 
@@ -198,6 +200,8 @@ public abstract class CPU {
         instructionSet.put(INS_END, "end");
         instructionSet.put(INS_INT, "int");
         instructionSet.put(INS_OUTC, "outc");
+        instructionSet.put(INS_SHL, "shl");
+        instructionSet.put(INS_SHR, "shr");
 
 
         translationMap = createTranslationMap(instructionSet);
