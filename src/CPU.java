@@ -102,6 +102,17 @@ public abstract class CPU {
 
     protected short[] memory;
 
+    protected float ROMpercentage = (35.0f / 100);
+    protected float DATApercentage = (45.0f / 100);
+    protected float STACKpercentage = (20.0f / 100);
+
+    protected int dataOffset;
+
+    protected float ROMsizeKB, DATAsizeKB, STACKsizeKB;
+    protected int ROMsizeB, DATAsizeB, STACKsizeB, mem_size_B;
+    protected int rom_start, data_start, stack_start;
+    protected int rom_end, data_end, stack_end;
+
     // Flags N = negative, C = carry, O = overflow, Z = zero //
     protected boolean N, C, O, Z;
     // T = trap, E = Error, I = Interrupt
@@ -257,50 +268,9 @@ public abstract class CPU {
         }
     }
 
-/*    public String leftPad(String s, int l, char p) {
-
-        // Create a StringBuilder to build the padded string
-        StringBuilder sb = new StringBuilder();
-
-        // Append the pad character until the
-        // total length matches the required length
-        while (sb.length() + s.length() < l) {
-            sb.append(p);
-        }
-
-        sb.append(s);
-        return sb.toString();
-    }*/
 
     public abstract void setUIupdateListener(onStepListener listener);
 
-
-    /*public abstract void set(short[] destination, short[] source);
-    public abstract void out(short[] destination);
-    public abstract void add(short[] destination, short[] source);
-    public abstract void sub(short[] destination, short[] source);
-    public abstract void mul(short[] destination, short[] source);
-    public abstract void div(short[] destination, short[] source);
-    public abstract void not(short[] source);
-    public abstract void and(short[] destination, short[] source);
-    public abstract void or(short[] destination, short[] source);
-    public abstract void xor(short[] destination, short[] source);
-    public abstract void nand(short[] destination, short[] source);
-    public abstract void nor(short[] destination, short[] source);
-    public abstract void pow(short[] destination, short[] source);
-    public abstract void sqrt(short[] destination);
-    public abstract void rnd(short[] destination, short[] source);
-    public abstract void inc(short[] destination);
-    public abstract void dec(short[] destination);
-    public abstract void la(short[] source);
-    // llen and outs don't have functions.
-
-    public abstract void push(short[] source);
-    public abstract void pop(short[] source);
-    public abstract void call(int address, int return_address);
-    public abstract void jmp();
-
-    public abstract void cmp(short[] destination, short[] source);*/
 
     public void triggerProgramError(RuntimeException exceptionType, String errMsg, int errCode){
         status_code = errCode;

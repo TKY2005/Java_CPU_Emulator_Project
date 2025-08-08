@@ -15,8 +15,6 @@ public class CPUModule16BIT extends CPU {
     public int stack_start;
 
 
-    public int mem_size_B;
-
 
     // CPU architecture
     public int[] registers;
@@ -457,7 +455,7 @@ public class CPUModule16BIT extends CPU {
                                 setMemory(data_start + offset, (short) fullString.charAt(j));
                                 offset++;
                             }
-                            setMemory(offset, NULL_TERMINATOR);
+                            setMemory(data_start + offset, NULL_TERMINATOR);
                             offset++;
                         } else {
                             for (int j = 1; j < x.length; j++) {
@@ -468,7 +466,7 @@ public class CPUModule16BIT extends CPU {
                                 setMemory(data_start + offset, Integer.parseInt(x[j].substring(1)));
                                 offset++;
                             }
-                            setMemory(offset, NULL_TERMINATOR);
+                            setMemory(data_start + offset, NULL_TERMINATOR);
                             offset++;
                         }
                     }
@@ -559,7 +557,7 @@ public class CPUModule16BIT extends CPU {
         machineCodeList.add(entryPointLow);
 
         machineCode = machineCodeList.stream().mapToInt(Integer::intValue).toArray();
-
+        stepListener.updateUI();
         return machineCode;
     }
 
@@ -2314,6 +2312,30 @@ public class CPUModule16BIT extends CPU {
         registers[SP] = (stack_start + memory.length - stack_start - 1);
         registers[PC] = 0;
 
+    }
+
+    public void calculateMemorySegments(){
+        mem_size_B = (memorySize * 1024) + signature.length() + lastUpdateDate.length() + compilerVersion.length() + 4;
+
+        ROMsizeKB = (ROMpercentage * memorySize);
+        DATAsizeKB = (DATApercentage * memorySize);
+        STACKsizeKB = (STACKpercentage * memorySize);
+
+        ROMsizeB = (int) (ROMsizeKB * 1024);
+        DATAsizeB = (int) (DATAsizeKB * 1024);
+        STACKsizeB = (int) (STACKsizeKB * 1024);
+
+        rom_start = 0;
+        data_start = rom_start + ROMsizeB;
+        stack_start = data_start + DATAsizeB;
+
+        rom_end = data_start - 1;
+        data_end = stack_start - 1;
+        stack_end = stack_start + STACKsizeB;
+
+        dataOffset = data_start;
+        last_addressable_location = data_end;
+        System.out.println("Done calculating memory segments.");
     }
     /// //////////////////////////////////////////////////////////////////////////////
     /// /////////////////////////////////////////////////////////////////////////////
