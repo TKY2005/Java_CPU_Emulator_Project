@@ -599,7 +599,7 @@ public class CPUModule16BIT extends CPU {
                                 setMemory(data_start + offset, (short) fullString.charAt(j));
                                 offset++;
                             }
-                            setMemory(offset, NULL_TERMINATOR);
+                            setMemory(data_start + offset, NULL_TERMINATOR);
                             offset++;
                         } else {
                             for (int j = 1; j < x.length; j++) {
@@ -610,7 +610,7 @@ public class CPUModule16BIT extends CPU {
                                 setMemory(data_start + offset, Integer.parseInt(x[j].substring(1)));
                                 offset++;
                             }
-                            setMemory(offset, NULL_TERMINATOR);
+                            setMemory(data_start + offset, NULL_TERMINATOR);
                             offset++;
                         }
                     }
