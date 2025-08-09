@@ -155,8 +155,8 @@ public abstract class CPU {
     /// ////////////////////////////////////////////
     ///
     String signature = "Made by T.K.Y";
-    String lastUpdateDate = " 23/7/2025";
-    String compilerVersion = " V1.0";
+    String lastUpdateDate = " 9/8/2025";
+    String compilerVersion = " V1.1";
 
 
     public CPU() {
