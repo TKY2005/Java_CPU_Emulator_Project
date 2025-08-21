@@ -1789,7 +1789,7 @@ public class CPUModule8BIT extends CPU {
     }
     public int getRegisterCode(String registerName){
         for(int i = 0; i < registerNames.length; i++){
-            if (registerNames[i].equals(registerName)) return i;
+            if (registerNames[i].equalsIgnoreCase(registerName)) return i;
         }
         return -1;
     }
