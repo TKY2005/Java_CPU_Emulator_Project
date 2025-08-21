@@ -54,13 +54,13 @@ public class CPUModule8BIT extends CPU {
 
         if (stack_start < 0){
             String errMsg = "Invalid memory layout (stack). " + stack_start;
-            triggerProgramError(new ErrorHandler.InvalidMemoryLayoutException(errMsg),
+            triggerProgramError(
                     errMsg, ErrorHandler.ERR_CODE_INVALID_MEMORY_LAYOUT);
 
         }
         if (data_start < 0){
             String errMsg = "Invalid memory layout (data). " + data_start;
-            triggerProgramError(new ErrorHandler.InvalidMemoryLayoutException(errMsg),
+            triggerProgramError(
                     errMsg, ErrorHandler.ERR_CODE_INVALID_MEMORY_LAYOUT);
         }
 
@@ -146,7 +146,7 @@ public class CPUModule8BIT extends CPU {
                 machineCode[machineCode.length - 3], bit_length
         );
 
-        triggerProgramError(new ErrorHandler.CodeCompilationError(err),
+        triggerProgramError(
                 err, ErrorHandler.ERR_CODE_INCOMPATIBLE_ARCHITECTURE);
     }
 
@@ -305,7 +305,7 @@ public class CPUModule8BIT extends CPU {
                     code.append(String.format("%-20s", byteStr.toString()));
                     String err = "Undefined instruction. please check the instruction codes : " + machineCode[registers[PC]];
                     status_code = ErrorHandler.ERR_CODE_INVALID_INSTRUCTION_FORMAT;
-                    triggerProgramError(new ErrorHandler.InvalidInstructionException(err),
+                    triggerProgramError(
                             err, status_code);
                 }
 
@@ -314,7 +314,7 @@ public class CPUModule8BIT extends CPU {
             if (E) {
                 status_code = ErrorHandler.ERR_CODE_PROGRAM_ERROR;
                 String err = String.format("The program triggered an error with code : %s", status_code);
-                triggerProgramError(new ErrorHandler.ProgramErrorException(err),
+                triggerProgramError(
                         err, status_code);
             }
 
@@ -388,7 +388,7 @@ public class CPUModule8BIT extends CPU {
                              setMemory(data_start + offset, (short) fullString.charAt(j));
                              offset++;
                          }
-                         setMemory(data_start + offset, NULL_TERMINATOR);
+                         setMemory(data_start + offset, ARRAY_TERMINATOR);
                          offset++;
                      } else {
                          for (int j = 1; j < x.length; j++) {
@@ -399,7 +399,7 @@ public class CPUModule8BIT extends CPU {
                              setMemory(data_start + offset, Integer.parseInt(x[j].substring(1)));
                              offset++;
                          }
-                         setMemory(data_start + offset, NULL_TERMINATOR);
+                         setMemory(data_start + offset, ARRAY_TERMINATOR);
                          offset++;
                      }
                  }
@@ -408,6 +408,8 @@ public class CPUModule8BIT extends CPU {
             }
             else if (lines[i].startsWith(".")){ // regular function. add the function along with the calculated offset
                 functions.put(lines[i].substring(1), currentByte);
+                System.out.println("Mapped function '" + lines[i].substring(1) + "' to address: 0x" +
+                        Integer.toHexString(currentByte));
             }
             else{ // code line. append the offset based on the string length.
                 // in this architecture there's only 3 possible cases
@@ -415,26 +417,13 @@ public class CPUModule8BIT extends CPU {
                 // single-operand instruction = 3 bytes
                 // 2 operand instruction = 5 bytes
                 if (lines[i].isEmpty() || lines[i].startsWith(COMMENT_PREFIX)) continue;
-                int len = lines[i].trim().split(" ").length;
-                if (len == 3){
-                    switch (lines[i].trim().split(" ")[2].charAt(0)){
-                        case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX, IMMEDIATE_PREFIX -> currentByte += 5;
-                        default -> currentByte += 6;
-                    }
-                }
-                else if (len == 2){
-                    switch (lines[i].trim().split(" ")[1].charAt(0)){
-                        case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX, IMMEDIATE_PREFIX -> currentByte += 3;
-                        default -> currentByte += 4;
-                    }
-                }
-                else currentByte += 1;
+                currentByte += getInstructionLength(lines[i]);
 
                 fullCode += lines[i] + "\n";
             }
         }
-        System.out.println(functions);
-        System.out.println(dataMap);
+        //System.out.println(functions);
+        //System.out.println(dataMap);
 
         // Step 2- convert the raw code to machine code array.
         String[] fullLines = fullCode.split("\n");
@@ -496,6 +485,7 @@ public class CPUModule8BIT extends CPU {
     public void reset(){
 
         // 6 General purpose registers + 6 Special purpose registers
+
         registers = new short[REGISTER_COUNT + 6];
         registerNames = new String[registers.length];
         bit_length = 8;
@@ -550,13 +540,24 @@ public class CPUModule8BIT extends CPU {
         Integer mainEntryPoint = functions.get("MAIN");
         if (mainEntryPoint == null){
             String err = "MAIN function label not found.";
-            triggerProgramError(new ErrorHandler.CodeCompilationError(err),
+            triggerProgramError(
                     err, ErrorHandler.ERR_CODE_MAIN_NOT_FOUND);
         }
         registers[PC] = (short) (int) mainEntryPoint;
         I = true;
 
+
         while (!programEnd && registers[PC] < machine_code.length){
+
+            // if the CPU hasn't progressed in the last 10 seconds. terminate the program.
+//            TimerTask timeout = new TimerTask() {
+//              @Override
+//              public void run(){
+//                  String err = "Program timed out.";
+//                  triggerProgramError(err, ErrorHandler.ERR_PROG_TIMEOUT);
+//              }
+//            };
+//            timeoutTimer.schedule(timeout, timeoutDuration);
             if (canExecute) {
                 // System.out.printf("Executing machine code : 0x%X -> 0x%X -> %s.\n",
                 //       registers[PC], machine_code[registers[PC]], instructionSet.get( machine_code[registers[PC]] ));
@@ -691,7 +692,7 @@ public class CPUModule8BIT extends CPU {
                         int high = machineCode[step()];
                         int start = (low << 8) | high;
                         short len = 0;
-                        while (getMemory(start) != NULL_TERMINATOR) {
+                        while (getMemory(start) != ARRAY_TERMINATOR) {
                             start++;
                             len++;
                         }
@@ -706,7 +707,7 @@ public class CPUModule8BIT extends CPU {
 
                     case INS_OUTS -> {
                         int start = registers[SS];
-                        while (getMemory(start) != NULL_TERMINATOR) {
+                        while (getMemory(start) != ARRAY_TERMINATOR) {
                             outputString.append((char) getMemory(start));
                             output += (char) getMemory(start);
                             try {
@@ -853,7 +854,7 @@ public class CPUModule8BIT extends CPU {
                     default -> {
                         String err = "Undefined instruction. please check the instruction codes : " + machine_code[registers[PC]];
                         status_code = ErrorHandler.ERR_CODE_INVALID_INSTRUCTION_FORMAT;
-                        triggerProgramError(new ErrorHandler.InvalidInstructionException(err),
+                        triggerProgramError(
                                 err, status_code);
                     }
                 }
@@ -862,17 +863,19 @@ public class CPUModule8BIT extends CPU {
                 if (E) {
                     status_code = ErrorHandler.ERR_CODE_PROGRAM_ERROR;
                     String err = String.format("The program triggered an error with code : %s", status_code);
-                    triggerProgramError(new ErrorHandler.ProgramErrorException(err),
+                    triggerProgramError(
                             err, status_code);
                 }
 
                 canExecute = !T;
+                //timeout.cancel();
                 step();
             }
 
         }
 
         outputString.append("Program terminated with code : ").append(status_code);
+        output = "Program terminated with code : " + status_code;
     }
 
     public int step() {
@@ -914,7 +917,7 @@ public class CPUModule8BIT extends CPU {
 
             default -> 256;
         };
-        if (operandValue == 256) triggerProgramError(new ErrorHandler.InvalidInstructionException("Invalid instruction prefix"),
+        if (operandValue == 256) triggerProgramError(
                 "Invalid instruction prefix", ErrorHandler.ERR_CODE_INVALID_PREFIX);
 
         switch (destination[0]){
@@ -922,8 +925,8 @@ public class CPUModule8BIT extends CPU {
             case DIRECT_MODE -> setMemory( destination[1], operandValue );
             case INDIRECT_MODE -> setMemory( getRegister( destination[1] ), operandValue );
 
-            default -> triggerProgramError(new ErrorHandler.InvalidInstructionException("Invalid instruction prefix"),
-                "Invalid instruction prefix", ErrorHandler.ERR_CODE_INVALID_PREFIX);
+            default -> triggerProgramError(
+                    "Invalid instruction prefix", ErrorHandler.ERR_CODE_INVALID_PREFIX);
         }
 
     }
@@ -1052,7 +1055,7 @@ public class CPUModule8BIT extends CPU {
 
             default -> 256;
         };
-        if (operandValue == 256) triggerProgramError(new ErrorHandler.InvalidInstructionException("Invalid instruction prefix"),
+        if (operandValue == 256) triggerProgramError(
                 "Invalid instruction prefix", ErrorHandler.ERR_CODE_INVALID_PREFIX);
 
         short newVal = 0;
@@ -1086,7 +1089,7 @@ public class CPUModule8BIT extends CPU {
 
             default -> 256;
         };
-        if (operandValue == 256) triggerProgramError(new ErrorHandler.InvalidInstructionException("Invalid instruction prefix"),
+        if (operandValue == 256) triggerProgramError(
                 "Invalid instruction prefix", ErrorHandler.ERR_CODE_INVALID_PREFIX);
 
         short newVal = 0;
@@ -1122,7 +1125,7 @@ public class CPUModule8BIT extends CPU {
 
             default -> 256;
         };
-        if (operandValue == 256) triggerProgramError(new ErrorHandler.InvalidInstructionException("Invalid instruction prefix"),
+        if (operandValue == 256) triggerProgramError(
                 "Invalid instruction prefix", ErrorHandler.ERR_CODE_INVALID_PREFIX);
 
         short newVal = 0;
@@ -1158,7 +1161,7 @@ public class CPUModule8BIT extends CPU {
 
             default -> 256;
         };
-        if (operandValue == 256) triggerProgramError(new ErrorHandler.InvalidInstructionException("Invalid instruction prefix"),
+        if (operandValue == 256) triggerProgramError(
                 "Invalid instruction prefix", ErrorHandler.ERR_CODE_INVALID_PREFIX);
 
         short newVal = 0;
@@ -1379,7 +1382,7 @@ public class CPUModule8BIT extends CPU {
 
             default -> 256;
         };
-        if (power == 256) triggerProgramError(new ErrorHandler.InvalidInstructionException("Invalid instruction prefix"),
+        if (power == 256) triggerProgramError(
                 "Invalid instruction prefix", ErrorHandler.ERR_CODE_INVALID_PREFIX);
 
         short newValue = 0;
@@ -1421,7 +1424,7 @@ public class CPUModule8BIT extends CPU {
             }
             default ->{
                 String err = "Invalid instruction error.";
-                triggerProgramError(new ErrorHandler.InvalidInstructionException(err),
+                triggerProgramError(
                         err, ErrorHandler.ERR_CODE_INVALID_PREFIX);
             }
         }
@@ -1441,7 +1444,7 @@ public class CPUModule8BIT extends CPU {
             default -> 256;
         };
 
-        if (bound == 256) triggerProgramError(new ErrorHandler.InvalidInstructionException("Invalid instruction prefix"),
+        if (bound == 256) triggerProgramError(
                 "Invalid instruction prefix", ErrorHandler.ERR_CODE_INVALID_PREFIX);
 
         short newVal = (short) ( Math.random() * bound );
@@ -1450,8 +1453,8 @@ public class CPUModule8BIT extends CPU {
             case DIRECT_MODE -> setMemory(destination[1], newVal);
             case INDIRECT_MODE -> setMemory( getRegister(destination[1]), newVal );
 
-            default -> triggerProgramError(new ErrorHandler.InvalidInstructionException("Invalid instruction prefix"),
-                "Invalid instruction prefix", ErrorHandler.ERR_CODE_INVALID_PREFIX);
+            default -> triggerProgramError(
+                    "Invalid instruction prefix", ErrorHandler.ERR_CODE_INVALID_PREFIX);
         }
     }
 
@@ -1577,7 +1580,7 @@ public class CPUModule8BIT extends CPU {
         if (opCode == null){
             String err = String.format("Unknown instruction : %s\n", tokens[0]);
             status_code = ErrorHandler.ERR_COMP_UNDEFINED_INSTRUCTION;
-            triggerProgramError(new ErrorHandler.CodeCompilationError(err), err, status_code);
+            triggerProgramError(err, status_code);
         }
         else result[0] = opCode; // tokens[0] should always be the opcode.
 
@@ -1604,7 +1607,7 @@ public class CPUModule8BIT extends CPU {
                         String err = String.format("The variable '%s' doesn't exist in the data section.\n",
                                 tokens[tokenIndex].substring(1));
                         status_code = ErrorHandler.ERR_COMP_NULL_DATA_POINTER;
-                        triggerProgramError(new ErrorHandler.CodeCompilationError(err),
+                        triggerProgramError(
                                 err, status_code);
                         return new int[] {-1};
                     }
@@ -1625,7 +1628,7 @@ public class CPUModule8BIT extends CPU {
                         String err = String.format("The function '%s' doesn't exist in the ROM.\n",
                                 tokens[tokenIndex]);
                         status_code = ErrorHandler.ERR_COMP_NULL_FUNCTION_POINTER;
-                        triggerProgramError(new ErrorHandler.CodeCompilationError(err),
+                        triggerProgramError(
                                 err, status_code);
                         return new int[] {-1};
                     }
@@ -1647,7 +1650,7 @@ public class CPUModule8BIT extends CPU {
                     if (registerCode == -1){
                         String err = String.format("Unknown register '%s'.\n", tokens[tokenIndex].substring(1));
                         status_code = ErrorHandler.ERR_COMP_INVALID_CPU_CODE;
-                        triggerProgramError(new ErrorHandler.CodeCompilationError(err), err, status_code);
+                        triggerProgramError(err, status_code);
                     }
                     else result[i + 1] = registerCode;
                 }
@@ -1658,6 +1661,25 @@ public class CPUModule8BIT extends CPU {
         for (int j : result) System.out.printf("0x%X ", j);
         System.out.println();
         return result;
+    }
+
+    @Override
+    public int getInstructionLength(String instruction){
+        String[] tokens = instruction.trim().split(" ");
+
+
+        // Instruction format: opcode (1 byte) optional: operand1 (2 bytes) optional: operand2 (2 bytes)
+        // NOTE: if the instruction has an address, then operand size will be 3 bytes (1 byte for mode, 2 bytes for address)
+        // Output machine code: opcode operand1_addressing_mode operand1_value operand2_addressing_mode operand2_value
+        int length = 1; // 1 byte for opcode
+        for (int i = 1; i < tokens.length; i++) {
+            //length += 2; // 2 bytes for all remaining operands
+            switch (tokens[i].charAt(0)) {
+                case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX, IMMEDIATE_PREFIX -> length += 2;
+                default -> length += 3;
+            }
+        }
+        return length;
     }
 
     @Override
@@ -1696,7 +1718,7 @@ public class CPUModule8BIT extends CPU {
                              setMemory(data_start + offset, (short) fullString.charAt(j));
                              offset++;
                          }
-                         setMemory(data_start + offset, NULL_TERMINATOR);
+                         setMemory(data_start + offset, ARRAY_TERMINATOR);
                          offset++;
                      } else {
                          for (int j = 1; j < x.length; j++) {
@@ -1707,7 +1729,7 @@ public class CPUModule8BIT extends CPU {
                              setMemory(data_start + offset, Short.parseShort(x[j].substring(1)));
                              offset++;
                          }
-                         setMemory(data_start + offset, NULL_TERMINATOR);
+                         setMemory(data_start + offset, ARRAY_TERMINATOR);
                          offset++;
                      }
                  }
@@ -1716,6 +1738,8 @@ public class CPUModule8BIT extends CPU {
             }
             else if (lines[i].startsWith(".")){ // regular function. add the function along with the calculated offset
                 functions.put(lines[i].substring(1), currentByte);
+                System.out.println("Mapped function '" + lines[i].substring(1) + "' to address: 0x" +
+                        Integer.toHexString(currentByte));
             }
             else{ // code line. append the offset based on the string length.
                 // in this architecture there's only 3 possible cases
@@ -1723,26 +1747,13 @@ public class CPUModule8BIT extends CPU {
                 // single-operand instruction = 3 bytes
                 // 2 operand instruction = 5 bytes
                 if (lines[i].isEmpty() || lines[i].startsWith(COMMENT_PREFIX)) continue;
-                int len = lines[i].trim().split(" ").length;
-                if (len == 3){
-                    switch (lines[i].trim().split(" ")[2].charAt(0)){
-                        case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX, IMMEDIATE_PREFIX -> currentByte += 5;
-                        default -> currentByte += 6;
-                    }
-                }
-                else if (len == 2){
-                    switch (lines[i].trim().split(" ")[1].charAt(0)){
-                        case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX, IMMEDIATE_PREFIX -> currentByte += 3;
-                        default -> currentByte += 4;
-                    }
-                }
-                else currentByte += 1;
+                currentByte += getInstructionLength(lines[i]);
 
                 fullCode += lines[i] + "\n";
             }
         }
-        System.out.println(functions);
-        System.out.println(dataMap);
+        //System.out.println(functions);
+        //System.out.println(dataMap);
 
         // Step 2- convert the raw code to machine code array.
         String[] fullLines = fullCode.split("\n");
@@ -1793,14 +1804,14 @@ public class CPUModule8BIT extends CPU {
     public void setMemory(int address, short value){
         if (!isValidAddress(address)){
             String err = String.format("Invalid memory access at location %X(%d)\n", address, address);
-            triggerProgramError(new ErrorHandler.InvalidMemoryOperationException(err),
+            triggerProgramError(
                     err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
 
         }else{
             if (value > max_value || value < min_value){
                 String err = String.format("Value %X(%d) exceeds the %d-bit limit for this CPU module.\n",
                 value, value, bit_length);
-                triggerProgramError(new ErrorHandler.InvalidMemoryOperationException(err),
+                triggerProgramError(
                         err, ErrorHandler.ERR_CODE_CPU_SIZE_VIOLATION);
             }else memory[address] = value;
         }
@@ -1813,14 +1824,14 @@ public class CPUModule8BIT extends CPU {
             if (registerID == PC && Launcher.appConfig.get("OverwritePC").equals("false")){
                  String err = "Direct modification of PC register is not allowed." +
                             " if you wish to proceed, change that in the settings.";
-                    triggerProgramError(new ErrorHandler.InvalidMemoryOperationException(err),
+                    triggerProgramError(
                             err, ErrorHandler.ERR_CODE_PC_MODIFY_UNALLOWED);
             }
             // Special purpose registers are 16-bits whereas general purpose registers are 8-bits
             else if (registerID >= PC) registers[registerID] = value;
             else if (value > max_value){
                 String err = String.format("The value %X(%d) exceeds the %d-bit CPU module size.", value, value, bit_length);
-                triggerProgramError(new ErrorHandler.InvalidMemoryOperationException(err),
+                triggerProgramError(
                         err, ErrorHandler.ERR_CODE_CPU_SIZE_VIOLATION);
             }
             else registers[registerID] = value;

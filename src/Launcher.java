@@ -23,6 +23,7 @@ public class Launcher{
             Architecture=16
             WriteDump=false
             Cycles=200
+            OverwritePC=false
             """, version);
 
     static void createConfigFile(){
@@ -73,6 +74,7 @@ public class Launcher{
             }
             String filePath = args[1];
             new CLI(filePath);
+            System.exit(0);
         }
 
         else if (args[0].equalsIgnoreCase("compile")){
@@ -95,6 +97,8 @@ public class Launcher{
                 System.out.println("Compiling for architecture present in config file.");
                 new CLICompiler(sourceCodeFilePath, outputPath);
             }
+
+            System.exit(0);
         }
 
         else if (args[0].equalsIgnoreCase("decompile")){
@@ -107,6 +111,7 @@ public class Launcher{
             String outputFilePath = args[2];
 
             new Disassembler(binaryFilePath, outputFilePath);
+            System.exit(0);
         }
         else{
             System.out.println("""

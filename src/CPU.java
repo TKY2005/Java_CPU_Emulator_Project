@@ -93,6 +93,7 @@ public abstract class CPU {
     protected int last_addressable_location;
 
     protected int delayAmountMilliseconds = (int) ( (1.0 / Integer.parseInt(Launcher.appConfig.get("Cycles"))) * 1000 );
+    protected int timeoutDuration = 10_000;
 
 
     protected StringBuilder outputString = new StringBuilder();
@@ -140,7 +141,7 @@ public abstract class CPU {
     public final static String SIGNAL_PREFIX = "^";
     public static final String COMMENT_PREFIX = ";";
 
-    public static final byte NULL_TERMINATOR = 0x00;
+    public static final byte ARRAY_TERMINATOR = (byte) 0xEB;
     public static final byte TEXT_SECTION_END = (byte) 0xEA;
     public static final byte MEMORY_SECTION_END = (byte) 0xCC;
 
@@ -232,6 +233,7 @@ public abstract class CPU {
     }
 
    public abstract int[] toMachineCode(String instruction);
+    public abstract int getInstructionLength(String instruction);
     public abstract int[] compileCode(String code);
     public abstract int[] compileToFileBinary(String code);
     public abstract String disassembleMachineCode(int[] machine_code);
@@ -247,7 +249,6 @@ public abstract class CPU {
             }
 
             hexDump.append(String.format("0x%02X" ,machineCode[i])).append(" ");
-            //hexDump.append("0x").append(leftPad(Integer.toHexString(machineCode[i]).toUpperCase(), padding, '0')).append(" ");
         }
         return hexDump.toString();
     }
@@ -272,26 +273,29 @@ public abstract class CPU {
     public abstract void setUIupdateListener(onStepListener listener);
 
 
-    public void triggerProgramError(RuntimeException exceptionType, String errMsg, int errCode){
+    public void triggerProgramError(String errMsg, int errCode){
         status_code = errCode;
         outputString.append("line " + currentLine + " : " + errMsg);
         programEnd = true;
-        exceptionType = new RuntimeException("line " + currentLine + " : " + errMsg);
+        RuntimeException exceptionType = new RuntimeException("line " + currentLine + " : " + errMsg);
         Logger.addLog("line : " + currentLine + " : " + errMsg);
         Logger.addLog("Program terminated with code : " + status_code);
-        Logger.addLog("==============================");
+        Logger.addLog("=============Program ROM=================");
+        Logger.addLog(dumpROM());
+        Logger.addLog("=============Program registers=================");
         Logger.addLog(dumpRegisters());
         Logger.addLog(dumpFlags());
-        Logger.addLog("================================");
+        Logger.addLog("=============Program memory===================");
         Logger.addLog(dumpMemory());
         Logger.writeLogFile("./ErrLog.log");
+        System.out.println("Program terminated with code : " + status_code);
         throw exceptionType;
     }
 
     public int readByte(int address){
         if (!isValidMemoryAddress(address)){
             String err = String.format("0x%X(%d) is an invalid memory address.");
-            triggerProgramError(new ErrorHandler.InvalidMemoryOperationException(err),
+            triggerProgramError(
                     err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
         }
         return memory[address];
@@ -300,12 +304,12 @@ public abstract class CPU {
     public int[] readWord(int startAddress){
         if (!isValidMemoryAddress(startAddress)){
             String err = String.format("0x%X(%d) is an invalid memory address.");
-            triggerProgramError(new ErrorHandler.InvalidMemoryOperationException(err),
+            triggerProgramError(
                     err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
         }
         if (!isValidMemoryAddress(startAddress + 1)){
             String err = String.format("0x%X(%d) is an invalid memory address.");
-            triggerProgramError(new ErrorHandler.InvalidMemoryOperationException(err),
+            triggerProgramError(
                     err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
         }
 
@@ -336,8 +340,8 @@ public abstract class CPU {
             else{
                 if (!isValidMemoryAddress(address + 1)){
                     String err = String.format("0x%X(%d) is an invalid memory address.", address, address);
-                    triggerProgramError(new ErrorHandler.InvalidMemoryOperationException(err),
-                    err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
+                    triggerProgramError(
+                            err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
                 }
                 else{
                     int low = value & 0xff;
@@ -349,7 +353,7 @@ public abstract class CPU {
 
         }else{
             String err = String.format("0x%X(%d) is an invalid memory address.", address, address);
-            triggerProgramError(new ErrorHandler.InvalidMemoryOperationException(err),
+            triggerProgramError(
                     err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
         }
     }
