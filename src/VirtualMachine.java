@@ -33,7 +33,7 @@ public class VirtualMachine {
             for (String token : tokens) {
                 if (token.startsWith(CPU.HEX_PREFIX)) {
                     // Hexadecimal to decimal conversion
-                    String hex = token.substring(1);
+                    String hex = token.substring(2);
                     int decimal = Integer.parseInt(hex, 16);
                     newLine.append("!").append(decimal).append(" ");
                 } else if (token.startsWith(CPU.CHAR_PREFIX)) {

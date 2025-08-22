@@ -96,7 +96,6 @@ public abstract class CPU {
     protected int last_addressable_location;
 
     protected int delayAmountMilliseconds = (int) ( (1.0 / Integer.parseInt(Launcher.appConfig.get("Cycles"))) * 1000 );
-    protected int timeoutDuration = 10_000;
 
 
     protected StringBuilder outputString = new StringBuilder();
@@ -138,7 +137,7 @@ public abstract class CPU {
     public final static char INDIRECT_MEMORY_PREFIX = '&';
     public final static char DATA_PREFIX = '~';
     public final static char STRING_PREFIX = '\"';
-    public final static String HEX_PREFIX = "#";
+    public final static String HEX_PREFIX = "0x";
     public final static String CHAR_PREFIX = "@";
     public static final String HEX_MEMORY = "*";
     public final static String SIGNAL_PREFIX = "^";

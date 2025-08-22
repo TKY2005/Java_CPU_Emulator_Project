@@ -87,15 +87,15 @@ public class CPUModule8BIT extends CPU {
 
     public String getDisassembledOperand(short[] operand){
         return switch (operand[0]){
-            case REGISTER_MODE -> "$" + getRegisterName(operand[1], false);
-            case DIRECT_MODE -> "*" + Integer.toHexString(operand[1]);
-            case INDIRECT_MODE -> "&" + getRegisterName(operand[1], false);
-            case IMMEDIATE_MODE -> "#" + Integer.toHexString(operand[1]).toUpperCase();
+            case REGISTER_MODE -> CPU.REGISTER_PREFIX + getRegisterName(operand[1], false);
+            case DIRECT_MODE -> CPU.HEX_MEMORY + Integer.toHexString(operand[1]);
+            case INDIRECT_MODE -> CPU.INDIRECT_MEMORY_PREFIX + getRegisterName(operand[1], false);
+            case IMMEDIATE_MODE -> CPU.HEX_PREFIX + Integer.toHexString(operand[1]).toUpperCase();
 
             case DATA_MODE-> {
                 int high = operand[1], low = operand[2];
                 int address = (high << 8) | low;
-                yield "[#" + Integer.toHexString(address).toUpperCase() + "]";
+                yield "[" + CPU.HEX_PREFIX + Integer.toHexString(address).toUpperCase() + "]";
             }
 
             case FUNCTION_MODE -> {
