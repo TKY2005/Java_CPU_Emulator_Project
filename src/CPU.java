@@ -75,6 +75,9 @@ public abstract class CPU {
     public static final int STRING_MODE = 5;
     public static final int FUNCTION_MODE = 6;
 
+    public static final long UI_UPDATE_MAX_INTERVAL = Long.parseLong(Launcher.appConfig.get("UiUpdateInterval"));
+    protected long lastTimeSinceUpdate = 0;
+
 
     // General CPU variables
     protected final int REGISTER_COUNT = 6;
@@ -141,9 +144,11 @@ public abstract class CPU {
     public final static String SIGNAL_PREFIX = "^";
     public static final String COMMENT_PREFIX = ";";
 
-    public static final byte ARRAY_TERMINATOR = (byte) 0xEB;
+    public static final byte ARRAY_TERMINATOR = 0x7F;
     public static final byte TEXT_SECTION_END = (byte) 0xEA;
     public static final byte MEMORY_SECTION_END = (byte) 0xCC;
+
+    public HashMap<String, Byte> programSignals = new HashMap<>();
 
     // Special Purpose Register Codes for faster access
     protected int PC = 6;
@@ -217,6 +222,9 @@ public abstract class CPU {
 
 
         translationMap = createTranslationMap(instructionSet);
+        programSignals.put("at", ARRAY_TERMINATOR);
+        programSignals.put("re", TEXT_SECTION_END);
+        programSignals.put("me", MEMORY_SECTION_END);
 
 
     }

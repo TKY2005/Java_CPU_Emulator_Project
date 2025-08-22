@@ -47,6 +47,11 @@ public class VirtualMachine {
                     int decimal = Integer.parseInt(hex, 16);
                     newLine.append("%").append(decimal).append(" ");
                 }
+                else if (token.startsWith(CPU.SIGNAL_PREFIX)){
+                    String signal = String.valueOf(cpuModule.programSignals.get(token.substring(1)));
+                    byte numeric = Byte.parseByte(signal);
+                    newLine.append("!").append(numeric);
+                }
                 else {
                     newLine.append(token).append(" ");
                 }

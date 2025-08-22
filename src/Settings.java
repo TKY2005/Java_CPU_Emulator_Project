@@ -24,6 +24,8 @@ public class Settings extends JFrame {
     private JSlider StackSizeSlider;
     private JLabel StackSizeLabel;
     private JCheckBox allowDirectManipulationOfCheckBox;
+    private JSlider UIintervalSlider;
+    private JLabel UIintervalLabel;
 
     public Settings(String title){
         super(title);
@@ -80,6 +82,8 @@ public class Settings extends JFrame {
         CycleSpeedSlider.setValue(Integer.parseInt(settings.get("Cycles")));
         CylceLabel.setText(settings.get("Cycles") + " Cycles/Second");
 
+        UIintervalSlider.setValue(Integer.parseInt(settings.get("UiUpdateInterval")));
+        UIintervalLabel.setText(settings.get("UiUpdateInterval") + "ms");
 
         MemorySlider.addChangeListener(new ChangeListener() {
             @Override
@@ -122,7 +126,16 @@ public class Settings extends JFrame {
                 StackSizeLabel.setText( StackSizeSlider.getValue() + "KB" );
             }
         });
+
+        UIintervalSlider.addChangeListener(new ChangeListener() {
+            @Override
+            public void stateChanged(ChangeEvent changeEvent) {
+                UIintervalLabel.setText(UIintervalSlider.getValue() + "ms");
+            }
+        });
     }
+
+
 
     public static HashMap<String, String> loadSettings(){
         HashMap<String, String> settings = new HashMap<>();
@@ -161,7 +174,8 @@ public class Settings extends JFrame {
 
             printer.println("WriteDump=" + writeLogsAndProgramCheckBox.isSelected());
             printer.println("Cycles=" + CycleSpeedSlider.getValue());
-            printer.print("OverwritePC=" + allowDirectManipulationOfCheckBox.isSelected());
+            printer.println("OverwritePC=" + allowDirectManipulationOfCheckBox.isSelected());
+            printer.print("UiUpdateInterval=" + UIintervalSlider.getValue());
 
             printer.close();
             writer.close();

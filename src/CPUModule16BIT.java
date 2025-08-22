@@ -70,9 +70,9 @@ public class CPUModule16BIT extends CPU {
 
     public String getDisassembledOperand(int[] operand) {
         return switch (operand[0]) {
-            case REGISTER_MODE, REGISTER_WORD_MODE -> "$" + getRegisterName(operand[1]);
+            case REGISTER_MODE, REGISTER_WORD_MODE -> "$" + getRegisterName(operand[1], false);
             case DIRECT_MODE, DIRECT_WORD_MODE -> "*" + Integer.toHexString(operand[1]);
-            case INDIRECT_MODE, INDIRECT_WORD_MODE -> "&" + getRegisterName(operand[1]);
+            case INDIRECT_MODE, INDIRECT_WORD_MODE -> "&" + getRegisterName(operand[1], false);
             case IMMEDIATE_MODE -> "#" + Integer.toHexString(operand[1]).toUpperCase();
 
             case DATA_MODE -> {
@@ -274,7 +274,11 @@ public class CPUModule16BIT extends CPU {
     public int step() {
 
         registers[PC]++;
-        if (stepListener != null) stepListener.updateUI();
+        long currentTime = System.currentTimeMillis();
+        if (stepListener != null && (currentTime - lastTimeSinceUpdate) > UI_UPDATE_MAX_INTERVAL ){
+            stepListener.updateUI();
+            lastTimeSinceUpdate = currentTime;
+        }
         try {
             Thread.sleep(delayAmountMilliseconds);
         } catch (Exception e) {
@@ -300,8 +304,10 @@ public class CPUModule16BIT extends CPU {
     ///
     /// //////////////////////////// CPU FUNCTIONALITY ////////////////////////////////////////////////////////
 
-    public String getRegisterName(int registerID) {
-        return registerNames[registerID];
+    public String getRegisterName(int registerID, boolean toUpperCase) {
+
+        if (!toUpperCase) return registerNames[registerID];
+        else return registerNames[registerID].toUpperCase();
     }
 
     @Override
@@ -1364,16 +1370,33 @@ public class CPUModule16BIT extends CPU {
     public void out(int[] source) {
 
         Logger.addLog("Fetching operands");
-        outputString.append(getOperandValue(source));
         output = String.valueOf(getOperandValue(source));
-        System.out.print(output);
+        char[] x = output.toCharArray();
+        for(char c : x){
+            try {
+                Thread.sleep(delayAmountMilliseconds);
+                System.out.print(c);
+                outputString.append(c);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     public void outc(int[] source) {
         Logger.addLog("Fetching operands");
-        outputString.append((char) getOperandValue(source));
         output = String.valueOf((char) getOperandValue(source));
-        System.out.print(output);
+
+        char[] x = output.toCharArray();
+        for(char c : x){
+            try {
+                Thread.sleep(delayAmountMilliseconds);
+                System.out.print(c);
+                outputString.append(c);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     public void shift_left(int[] destination, int[] source) {

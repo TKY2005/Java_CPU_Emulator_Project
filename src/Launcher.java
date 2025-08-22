@@ -13,7 +13,7 @@ import java.util.HashMap;
 
 public class Launcher{
     static String configFilePath = "./myEmulator.conf";
-    static String version = "3.0";
+    static String version = "3.1";
     static HashMap<String, String> appConfig;
     static String configDefaultTemplate = String.format("""
             Version=%s
@@ -24,6 +24,7 @@ public class Launcher{
             WriteDump=false
             Cycles=200
             OverwritePC=false
+            UiUpdateInterval=50
             """, version);
 
     static void createConfigFile(){

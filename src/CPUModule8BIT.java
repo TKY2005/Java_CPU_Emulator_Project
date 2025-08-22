@@ -80,15 +80,16 @@ public class CPUModule8BIT extends CPU {
         reset();
     }
 
-    public String getRegisterName(int registerID){
-        return registerNames[registerID];
+    public String getRegisterName(int registerID, boolean toUpperCase){
+        if(!toUpperCase) return registerNames[registerID];
+        else return registerNames[registerID].toUpperCase();
     }
 
     public String getDisassembledOperand(short[] operand){
         return switch (operand[0]){
-            case REGISTER_MODE -> "$" + getRegisterName(operand[1]);
+            case REGISTER_MODE -> "$" + getRegisterName(operand[1], false);
             case DIRECT_MODE -> "*" + Integer.toHexString(operand[1]);
-            case INDIRECT_MODE -> "&" + getRegisterName(operand[1]);
+            case INDIRECT_MODE -> "&" + getRegisterName(operand[1], false);
             case IMMEDIATE_MODE -> "#" + Integer.toHexString(operand[1]).toUpperCase();
 
             case DATA_MODE-> {
@@ -879,8 +880,12 @@ public class CPUModule8BIT extends CPU {
     }
 
     public int step() {
+        long currentTime = System.currentTimeMillis();
         registers[PC]++;
-        if (stepListener != null) stepListener.updateUI();
+        if (stepListener != null && (currentTime - lastTimeSinceUpdate) > UI_UPDATE_MAX_INTERVAL ){
+            stepListener.updateUI();
+            lastTimeSinceUpdate = currentTime;
+        }
         try {
             Thread.sleep(delayAmountMilliseconds);
         } catch (Exception e) {
@@ -933,48 +938,55 @@ public class CPUModule8BIT extends CPU {
 
 
     public void out(short[] destination){
+
         switch (destination[0]){
             case REGISTER_MODE ->{
-                outputString.append( registers[ destination[1] ] );
-                System.out.print(registers[destination[1]]);
+                output = String.valueOf(registers[destination[1]]);
             }
             case DIRECT_MODE ->{
-                outputString.append( memory[ destination[1] ] );
-                System.out.print(memory[destination[1]]);
+                output = String.valueOf(memory[destination[1]]);
             }
             case INDIRECT_MODE ->{
-                outputString.append( memory[ registers[ destination[1] ] ]  );
-                System.out.print(memory[registers[destination[1]]]);
+                output = String.valueOf(memory[registers[destination[1]]]);
             }
             case IMMEDIATE_MODE ->{
-                outputString.append( destination[1] );
-                System.out.print(destination[1]);
+                output = String.valueOf(destination[1]);
             }
-
             default -> E = true;
+        }
+        if (!E){
+            char[] x = output.toCharArray();
+
+            for (char c : x) {
+                try {
+                    Thread.sleep(delayAmountMilliseconds);
+                    outputString.append(c);
+                    System.out.print(c);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
         }
     }
 
     public void outc(short[] source){
         switch(source[0]) {
-            case REGISTER_MODE ->{
-                outputString.append((char)registers[source[1]]);
-                output = String.valueOf((char) registers[source[1]]);
-            }
-            case DIRECT_MODE ->{
-                outputString.append((char)memory[source[1]]);
-                output = String.valueOf((char) memory[source[1]]);
-            }
-            case INDIRECT_MODE ->{
-                outputString.append((char) memory[registers[source[1]]]);
-                output = String.valueOf((char) memory[registers[source[1]]]);
-            }
-            case IMMEDIATE_MODE ->{
-                outputString.append((char) source[1]);
-                output = String.valueOf((char) source[1]);
+            case REGISTER_MODE -> output = String.valueOf((char) registers[source[1]]);
+            case DIRECT_MODE -> output = String.valueOf((char) memory[source[1]]);
+            case INDIRECT_MODE -> output = String.valueOf((char) memory[registers[source[1]]]);
+            case IMMEDIATE_MODE -> output = String.valueOf((char) source[1]);
+        }
+
+        char[] x = output.toCharArray();
+        for(char c : x){
+            try {
+                Thread.sleep(delayAmountMilliseconds);
+                System.out.print(c);
+                outputString.append(c);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
             }
         }
-        System.out.print(output);
     }
 
 
@@ -1865,7 +1877,7 @@ public class CPUModule8BIT extends CPU {
 
             if (i % chunkSize == 0) result.append(String.format("%05X :\t", i));
 
-            result.append(String.format("0x%02X\t", memory[i]));
+            result.append(String.format("0x%02X\t", memory[i] & 0xff));
             charSet.append( (Character.isLetterOrDigit(memory[i])) ? (char) memory[i] : "." );
 
             if ((i + 1) % chunkSize == 0){
