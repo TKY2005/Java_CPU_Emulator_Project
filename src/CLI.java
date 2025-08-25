@@ -19,6 +19,41 @@ public class CLI {
             System.exit(-1);
         }
 
+        System.out.println("Running the file using the architecture present in the config file.");
+        if (architecture.equals("8")) cpuModule = new CPUModule8BIT();
+        else if (architecture.equals("16")) cpuModule = new CPUModule16BIT();
+        // implement 32 and 64 bit when done.
+
+        vm = new VirtualMachine(cpuModule);
+        vm.UIMode = false;
+        loadBinaryFile();
+
+
+
+        if (cpuModule.machineCode[ cpuModule.machineCode.length - 3 ] != cpuModule.bit_length){
+            System.out.printf("This code has been compiled for %d-bit architecture." +
+                    " the current CPU architecture is %d-bit.\n",
+                    cpuModule.machineCode[cpuModule.machineCode.length - 3], cpuModule.bit_length);
+
+            System.exit(-1);
+        }
+        vm.readyToExecute = true;
+        int entryPointLow = cpuModule.machineCode[ cpuModule.machineCode.length - 1 ];
+        int entryPointHigh = cpuModule.machineCode[ cpuModule.machineCode.length - 2 ];
+
+        cpuModule.functions.put("MAIN",  (entryPointHigh << 8) | entryPointLow );
+        vm.executeCode();
+    }
+
+    public CLI(String filePath, String architecture){
+
+        binFile = new File(filePath);
+        if (!binFile.exists()){
+            System.out.println("Couldn't find the specified file.");
+            System.exit(-1);
+        }
+
+        System.out.println("Running the file using the " + architecture + "-bit module.");
         if (architecture.equals("8")) cpuModule = new CPUModule8BIT();
         else if (architecture.equals("16")) cpuModule = new CPUModule16BIT();
         // implement 32 and 64 bit when done.

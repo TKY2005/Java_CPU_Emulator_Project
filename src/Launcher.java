@@ -68,6 +68,8 @@ public class Launcher{
             System.out.println("No arguments. Going into UI mode.");
             new UI("T.K.Y CPU Emulator V" + Launcher.version);
         }
+
+
         else if (args[0].equalsIgnoreCase("cli")){
             System.out.println("Starting in CLI mode.");
             if (args[1] == null){
@@ -75,7 +77,12 @@ public class Launcher{
                 System.exit(-1);
             }
             String filePath = args[1];
-            new CLI(filePath);
+            String architecture;
+            if (args.length == 3){
+                architecture = args[2];
+                new CLI(filePath, architecture);
+            }
+            else new CLI(filePath);
             System.exit(0);
         }
 
