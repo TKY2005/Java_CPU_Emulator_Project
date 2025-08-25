@@ -62,9 +62,9 @@ public class VirtualMachine {
 
         try {
             if (compileDirection == 0) cpuModule.machineCode = cpuModule.compileCode(result.toString());
-            else if (compileDirection == 1) cpuModule.machineCode = cpuModule.compileToFileBinary(result.toString());
+            else if (compileDirection == 1) cpuModule.machineCode = cpuModule.compileCode(result.toString());
 
-            System.out.println(cpuModule.dumpROM());
+
             ui = UIMode;
         }catch (RuntimeException e) {
             e.printStackTrace();

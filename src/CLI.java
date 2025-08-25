@@ -77,7 +77,7 @@ public class CLI {
             System.out.println("Loading the DATA and STACK sections into memory.");
             int index = 0;
             for(int i = ROMsize + 1; machineCode[i] != CPU.MEMORY_SECTION_END; i++) {
-                cpuModule.memory[index] = machineCode[i];
+                cpuModule.memory[index] = (short) (machineCode[i] & 0xff);
                 index++;
             }
             System.out.println("Done. Starting execution.\n");
