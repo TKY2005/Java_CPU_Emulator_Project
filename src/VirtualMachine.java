@@ -337,7 +337,20 @@ public class VirtualMachine {
                             );
                             else address = Integer.parseInt(x[1]);
                             System.out.println(cpuModule.dumpMemoryDebug(address));
+
                         } else if (x[0].equals("g")) debugPause = false;
+
+                        else if (x[0].equals("ds")){
+
+                            if (cpuModule.functionCallStack.isEmpty()){
+                                System.out.println("The function call stack is currently empty.");
+                                continue;
+                            }
+                            for(int i = cpuModule.functionCallStack.size() - 1; i >= 0; i--){
+                                System.out.printf("[%d] => 0x%04X\n", i, cpuModule.functionCallStack.get(i));
+                            }
+
+                        }
                         else System.out.println("Unknown command '" + x[0] + "'");
                     }
                 }

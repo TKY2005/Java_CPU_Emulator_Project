@@ -29,7 +29,7 @@ public class CPUModule16BIT extends CPU {
     int SE = 21;
     int DI = 22;
     int DP = 23;
-    int RCX;
+    int CX;
 
 
     // flags
@@ -1165,9 +1165,9 @@ public class CPUModule16BIT extends CPU {
                         step();
                         step();
 
-                        registers[RCX]--;
+                        registers[CX]--;
                         updateRegisterBytes();
-                        if (registers[RCX] > 0) {
+                        if (registers[CX] > 0) {
                             jmp();
                         } else step();
                     }
@@ -2434,7 +2434,7 @@ public class CPUModule16BIT extends CPU {
         registerNames[DI] = "di";
         registerNames[DP] = "dp";
 
-        RCX = registerPairStart + 2;
+        CX = registerPairStart + 2;
 
 
         System.out.println("Setting the CPU state.");
