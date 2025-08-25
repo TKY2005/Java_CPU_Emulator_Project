@@ -64,6 +64,7 @@ public class VirtualMachine {
             if (compileDirection == 0) cpuModule.machineCode = cpuModule.compileCode(result.toString());
             else if (compileDirection == 1) cpuModule.machineCode = cpuModule.compileToFileBinary(result.toString());
 
+            System.out.println(cpuModule.dumpROM());
             ui = UIMode;
         }catch (RuntimeException e) {
             e.printStackTrace();
@@ -225,16 +226,19 @@ public class VirtualMachine {
     // 16-BIT INTERRUPT HANDLER
     public static boolean interruptHandler(int[] registers, short[] memory){
          boolean validInterrupt = true;
-        switch (registers[1]){ // interrupt register : AH
+        switch (registers[1]){ // interrupt register: AH
 
             case CPU.INT_INPUT_STR -> {
 
+                int mode = registers[0]; // store mode register: AL
+                if (mode != CPU.DATA_BYTE_MODE && mode != CPU.DATA_WORD_MODE) mode = CPU.DATA_BYTE_MODE;
+
                 Logger.addLog("Calling interrupt for input string");
                 String input_message = getInputMessage(registers, memory);
-                //System.out.println("Message is : " + input_message);
+
                 String input = "";
                 if (ui){
-                  //  System.out.println("Showing message for ui input");
+                    Logger.addLog("Showing message for ui input");
                     input = JOptionPane.showInputDialog(null, input_message,
                             "Input", JOptionPane.INFORMATION_MESSAGE);
 
@@ -252,17 +256,34 @@ public class VirtualMachine {
                 }
 
 
-                int write_address = registers[22]; // write_pointer_register : DI
+                int write_address = registers[22]; // write position register: DI
 
                 int index = 0;
 
-                for(int i = write_address; i < write_address + input.length(); i++){
-
-                    memory[i] = (short) input.charAt(index);
-                    index++;
+                if (mode == CPU.DATA_BYTE_MODE) {
+                    for (int i = write_address; i < write_address + input.length(); i++) {
+                        memory[i] = (short) input.charAt(index);
+                        index++;
+                    }
                 }
-                memory[write_address + input.length()] = CPU.ARRAY_TERMINATOR;
-                registers[21] = (short) (write_address + input.length()); // string end position stored in SE
+                else if (mode == CPU.DATA_WORD_MODE){
+                    for(int i = write_address; i < write_address + input.length() * 2; i += 2){
+                        short low = (short) (input.charAt(index) & 0xff);
+                        short high = (short) ((input.charAt(index) >> 8) & 0xff);
+                        //System.out.printf("processing word char %c -> low: 0x%X, high 0x%X\n", input.charAt(index), low, high);
+                        memory[i + 1] = high;
+                        memory[i] = low;
+                        index++;
+                    }
+                }
+
+                int endPosition = 0;
+                if (mode == CPU.DATA_BYTE_MODE) endPosition = write_address + input.length();
+                else if (mode == CPU.DATA_WORD_MODE ) endPosition = write_address + input.length() * 2;
+
+                memory[endPosition] = CPU.ARRAY_TERMINATOR;
+
+                registers[21] = endPosition; // string end position stored in SE
 
             }
 
@@ -289,7 +310,10 @@ public class VirtualMachine {
                     input = new Scanner(System.in).nextShort();
                 }
 
-                registers[15] = input; // place input in RDX
+                registers[15] = input; // place input in DX
+                // update DL, DH
+                registers[6] = registers[15] & 0xff;
+                registers[7] = (registers[15] >> 8) & 0xff;
             }
 
             case CPU.INT_DEBUG -> {

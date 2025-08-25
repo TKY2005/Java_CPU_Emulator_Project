@@ -397,7 +397,7 @@ public class CPUModule8BIT extends CPU {
                                      data_start + offset, data_start + offset,
                                      Integer.parseInt(x[j].substring(1)), Integer.parseInt(x[j].substring(1)));
 
-                             setMemory(data_start + offset, Integer.parseInt(x[j].substring(1)));
+                             setMemory(data_start + offset, (short) Integer.parseInt(x[j].substring(1)));
                              offset++;
                          }
                          setMemory(data_start + offset, ARRAY_TERMINATOR);
@@ -486,6 +486,8 @@ public class CPUModule8BIT extends CPU {
     public void reset(){
 
         // 6 General purpose registers + 6 Special purpose registers
+
+        Logger.resetLogs();
 
         registers = new short[REGISTER_COUNT + 6];
         registerNames = new String[registers.length];
@@ -1573,7 +1575,8 @@ public class CPUModule8BIT extends CPU {
 
     @Override
     public int[] toMachineCode(String instruction){
-        String[] tokens = instruction.trim().split(" ");
+        String[] commentedTokens = instruction.trim().split(COMMENT_PREFIX);
+        String[] tokens = commentedTokens[0].trim().split(" ");
 
         
         // Instruction format: opcode (1 byte) optional: operand1 (2 bytes) optional: operand2 (2 bytes)
@@ -1677,7 +1680,8 @@ public class CPUModule8BIT extends CPU {
 
     @Override
     public int getInstructionLength(String instruction){
-        String[] tokens = instruction.trim().split(" ");
+        String[] commentedTokens = instruction.trim().split(COMMENT_PREFIX);
+        String[] tokens = commentedTokens[0].trim().split(" ");
 
 
         // Instruction format: opcode (1 byte) optional: operand1 (2 bytes) optional: operand2 (2 bytes)

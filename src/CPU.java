@@ -54,6 +54,9 @@ public abstract class CPU {
     public static final int INS_OUTC = 0x31;
     public static final int INS_SHL = 0x32;
     public static final int INS_SHR = 0x33;
+    public static final int INS_OUTSW = 0x34;
+    public static final int INS_LENW = 0x35;
+    public static final int INS_OUTW = 0x36;
 
 
 
@@ -74,6 +77,12 @@ public abstract class CPU {
     public static final int DATA_MODE = 4;
     public static final int STRING_MODE = 5;
     public static final int FUNCTION_MODE = 6;
+    public static final int REGISTER_WORD_MODE = 7;
+    public static final int DIRECT_WORD_MODE = 8;
+    public static final int INDIRECT_WORD_MODE = 9;
+
+    public static final int DATA_BYTE_MODE = 1;
+    public static final int DATA_WORD_MODE = 2;
 
     public static final long UI_UPDATE_MAX_INTERVAL = Long.parseLong(Launcher.appConfig.get("UiUpdateInterval"));
     protected long lastTimeSinceUpdate = 0;
@@ -181,7 +190,7 @@ public abstract class CPU {
         instructionSet.put(INS_INC, "inc");
         instructionSet.put(INS_DEC, "dec");
         instructionSet.put(INS_LA, "la");
-        instructionSet.put(INS_LLEN, "llen");
+        instructionSet.put(INS_LLEN, "len");
         instructionSet.put(INS_STR, "str");
         instructionSet.put(INS_OUTS, "outs");
         instructionSet.put(INS_INP, "inp");
@@ -218,6 +227,9 @@ public abstract class CPU {
         instructionSet.put(INS_OUTC, "outc");
         instructionSet.put(INS_SHL, "shl");
         instructionSet.put(INS_SHR, "shr");
+        instructionSet.put(INS_OUTSW, "outsw");
+        instructionSet.put(INS_LENW, "lenw");
+        instructionSet.put(INS_OUTW, "outw");
 
 
         translationMap = createTranslationMap(instructionSet);
@@ -339,12 +351,12 @@ public abstract class CPU {
         return (pair[0] << 8) | pair[1];
     }
 
-    public void setMemory(int address, int value){
+    public void setMemory(int address, int value, int mode){
 
         if (isValidMemoryAddress(address)){
 
-            if (value <= max_byte_value) memory[address] = (short) value;
-            else{
+            if (mode == DATA_BYTE_MODE) memory[address] = (short) value;
+            else if (mode == DATA_WORD_MODE){
                 if (!isValidMemoryAddress(address + 1)){
                     String err = String.format("0x%X(%d) is an invalid memory address.", address, address);
                     triggerProgramError(
@@ -364,6 +376,34 @@ public abstract class CPU {
                     err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
         }
     }
+
+    public void setMemory(int address, int value){
+
+        if (isValidMemoryAddress(address)){
+
+            if (value <= max_byte_value) memory[address] = (short) value;
+            else {
+                if (!isValidMemoryAddress(address + 1)){
+                    String err = String.format("0x%X(%d) is an invalid memory address.", address, address);
+                    triggerProgramError(
+                            err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
+                }
+                else{
+                    int low = value & 0xff;
+                    int high = (value >> 8) & 0xff;
+                    memory[address] = (short) low;
+                    memory[address + 1] = (short) high;
+                }
+            }
+
+        }else{
+            String err = String.format("0x%X(%d) is an invalid memory address.", address, address);
+            triggerProgramError(
+                    err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
+        }
+    }
+
+
 
     public boolean isValidMemoryAddress(int address){
         return address <= last_addressable_location && address >= 0;

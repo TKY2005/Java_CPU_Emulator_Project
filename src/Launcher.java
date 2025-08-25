@@ -8,7 +8,7 @@ import java.util.HashMap;
 /*
     Java simple CPU emulator
     T.K.Y
-    last updated: July 15 2025
+    last updated: August 22 2025
  */
 
 public class Launcher{
@@ -56,6 +56,7 @@ public class Launcher{
                 if (!appConfig.get("Version").equals(version)){
                     System.out.println("App Versions don't match. Rewriting the config file");
                     createConfigFile();
+                    appConfig = Settings.loadSettings();
                 }
             }
 

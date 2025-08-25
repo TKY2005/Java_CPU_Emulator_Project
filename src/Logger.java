@@ -10,11 +10,11 @@ public class Logger {
 
 
     public static void addLog(String log){
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("[yyyy/MM/dd HH:mm:ss]");
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
         LocalDateTime time = LocalDateTime.now();
         String timeNow = time.format(formatter);
 
-        singleLog = timeNow + " " + log;
+        singleLog = "[" +  timeNow + "] " + log;
         logString.append(singleLog).append("\n");
     }
 

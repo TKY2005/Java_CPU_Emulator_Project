@@ -22,9 +22,6 @@ public class CPUModule16BIT extends CPU {
 
     int registerPairStart;
 
-    public static final int REGISTER_WORD_MODE = 7;
-    public static final int DIRECT_WORD_MODE = 8;
-    public static final int INDIRECT_WORD_MODE = 9;
 
     int PC = 18;
     int SP = 19;
@@ -312,7 +309,8 @@ public class CPUModule16BIT extends CPU {
 
     @Override
     public int[] toMachineCode(String instruction) {
-        String[] tokens = instruction.trim().split(" ");
+        String[] commentedTokens = instruction.trim().split(COMMENT_PREFIX);
+        String[] tokens = commentedTokens[0].trim().split(" ");
 
 
         // Instruction format: opcode (1 byte) optional: operand1 (2 bytes) optional: operand2 (2 bytes)
@@ -320,6 +318,7 @@ public class CPUModule16BIT extends CPU {
         // Output machine code: opcode operand1_addressing_mode operand1_value operand2_addressing_mode operand2_value
         int length = 1; // 1 byte for opcode
         for (int i = 1; i < tokens.length; i++) {
+
             //length += 2; // 2 bytes for all remaining operands
             switch (tokens[i].charAt(0)) {
                 case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX, IMMEDIATE_PREFIX -> length += 2;
@@ -328,7 +327,7 @@ public class CPUModule16BIT extends CPU {
         }
         int[] result = new int[length];
 
-        Integer opCode = translationMap.get(tokens[0]);
+        Integer opCode = translationMap.get(tokens[0].toLowerCase());
         if (opCode == null) {
             String err = String.format("Unknown instruction : %s\n", tokens[0]);
             status_code = ErrorHandler.ERR_COMP_UNDEFINED_INSTRUCTION;
@@ -417,7 +416,7 @@ public class CPUModule16BIT extends CPU {
                 tokenIndex++;
             }
         }
-        System.out.print(instruction + " => ");
+        System.out.print(commentedTokens[0] + " => ");
         for (int j : result) System.out.printf("0x%X ", j);
         System.out.println();
         return result;
@@ -425,7 +424,8 @@ public class CPUModule16BIT extends CPU {
 
     @Override
     public int getInstructionLength(String instruction){
-        String[] tokens = instruction.trim().split(" ");
+        String[] commentedTokens = instruction.trim().split(COMMENT_PREFIX);
+        String[] tokens = commentedTokens[0].trim().split(" ");
 
         // Instruction format: opcode (1 byte) optional: operand1 (2 bytes) optional: operand2 (2 bytes)
         // NOTE: if the instruction has an address, then operand size will be 3 bytes (1 byte for mode, 2 bytes for address)
@@ -460,37 +460,84 @@ public class CPUModule16BIT extends CPU {
                 int offset = 0;
                 i++; // skip .DATA line
 
-                while (!lines[i].equals("end")) {
+                while (!lines[i].equalsIgnoreCase("end")) {
 
                     String[] x = lines[i].trim().split(" ");
                     if (x[0].equals("org")) data_start = Integer.parseInt(x[1].substring(1)) - offset;
 
                     else {
+                        // store mode
+                        // 1- Byte mode
+                        // 2- Word mode
+                        // else- Undefined.
+                        int storeMode = 0;
                         dataMap.put(x[0], data_start + offset);
-                        if (x[1].startsWith(String.valueOf(STRING_PREFIX))) { // 34 in decimal 0x22 in hex
+
+                        if (x[1].equalsIgnoreCase("db")) storeMode = DATA_BYTE_MODE;
+                        else if (x[1].equalsIgnoreCase("dw")) storeMode = DATA_WORD_MODE;
+
+                        if (storeMode != DATA_BYTE_MODE && storeMode != DATA_WORD_MODE) {
+                            String err = "Undefined data store mode." + "'" + x[1] + "'";
+                            triggerProgramError(err, ErrorHandler.ERR_COMP_UNDEFINED_DATA_MODE);
+                        }
+
+                        // We're storing a string
+
+                        if (x[2].startsWith(String.valueOf(STRING_PREFIX))) { // 34 in decimal 0x22 in hex
                             String fullString = String.join(" ", x);
 
                             int startIndex = fullString.indexOf(34) + 1;
                             int endIndex = fullString.length() - 1;
                             fullString = fullString.substring(startIndex, endIndex);
-                            for (int j = 0; j < fullString.length(); j++) {
-                                System.out.printf("Setting memory location 0x%X(%d) to char %c\n",
-                                        data_start + offset, data_start + offset, fullString.charAt(j));
-                                setMemory(data_start + offset, (short) fullString.charAt(j));
-                                offset++;
-                            }
-                            setMemory(data_start + offset, ARRAY_TERMINATOR);
-                            offset++;
-                        } else {
-                            for (int j = 1; j < x.length; j++) {
-                                System.out.printf("Setting memory location 0x%X(%d) to value 0x%X(%d)\n",
-                                        data_start + offset, data_start + offset,
-                                        Integer.parseInt(x[j].substring(1)), Integer.parseInt(x[j].substring(1)));
 
-                                setMemory(data_start + offset, Integer.parseInt(x[j].substring(1)));
-                                offset++;
+                            for (int j = 0; j < fullString.length(); j++) {
+
+                                if (storeMode == DATA_BYTE_MODE) {
+                                    System.out.printf("Setting memory location 0x%X(%d) to byte char %c\n",
+                                            data_start + offset, data_start + offset, fullString.charAt(j));
+                                    setMemory(data_start + offset, (short) fullString.charAt(j), DATA_BYTE_MODE);
+                                    offset++;
+
+                                }else if (storeMode == DATA_WORD_MODE){
+                                    int low = fullString.charAt(j) & 0xff;
+                                    int high = (fullString.charAt(j) >> 8) & 0xff;
+                                    System.out.printf("Setting memory location 0x%X(%d) to word char %c\n",
+                                            data_start + offset, data_start + offset, fullString.charAt(j));
+                                    setMemory(data_start + offset, fullString.charAt(j), DATA_WORD_MODE);
+                                    offset += 2;
+                                }
+
                             }
-                            setMemory(data_start + offset, ARRAY_TERMINATOR);
+                            setMemory(data_start + offset, ARRAY_TERMINATOR, DATA_BYTE_MODE);
+                            offset++;
+
+                            // We're storing an array of numbers
+                        } else {
+                            for (int j = 2; j < x.length; j++) {
+
+                                if (storeMode == DATA_BYTE_MODE) {
+
+                                    System.out.printf("Setting memory location 0x%X(%d) to byte value 0x%X(%d)\n",
+                                            data_start + offset, data_start + offset,
+                                            Integer.parseInt(x[j].substring(1)), Integer.parseInt(x[j].substring(1)));
+
+                                    setMemory(data_start + offset, Integer.parseInt(x[j].substring(1)), DATA_BYTE_MODE);
+                                    offset++;
+
+                                }else if (storeMode == DATA_WORD_MODE){
+                                    int value = Integer.parseInt(x[j].substring(1));
+                                    int low = value & 0xff;
+                                    int high = (value >> 8) & 0xff;
+
+                                    System.out.printf("Setting memory location 0x%X(%d) to word value 0x%X(%d)\n",
+                                            data_start + offset, data_start + offset,
+                                            value, value);
+
+                                    setMemory(data_start + offset, value, DATA_WORD_MODE);
+                                    offset += 2;
+                                }
+                            }
+                            setMemory(data_start + offset, ARRAY_TERMINATOR, DATA_BYTE_MODE);
                             offset++;
                         }
                     }
@@ -535,7 +582,7 @@ public class CPUModule16BIT extends CPU {
                 machineCodeList.add(Integer.parseInt(eachNum[i]));
             }
         }
-        machineCodeList.add((int) TEXT_SECTION_END);
+        machineCodeList.add((int) TEXT_SECTION_END & 0xff);
 
         for (int i = 0; i < signature.length(); i++) // My signature, last release date and compiler version
             machineCodeList.add((int) signature.charAt(i));
@@ -582,37 +629,84 @@ public class CPUModule16BIT extends CPU {
                 int offset = 0;
                 i++; // skip .DATA line
 
-                while (!lines[i].equals("end")) {
+                while (!lines[i].equalsIgnoreCase("end")) {
 
                     String[] x = lines[i].trim().split(" ");
                     if (x[0].equals("org")) data_start = Integer.parseInt(x[1].substring(1)) - offset;
 
                     else {
+                        // store mode
+                        // 1- Byte mode
+                        // 2- Word mode
+                        // else- Undefined.
+                        int storeMode = 0;
                         dataMap.put(x[0], data_start + offset);
-                        if (x[1].startsWith(String.valueOf(STRING_PREFIX))) { // 34 in decimal 0x22 in hex
+
+                        if (x[1].equalsIgnoreCase("db")) storeMode = DATA_BYTE_MODE;
+                        else if (x[1].equalsIgnoreCase("dw")) storeMode = DATA_WORD_MODE;
+
+                        if (storeMode != DATA_BYTE_MODE && storeMode != DATA_WORD_MODE) {
+                            String err = "Undefined data store mode." + "'" + x[1] + "'";
+                            triggerProgramError(err, ErrorHandler.ERR_COMP_UNDEFINED_DATA_MODE);
+                        }
+
+                        // We're storing a string
+
+                        if (x[2].startsWith(String.valueOf(STRING_PREFIX))) { // 34 in decimal 0x22 in hex
                             String fullString = String.join(" ", x);
 
                             int startIndex = fullString.indexOf(34) + 1;
                             int endIndex = fullString.length() - 1;
                             fullString = fullString.substring(startIndex, endIndex);
-                            for (int j = 0; j < fullString.length(); j++) {
-                                System.out.printf("Setting memory location 0x%X(%d) to char %c\n",
-                                        data_start + offset, data_start + offset, fullString.charAt(j));
-                                setMemory(data_start + offset, (short) fullString.charAt(j));
-                                offset++;
-                            }
-                            setMemory(data_start + offset, ARRAY_TERMINATOR);
-                            offset++;
-                        } else {
-                            for (int j = 1; j < x.length; j++) {
-                                System.out.printf("Setting memory location 0x%X(%d) to value 0x%X(%d)\n",
-                                        data_start + offset, data_start + offset,
-                                        Integer.parseInt(x[j].substring(1)), Integer.parseInt(x[j].substring(1)));
 
-                                setMemory(data_start + offset, Integer.parseInt(x[j].substring(1)));
-                                offset++;
+                            for (int j = 0; j < fullString.length(); j++) {
+
+                                if (storeMode == DATA_BYTE_MODE) {
+                                    System.out.printf("Setting memory location 0x%X(%d) to byte char %c\n",
+                                            data_start + offset, data_start + offset, fullString.charAt(j));
+                                    setMemory(data_start + offset, (short) fullString.charAt(j), DATA_BYTE_MODE);
+                                    offset++;
+
+                                }else if (storeMode == DATA_WORD_MODE){
+                                    int low = fullString.charAt(j) & 0xff;
+                                    int high = (fullString.charAt(j) >> 8) & 0xff;
+                                    System.out.printf("Setting memory location 0x%X(%d) to word char %c\n",
+                                            data_start + offset, data_start + offset, fullString.charAt(j));
+                                    setMemory(data_start + offset, fullString.charAt(j), DATA_WORD_MODE);
+                                    offset += 2;
+                                }
+
                             }
-                            setMemory(data_start + offset, ARRAY_TERMINATOR);
+                            setMemory(data_start + offset, ARRAY_TERMINATOR, DATA_BYTE_MODE);
+                            offset++;
+
+                            // We're storing an array of numbers
+                        } else {
+                            for (int j = 2; j < x.length; j++) {
+
+                                if (storeMode == DATA_BYTE_MODE) {
+
+                                    System.out.printf("Setting memory location 0x%X(%d) to byte value 0x%X(%d)\n",
+                                            data_start + offset, data_start + offset,
+                                            Integer.parseInt(x[j].substring(1)), Integer.parseInt(x[j].substring(1)));
+
+                                    setMemory(data_start + offset, Integer.parseInt(x[j].substring(1)), DATA_BYTE_MODE);
+                                    offset++;
+
+                                }else if (storeMode == DATA_WORD_MODE){
+                                    int value = Integer.parseInt(x[j].substring(1));
+                                    int low = value & 0xff;
+                                    int high = (value >> 8) & 0xff;
+
+                                    System.out.printf("Setting memory location 0x%X(%d) to word value 0x%X(%d)\n",
+                                            data_start + offset, data_start + offset,
+                                            value, value);
+
+                                    setMemory(data_start + offset, value, DATA_WORD_MODE);
+                                    offset += 2;
+                                }
+                            }
+                            setMemory(data_start + offset, ARRAY_TERMINATOR, DATA_BYTE_MODE);
                             offset++;
                         }
                     }
@@ -656,12 +750,12 @@ public class CPUModule16BIT extends CPU {
                 machineCodeList.add(Integer.parseInt(eachNum[i]));
             }
         }
-        machineCodeList.add((int) TEXT_SECTION_END);
+        machineCodeList.add((int) TEXT_SECTION_END & 0xff);
 
         for (int i = 0; i < memory.length; i++) { // The DATA and STACK sections
-            machineCodeList.add((int) memory[i]);
+            machineCodeList.add((int) memory[i] & 0xff);
         }
-        machineCodeList.add((int) MEMORY_SECTION_END);
+        machineCodeList.add((int) MEMORY_SECTION_END & 0xff);
 
         for (int i = 0; i < signature.length(); i++) // My signature, last release date and compiler version
             machineCodeList.add((int) signature.charAt(i));
@@ -761,8 +855,12 @@ public class CPUModule16BIT extends CPU {
                         set(destination, source);
                     }
                     case INS_OUT -> {
-                        int[] destination = getNextOperand();
-                        out(destination);
+                        int[] source = getNextOperand();
+                        out(source);
+                    }
+                    case INS_OUTW -> {
+                        int[] source = getNextOperand();
+                        outw(source);
                     }
 
                     case INS_OUTC -> {
@@ -887,8 +985,31 @@ public class CPUModule16BIT extends CPU {
 
                         switch (destination[0]) {
                             case REGISTER_MODE, REGISTER_WORD_MODE -> setRegister(destination[1], len);
-                            case DIRECT_MODE, DIRECT_WORD_MODE -> setMemory(destination[1], len);
-                            case INDIRECT_MODE, INDIRECT_WORD_MODE -> setMemory(getRegister(destination[1]), len);
+                            case DIRECT_MODE -> setMemory(destination[1], len, DATA_BYTE_MODE);
+                            case DIRECT_WORD_MODE -> setMemory(destination[1], len, DATA_WORD_MODE);
+                            case INDIRECT_MODE -> setMemory(getRegister(destination[1]), len, DATA_BYTE_MODE);
+                            case INDIRECT_WORD_MODE -> setMemory(getRegister(destination[1]), len, DATA_WORD_MODE);
+                            default -> E = true;
+                        }
+                    }
+
+                    case INS_LENW -> {
+                        int[] destination = getNextOperand();
+                        step();
+                        step();
+                        int start = (machine_code[registers[PC]] << 8) | machine_code[step()];
+                        short len = 0;
+                        while (readWord(start)[0] != ARRAY_TERMINATOR){
+                            start += 2;
+                            len++;
+                        }
+
+                        switch (destination[0]) {
+                            case REGISTER_MODE, REGISTER_WORD_MODE -> setRegister(destination[1], len);
+                            case DIRECT_MODE -> setMemory(destination[1], len, DATA_BYTE_MODE);
+                            case DIRECT_WORD_MODE -> setMemory(destination[1], len, DATA_WORD_MODE);
+                            case INDIRECT_MODE -> setMemory(getRegister(destination[1]), len, DATA_BYTE_MODE);
+                            case INDIRECT_WORD_MODE -> setMemory(getRegister(destination[1]), len, DATA_WORD_MODE);
                             default -> E = true;
                         }
                     }
@@ -905,6 +1026,27 @@ public class CPUModule16BIT extends CPU {
                                 e.printStackTrace();
                             }
                             start++;
+                        }
+                    }
+
+                    case INS_OUTSW -> {
+                        int start = registers[SS];
+                        while (readWord(start)[0] != ARRAY_TERMINATOR){
+                            int[] current = readWord(start);
+                            int low = current[0];
+                            int high = current[1];
+                            char currentChar = (char) ((low) | (high << 8));
+                            outputString.append(currentChar);
+                            output += currentChar;
+
+                            try {
+                                System.out.print(currentChar);
+                                Thread.sleep(delayAmountMilliseconds);
+                            } catch (InterruptedException e) {
+                                throw new RuntimeException(e);
+                            }
+
+                            start += 2;
                         }
                     }
 
@@ -1042,7 +1184,8 @@ public class CPUModule16BIT extends CPU {
                     }
 
 
-                    case INS_NOP -> System.out.println("do nothing.");
+                    case INS_NOP ->{ // do nothing for 1 cycle
+                    }
 
 
                     default -> {
@@ -1062,11 +1205,9 @@ public class CPUModule16BIT extends CPU {
 
                 canExecute = !T;
                 output = "";
-                //timeout.cancel();
                 step();
             }
         }
-
 
         outputString.append("Program terminated with code : ").append(status_code);
         output = "Program terminated with code : " + status_code;
@@ -1195,7 +1336,7 @@ public class CPUModule16BIT extends CPU {
 
 
                     case INS_ADD, INS_SUB, INS_MUL, INS_DIV, INS_POW,
-                         INS_RND, INS_AND, INS_OR, INS_XOR, INS_NAND, INS_NOR -> {
+                         INS_RND, INS_AND, INS_OR, INS_XOR, INS_NAND, INS_NOR, INS_SHL, INS_SHR -> {
                         numBytes = 5;
                         for (int i = 0; i < numBytes; i++)
                             byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
@@ -1221,7 +1362,7 @@ public class CPUModule16BIT extends CPU {
                         code.append(getDisassembledOperand(source));
                     }
 
-                    case INS_LLEN -> {
+                    case INS_LLEN, INS_LENW -> {
                         numBytes = 6;
                         for (int i = 0; i < numBytes; i++)
                             byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
@@ -1279,7 +1420,7 @@ public class CPUModule16BIT extends CPU {
                         code.append(getDisassembledOperand(source));
                     }
 
-                    case INS_INT, INS_OUTS, INS_EXT, INS_RET,
+                    case INS_INT, INS_OUTS, INS_OUTSW, INS_EXT, INS_RET,
                          INS_END, INS_NOP -> {
                         numBytes = 1;
                         byteStr.append(String.format("%02X ", machine_code[registers[PC]]));
@@ -1297,12 +1438,7 @@ public class CPUModule16BIT extends CPU {
                         numBytes = 1;
                         byteStr.append(String.format("%02X ", machine_code[registers[PC]]));
                         code.append(String.format("%-20s", byteStr.toString()));
-                        String err = "Undefined instruction. please check the instruction codes : " + machine_code[registers[PC]];
-                        status_code = ErrorHandler.ERR_CODE_INVALID_INSTRUCTION_FORMAT;
-                        triggerProgramError(
-                                err, status_code);
                     }
-
                 }
 
                 if (E) {
@@ -1360,8 +1496,10 @@ public class CPUModule16BIT extends CPU {
         switch (destination[0]) {
 
             case REGISTER_MODE, REGISTER_WORD_MODE -> setRegister(destination[1], operandValue);
-            case DIRECT_MODE -> setMemory(destination[1], operandValue);
-            case INDIRECT_MODE, INDIRECT_WORD_MODE -> setMemory(getRegister(destination[1]), operandValue);
+            case DIRECT_MODE -> setMemory(destination[1], operandValue, DATA_BYTE_MODE);
+            case DIRECT_WORD_MODE -> setMemory(destination[1], operandValue, DATA_WORD_MODE);
+            case INDIRECT_MODE -> setMemory(getRegister(destination[1]), operandValue, DATA_BYTE_MODE);
+            case INDIRECT_WORD_MODE -> setMemory(getRegister(destination[1]), operandValue, DATA_WORD_MODE);
             default -> E = true;
         }
     }
@@ -1382,6 +1520,29 @@ public class CPUModule16BIT extends CPU {
             }
         }
     }
+
+    public void outw(int[] source){
+        Logger.addLog("Fetching operands");
+        output = String.valueOf(switch (source[0]){
+            case REGISTER_MODE, REGISTER_WORD_MODE -> ( ( getRegister(source[1]) << 16 ) | getRegister(source[1]) );
+            case DIRECT_MODE, DIRECT_WORD_MODE -> bytePairToWordLE( readWord( source[1] ) );
+            case INDIRECT_MODE, INDIRECT_WORD_MODE -> bytePairToWordLE( readWord( getRegister(source[1]) ) );
+            case IMMEDIATE_MODE -> source[1];
+            default -> max_pair_value + 1;
+        });
+
+        char[] x = output.toCharArray();
+        for(char c : x){
+            try {
+                Thread.sleep(delayAmountMilliseconds);
+                System.out.print(c);
+                outputString.append(c);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
 
     public void outc(int[] source) {
         Logger.addLog("Fetching operands");
@@ -2177,6 +2338,7 @@ public class CPUModule16BIT extends CPU {
     public CPUModule16BIT(){
         super();
 
+
         System.out.println("Starting 16-bit CPU module");
         bit_length = 16;
 
@@ -2249,6 +2411,8 @@ public class CPUModule16BIT extends CPU {
         // DP
 
         eachInstruction = new HashMap<>();
+
+        Logger.resetLogs();
 
         System.out.println("Initializing registers.");
         registerPairStart = 0;

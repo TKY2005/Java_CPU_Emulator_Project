@@ -28,6 +28,7 @@ public class CLI {
         loadBinaryFile();
 
 
+
         if (cpuModule.machineCode[ cpuModule.machineCode.length - 3 ] != cpuModule.bit_length){
             System.out.printf("This code has been compiled for %d-bit architecture." +
                     " the current CPU architecture is %d-bit.\n",
@@ -58,7 +59,7 @@ public class CLI {
 
 
             if (MEMsize > cpuModule.memory.length){
-                System.out.printf("The selected binary file is generated with %dKB of memory." +
+                System.out.printf("The selected binary file is compiled with %dKB of memory." +
                     "The current configuration uses %dKB. make sure current CPU uses the same or bigger memory size.\n",
                         MEMsize / 1024, cpuModule.memory.length / 1024);
 
