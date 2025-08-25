@@ -858,10 +858,6 @@ public class CPUModule16BIT extends CPU {
                         int[] source = getNextOperand();
                         out(source);
                     }
-                    case INS_OUTW -> {
-                        int[] source = getNextOperand();
-                        outw(source);
-                    }
 
                     case INS_OUTC -> {
                         int[] source = getNextOperand();
@@ -1234,251 +1230,258 @@ public class CPUModule16BIT extends CPU {
 
     public String disassembleMachineCode(int[] machine_code) {
 
-        code = new StringBuilder();
+        try {
+            code = new StringBuilder();
 
-        code.append("Disassembled by T.K.Y CPU compiler ").append(compilerVersion).append("\n");
-        code.append("Target architecture: ").append(machine_code[machine_code.length - 3]).append("-bit").append("\n");
-        code.append("Memory size: ").append(machine_code[machine_code.length - 4]).append("KB").append("\n");
+            code.append("Disassembled by T.K.Y CPU compiler ").append(compilerVersion).append("\n");
+            code.append("Target architecture: ").append(machine_code[machine_code.length - 3]).append("-bit").append("\n");
+            code.append("Memory size: ").append(machine_code[machine_code.length - 4]).append("KB").append("\n");
 
-        registers[PC] = 0;
-        delayAmountMilliseconds = 0;
+            registers[PC] = 0;
+            delayAmountMilliseconds = 0;
 
-        Set<Integer> functionCollector = new TreeSet<>();
+            Set<Integer> functionCollector = new TreeSet<>();
 
-        for (int i = 0; machine_code[i] != (TEXT_SECTION_END & 0xff); i++) {
+            for (int i = 0; machine_code[i] != (TEXT_SECTION_END & 0xff); i++) {
 
-            if (machine_code[i] >= INS_CALL && machine_code[i] <= INS_JB || machine_code[i] == INS_LOOP) {
-                if (machine_code[i + 1] == FUNCTION_MODE) {
-                    int high = machine_code[i + 2], low = machine_code[i + 3];
-                    int address = bytePairToWordLE(low, high);
-                    functionCollector.add(address);
+                if (machine_code[i] >= INS_CALL && machine_code[i] <= INS_JB || machine_code[i] == INS_LOOP) {
+                    if (machine_code[i + 1] == FUNCTION_MODE) {
+                        int high = machine_code[i + 2], low = machine_code[i + 3];
+                        int address = bytePairToWordLE(low, high);
+                        functionCollector.add(address);
+                    }
                 }
             }
-        }
-        functionPointers = functionCollector.stream().mapToInt(Integer::intValue).toArray();
-        functionAddresses = new HashMap<>();
+            functionPointers = functionCollector.stream().mapToInt(Integer::intValue).toArray();
+            functionAddresses = new HashMap<>();
 
-        for (int i = 0; i < functionPointers.length; i++) {
-            functionAddresses.put(functionPointers[i], "func_" + i);
-        }
-
-        int mainEntryPoint = ((machine_code[machine_code.length - 2] & 0xff) | machine_code[machine_code.length - 1]);
-        code.append("Program's entry point: ").append("0x").append(Integer.toHexString(mainEntryPoint).toUpperCase()).append("\n");
-
-        if (machine_code[machine_code.length - 3] != bit_length) { // Check the architecture
-            String err = String.format("This code has been compiled for %d-bit architecture." +
-                            " the current CPU architecture is %d-bit.\n",
-                    machine_code[machine_code.length - 3], bit_length
-            );
-
-            triggerProgramError(
-                    err, ErrorHandler.ERR_CODE_INCOMPATIBLE_ARCHITECTURE);
-        }
-
-
-        while (!programEnd && machine_code[registers[PC]] != TEXT_SECTION_END) {
-            if (canExecute) {
-
-                if (registers[PC] == mainEntryPoint)
-                    code.append("\n<.MAIN @0x").append(String.format("%04X>", registers[PC])).append("\n");
-                else {
-                    for (int i = 0; i < functionPointers.length; i++) {
-                        if (registers[PC] == functionPointers[i])
-                            code.append("\n<").append(functionAddresses.get(functionPointers[i])).
-                                    append(" @0x").append(String.format("%04X", functionPointers[i])).append(">").append("\n");
-                    }
-                }
-
-                code.append(String.format("%04X:\t",
-                        registers[PC]));
-
-                StringBuilder byteStr = new StringBuilder();
-                int numBytes = 0;
-
-                switch (machine_code[registers[PC]]) {
-
-                    // step function increments PC and returns its value
-                    // we step two times for each operand. one step for mode. another step for value
-                    case INS_SET -> {
-                        numBytes = 5;
-                        for (int i = 0; i < numBytes; i++)
-                            byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                        code.append(String.format("%-20s", byteStr.toString()));
-                        code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
-                        int[] destination = getNextOperand();
-                        code.append(getDisassembledOperand(destination)).append(" ");
-                        int[] source = getNextOperand();
-                        code.append(getDisassembledOperand(source));
-                    }
-                    case INS_OUT,
-                         INS_SQRT,
-                         INS_INC, INS_DEC,
-                         INS_NOT, INS_PUSH, INS_POP -> {
-                        numBytes = 3;
-                        for (int i = 0; i < numBytes; i++)
-                            byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                        code.append(String.format("%-20s", byteStr.toString()));
-                        code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
-                        int[] destination = getNextOperand();
-                        code.append(getDisassembledOperand(destination));
-                    }
-
-                    case INS_OUTC -> {
-                        numBytes = 3;
-                        for (int i = 0; i < numBytes; i++)
-                            byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                        code.append(String.format("%-20s", byteStr.toString()));
-                        code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
-                        int[] source = getNextOperand();
-                        code.append(getDisassembledOperand(source));
-                        outc(source);
-                    }
-
-
-                    case INS_ADD, INS_SUB, INS_MUL, INS_DIV, INS_POW,
-                         INS_RND, INS_AND, INS_OR, INS_XOR, INS_NAND, INS_NOR, INS_SHL, INS_SHR -> {
-                        numBytes = 5;
-                        for (int i = 0; i < numBytes; i++)
-                            byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                        code.append(String.format("%-20s", byteStr.toString()));
-                        code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
-                        int[] destination = getNextOperand();
-                        code.append(getDisassembledOperand(destination)).append(" ");
-                        int[] source = getNextOperand();
-                        code.append(getDisassembledOperand(source));
-                    }
-
-
-                    case INS_LA -> {
-                        // Get the destination (must be 16-bit compatible). step to the address. load into source
-                        numBytes = 6;
-                        for (int i = 0; i < numBytes; i++)
-                            byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                        code.append(String.format("%-20s", byteStr.toString()));
-                        code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
-                        int[] destination = getNextOperand();
-                        code.append(getDisassembledOperand(destination)).append(" ");
-                        int[] source = new int[]{machineCode[step()], machineCode[step()], machineCode[step()]};
-                        code.append(getDisassembledOperand(source));
-                    }
-
-                    case INS_LLEN, INS_LENW -> {
-                        numBytes = 6;
-                        for (int i = 0; i < numBytes; i++)
-                            byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                        code.append(String.format("%-20s", byteStr.toString()));
-                        code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
-                        int[] destination = getNextOperand();
-                        code.append(getDisassembledOperand(destination)).append(" ");
-                        int[] source = new int[]{machineCode[step()], machineCode[step()], machineCode[step()]};
-                        code.append(getDisassembledOperand(source));
-                    }
-
-
-                    case INS_CALL -> {
-                        numBytes = 4;
-                        for (int i = 0; i < numBytes; i++)
-                            byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                        code.append(String.format("%-20s", byteStr.toString()));
-                        code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
-                        int source[] = new int[]{machineCode[step()], machineCode[step()], machineCode[step()]};
-                        code.append(getDisassembledOperand(source));
-                    }
-
-
-                    case INS_CE, INS_CNE, INS_CL, INS_CLE, INS_CG, INS_CGE, INS_JMP, INS_JE, INS_JNE, INS_JL, INS_JLE,
-                         INS_JG, INS_JGE -> {
-                        numBytes = 4;
-                        for (int i = 0; i < numBytes; i++)
-                            byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                        code.append(String.format("%-20s", byteStr.toString()));
-                        code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
-                        int[] source = new int[]{machineCode[step()], machineCode[step()], machineCode[step()]};
-                        code.append(getDisassembledOperand(source));
-                    }
-
-                    case INS_CMP -> {
-                        numBytes = 5;
-                        for (int i = 0; i < numBytes; i++)
-                            byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                        code.append(String.format("%-20s", byteStr.toString()));
-                        code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
-                        int[] destination = getNextOperand();
-                        code.append(getDisassembledOperand(destination)).append(" ");
-                        int[] source = getNextOperand();
-                        code.append(getDisassembledOperand(source));
-                    }
-
-                    case INS_LOOP -> {
-                        numBytes = 4;
-                        for (int i = 0; i < numBytes; i++)
-                            byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                        code.append(String.format("%-20s", byteStr.toString()));
-                        code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
-                        // if RCX > 0: decrement RC and jump to the label address specified.
-                        int[] source = new int[]{machineCode[step()], machineCode[step()], machineCode[step()]};
-                        code.append(getDisassembledOperand(source));
-                    }
-
-                    case INS_INT, INS_OUTS, INS_OUTSW, INS_EXT, INS_RET,
-                         INS_END, INS_NOP -> {
-                        numBytes = 1;
-                        byteStr.append(String.format("%02X ", machine_code[registers[PC]]));
-                        code.append(String.format("%-20s", byteStr.toString()));
-                        code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
-                    }
-
-
-                    case TEXT_SECTION_END & 0xff -> {
-                        System.out.println("Code ends here.");
-                        programEnd = true;
-                        break;
-                    }
-                    default -> {
-                        numBytes = 1;
-                        byteStr.append(String.format("%02X ", machine_code[registers[PC]]));
-                        code.append(String.format("%-20s", byteStr.toString()));
-                    }
-                }
-
-                if (E) {
-                    status_code = ErrorHandler.ERR_CODE_PROGRAM_ERROR;
-                    String err = String.format("The program triggered an error with code : %s", status_code);
-                    triggerProgramError(
-                            err, status_code);
-                }
-
-                canExecute = !T;
-                output = "";
-                code.append("\n");
-                currentLine++;
-                step();
+            for (int i = 0; i < functionPointers.length; i++) {
+                functionAddresses.put(functionPointers[i], "func_" + i);
             }
 
+            int mainEntryPoint = ((machine_code[machine_code.length - 2] & 0xff) | machine_code[machine_code.length - 1]);
+            code.append("Program's entry point: ").append("0x").append(Integer.toHexString(mainEntryPoint).toUpperCase()).append("\n");
+
+            if (machine_code[machine_code.length - 3] != bit_length) { // Check the architecture
+                String err = String.format("This code has been compiled for %d-bit architecture." +
+                                " the current CPU architecture is %d-bit.\n",
+                        machine_code[machine_code.length - 3], bit_length
+                );
+
+                triggerProgramError(
+                        err, ErrorHandler.ERR_CODE_INCOMPATIBLE_ARCHITECTURE);
+            }
+
+
+            while (!programEnd && machine_code[registers[PC]] != TEXT_SECTION_END) {
+                if (canExecute) {
+
+                    if (registers[PC] == mainEntryPoint)
+                        code.append("\n<.MAIN @0x").append(String.format("%04X>", registers[PC])).append("\n");
+                    else {
+                        for (int i = 0; i < functionPointers.length; i++) {
+                            if (registers[PC] == functionPointers[i])
+                                code.append("\n<").append(functionAddresses.get(functionPointers[i])).
+                                        append(" @0x").append(String.format("%04X", functionPointers[i])).append(">").append("\n");
+                        }
+                    }
+
+                    code.append(String.format("%04X:\t",
+                            registers[PC]));
+
+                    StringBuilder byteStr = new StringBuilder();
+                    int numBytes = 0;
+
+                    switch (machine_code[registers[PC]]) {
+
+                        // step function increments PC and returns its value
+                        // we step two times for each operand. one step for mode. another step for value
+                        case INS_SET -> {
+                            numBytes = 5;
+                            for (int i = 0; i < numBytes; i++)
+                                byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
+                            code.append(String.format("%-20s", byteStr.toString()));
+                            code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
+                            int[] destination = getNextOperand();
+                            code.append(getDisassembledOperand(destination)).append(" ");
+                            int[] source = getNextOperand();
+                            code.append(getDisassembledOperand(source));
+                        }
+                        case INS_OUT,
+                             INS_SQRT,
+                             INS_INC, INS_DEC,
+                             INS_NOT, INS_PUSH, INS_POP -> {
+                            numBytes = 3;
+                            for (int i = 0; i < numBytes; i++)
+                                byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
+                            code.append(String.format("%-20s", byteStr.toString()));
+                            code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
+                            int[] destination = getNextOperand();
+                            code.append(getDisassembledOperand(destination));
+                        }
+
+                        case INS_OUTC -> {
+                            numBytes = 3;
+                            for (int i = 0; i < numBytes; i++)
+                                byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
+                            code.append(String.format("%-20s", byteStr.toString()));
+                            code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
+                            int[] source = getNextOperand();
+                            code.append(getDisassembledOperand(source));
+                            outc(source);
+                        }
+
+
+                        case INS_ADD, INS_SUB, INS_MUL, INS_DIV, INS_POW,
+                             INS_RND, INS_AND, INS_OR, INS_XOR, INS_NAND, INS_NOR, INS_SHL, INS_SHR -> {
+                            numBytes = 5;
+                            for (int i = 0; i < numBytes; i++)
+                                byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
+                            code.append(String.format("%-20s", byteStr.toString()));
+                            code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
+                            int[] destination = getNextOperand();
+                            code.append(getDisassembledOperand(destination)).append(" ");
+                            int[] source = getNextOperand();
+                            code.append(getDisassembledOperand(source));
+                        }
+
+
+                        case INS_LA -> {
+                            // Get the destination (must be 16-bit compatible). step to the address. load into source
+                            numBytes = 6;
+                            for (int i = 0; i < numBytes; i++)
+                                byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
+                            code.append(String.format("%-20s", byteStr.toString()));
+                            code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
+                            int[] destination = getNextOperand();
+                            code.append(getDisassembledOperand(destination)).append(" ");
+                            int[] source = new int[]{machineCode[step()], machineCode[step()], machineCode[step()]};
+                            code.append(getDisassembledOperand(source));
+                        }
+
+                        case INS_LLEN, INS_LENW -> {
+                            numBytes = 6;
+                            for (int i = 0; i < numBytes; i++)
+                                byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
+                            code.append(String.format("%-20s", byteStr.toString()));
+                            code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
+                            int[] destination = getNextOperand();
+                            code.append(getDisassembledOperand(destination)).append(" ");
+                            int[] source = new int[]{machineCode[step()], machineCode[step()], machineCode[step()]};
+                            code.append(getDisassembledOperand(source));
+                        }
+
+
+                        case INS_CALL -> {
+                            numBytes = 4;
+                            for (int i = 0; i < numBytes; i++)
+                                byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
+                            code.append(String.format("%-20s", byteStr.toString()));
+                            code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
+                            int source[] = new int[]{machineCode[step()], machineCode[step()], machineCode[step()]};
+                            code.append(getDisassembledOperand(source));
+                        }
+
+
+                        case INS_CE, INS_CNE, INS_CL, INS_CLE, INS_CG, INS_CGE, INS_JMP, INS_JE, INS_JNE, INS_JL,
+                             INS_JLE,
+                             INS_JG, INS_JGE -> {
+                            numBytes = 4;
+                            for (int i = 0; i < numBytes; i++)
+                                byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
+                            code.append(String.format("%-20s", byteStr.toString()));
+                            code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
+                            int[] source = new int[]{machineCode[step()], machineCode[step()], machineCode[step()]};
+                            code.append(getDisassembledOperand(source));
+                        }
+
+                        case INS_CMP -> {
+                            numBytes = 5;
+                            for (int i = 0; i < numBytes; i++)
+                                byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
+                            code.append(String.format("%-20s", byteStr.toString()));
+                            code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
+                            int[] destination = getNextOperand();
+                            code.append(getDisassembledOperand(destination)).append(" ");
+                            int[] source = getNextOperand();
+                            code.append(getDisassembledOperand(source));
+                        }
+
+                        case INS_LOOP -> {
+                            numBytes = 4;
+                            for (int i = 0; i < numBytes; i++)
+                                byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
+                            code.append(String.format("%-20s", byteStr.toString()));
+                            code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
+                            // if RCX > 0: decrement RC and jump to the label address specified.
+                            int[] source = new int[]{machineCode[step()], machineCode[step()], machineCode[step()]};
+                            code.append(getDisassembledOperand(source));
+                        }
+
+                        case INS_INT, INS_OUTS, INS_OUTSW, INS_EXT, INS_RET,
+                             INS_END, INS_NOP -> {
+                            numBytes = 1;
+                            byteStr.append(String.format("%02X ", machine_code[registers[PC]]));
+                            code.append(String.format("%-20s", byteStr.toString()));
+                            code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
+                        }
+
+
+                        case TEXT_SECTION_END & 0xff -> {
+                            System.out.println("Code ends here.");
+                            programEnd = true;
+                            break;
+                        }
+                        default -> {
+                            numBytes = 1;
+                            byteStr.append(String.format("%02X ", machine_code[registers[PC]]));
+                            code.append(String.format("%-20s", byteStr.toString()));
+                        }
+                    }
+
+                    if (E) {
+                        status_code = ErrorHandler.ERR_CODE_PROGRAM_ERROR;
+                        String err = String.format("The program triggered an error with code : %s", status_code);
+                        triggerProgramError(
+                                err, status_code);
+                    }
+
+                    canExecute = !T;
+                    output = "";
+                    code.append("\n");
+                    currentLine++;
+                    step();
+                }
+
+            }
+
+            outputString.append("Program terminated with code : ").append(status_code);
+            output = "Program terminated with code : " + status_code;
+            Logger.addLog("Program terminated with code : " + status_code);
+
+            Logger.addLog(String.format("""
+                    ==============================================
+                    %s
+                    %s
+                    ==============================================
+                    %s
+                    ==============================================
+                    """, dumpRegisters(), dumpFlags(), dumpMemory()));
+
+
+            if (Launcher.appConfig.get("WriteDump").equals("true")) {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd hh.mm.ss");
+                LocalDateTime time = LocalDateTime.now();
+                String filename = time.format(formatter);
+                Logger.writeLogFile("./" + filename + ".log");
+            }
+
+            return code.toString();
+        }catch (Exception e){
+            e.printStackTrace();
+            System.out.println(code);
+            return null;
         }
-
-        outputString.append("Program terminated with code : ").append(status_code);
-        output = "Program terminated with code : " + status_code;
-        Logger.addLog("Program terminated with code : " + status_code);
-
-        Logger.addLog(String.format("""
-                ==============================================
-                %s
-                %s
-                ==============================================
-                %s
-                ==============================================
-                """, dumpRegisters(), dumpFlags(), dumpMemory()));
-
-
-        if (Launcher.appConfig.get("WriteDump").equals("true")) {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd hh.mm.ss");
-            LocalDateTime time = LocalDateTime.now();
-            String filename = time.format(formatter);
-            Logger.writeLogFile("./" + filename + ".log");
-        }
-
-        return code.toString();
     }
 
     /// ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1520,29 +1523,6 @@ public class CPUModule16BIT extends CPU {
             }
         }
     }
-
-    public void outw(int[] source){
-        Logger.addLog("Fetching operands");
-        output = String.valueOf(switch (source[0]){
-            case REGISTER_MODE, REGISTER_WORD_MODE -> ( ( getRegister(source[1]) << 16 ) | getRegister(source[1]) );
-            case DIRECT_MODE, DIRECT_WORD_MODE -> bytePairToWordLE( readWord( source[1] ) );
-            case INDIRECT_MODE, INDIRECT_WORD_MODE -> bytePairToWordLE( readWord( getRegister(source[1]) ) );
-            case IMMEDIATE_MODE -> source[1];
-            default -> max_pair_value + 1;
-        });
-
-        char[] x = output.toCharArray();
-        for(char c : x){
-            try {
-                Thread.sleep(delayAmountMilliseconds);
-                System.out.print(c);
-                outputString.append(c);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }
-    }
-
 
     public void outc(int[] source) {
         Logger.addLog("Fetching operands");
