@@ -27,6 +27,8 @@ public class Settings extends JFrame {
     private JSlider UIintervalSlider;
     private JLabel UIintervalLabel;
 
+    private boolean adjustingSliders = false;
+
     public Settings(String title){
         super(title);
         this.setContentPane(panel1);
@@ -63,11 +65,15 @@ public class Settings extends JFrame {
         MemorySlider.setValue(Integer.parseInt(settings.get("MemSize")));
         MemorySizeLabel.setText(settings.get("MemSize") + "KB");
 
-        DataPercentageSlider.setValue(Integer.parseInt(settings.get("OffsetPercentage")));
-        OffsetSizeLabel.setText(settings.get("OffsetPercentage") + "%");
-
-        StackPercentageSlider.setValue(Integer.parseInt(settings.get("StackPercentage")));
-        StackSizeLabel.setText(settings.get("StackPercentage") + "%");
+        // Ensure initial values sum to 100
+        int dataValue = Integer.parseInt(settings.get("OffsetPercentage"));
+        int stackValue = Integer.parseInt(settings.get("StackPercentage"));
+        if (dataValue + stackValue != 100) {
+            stackValue = 100 - dataValue;
+            StackPercentageSlider.setValue(stackValue);
+        }
+        OffsetSizeLabel.setText(dataValue + "%");
+        StackSizeLabel.setText(stackValue + "%");
 
         switch (settings.get("Architecture")){
             case "8" -> a8BitRadioButton.setSelected(true);
@@ -95,13 +101,14 @@ public class Settings extends JFrame {
         });
 
 
-        DataPercentageSlider.addChangeListener(new ChangeListener() {
-            @Override
-            public void stateChanged(ChangeEvent e) {
-                OffsetSizeLabel.setText( DataPercentageSlider.getValue() + "%" );
-                int stackMaximum = (DataPercentageSlider.getValue() - StackPercentageSlider.getValue());
-                //StackPercentageSlider.setMaximum( stackMaximum );
-            }
+        DataPercentageSlider.addChangeListener(e -> {
+            if (adjustingSliders) return;
+            adjustingSliders = true;
+            int newDataValue = DataPercentageSlider.getValue();
+            StackPercentageSlider.setValue(100 - newDataValue);
+            OffsetSizeLabel.setText(newDataValue + "%");
+            StackSizeLabel.setText(StackPercentageSlider.getValue() + "%");
+            adjustingSliders = false;
         });
 
 
@@ -121,13 +128,14 @@ public class Settings extends JFrame {
         });
 
 
-        StackPercentageSlider.addChangeListener(new ChangeListener() {
-            @Override
-            public void stateChanged(ChangeEvent changeEvent) {
-                StackSizeLabel.setText( StackPercentageSlider.getValue() + "%" );
-                int dataMaximum = (StackPercentageSlider.getValue() - DataPercentageSlider.getValue());
-                //DataPercentageSlider.setMaximum(dataMaximum);
-            }
+        StackPercentageSlider.addChangeListener(e -> {
+            if (adjustingSliders) return;
+            adjustingSliders = true;
+            int newStackValue = StackPercentageSlider.getValue();
+            DataPercentageSlider.setValue(100 - newStackValue);
+            StackSizeLabel.setText(newStackValue + "%");
+            OffsetSizeLabel.setText(DataPercentageSlider.getValue() + "%");
+            adjustingSliders = false;
         });
 
         UIintervalSlider.addChangeListener(new ChangeListener() {
