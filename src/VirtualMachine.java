@@ -82,6 +82,7 @@ public class VirtualMachine {
             System.out.println(cpuModule.output);
         } catch (Exception e){
             System.out.println(e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -184,7 +185,19 @@ public class VirtualMachine {
                             );
                             else address = Integer.parseInt(x[1]);
                             System.out.println(cpuModule.dumpMemoryDebug(address));
-                        } else if (x[0].equals("g")) debugPause = false;
+                        }
+                        else if (x[0].equals("ds")){
+
+                            if (cpuModule.functionCallStack.isEmpty()){
+                                System.out.println("The function call stack is currently empty.");
+                                continue;
+                            }
+                            for(int i = cpuModule.functionCallStack.size() - 1; i >= 0; i--){
+                                System.out.printf("[%d] => 0x%04X\n", i, cpuModule.functionCallStack.get(i));
+                            }
+
+                        }
+                        else if (x[0].equals("g")) debugPause = false;
                         else System.out.println("Unknown command '" + x[0] + "'");
                     }
                 }
@@ -197,31 +210,6 @@ public class VirtualMachine {
         return validInterrupt;
     }
 
-    private static String getInputMessage(short[] registers, short[] memory) {
-        int input_message_pointer = registers[8]; // string message stored at : SS
-        String input_message = "";
-        if (memory[input_message_pointer] != CPU.ARRAY_TERMINATOR) {
-            //System.out.println("Message stored at : 0x" + Integer.toHexString(input_message_pointer));
-            for (int i = input_message_pointer; memory[i] != CPU.ARRAY_TERMINATOR; i++) {
-                //  System.out.println("adding char : " + (char) memory[i]);
-                input_message += (char) memory[i];
-            }
-        } else input_message = "Input : "; // no message provided
-        return input_message;
-    }
-
-    private static String getInputMessage(int[] registers, short[] memory) {
-        int input_message_pointer = registers[20]; // string message stored at : SS
-        String input_message = "";
-        if (memory[input_message_pointer] != CPU.ARRAY_TERMINATOR) {
-            //System.out.println("Message stored at : 0x" + Integer.toHexString(input_message_pointer));
-            for (int i = input_message_pointer; memory[i] != CPU.ARRAY_TERMINATOR; i++) {
-                //  System.out.println("adding char : " + (char) memory[i]);
-                input_message += (char) memory[i];
-            }
-        } else input_message = "Input : "; // no message provided
-        return input_message;
-    }
 
     // 16-BIT INTERRUPT HANDLER
     public static boolean interruptHandler(int[] registers, short[] memory){
@@ -365,6 +353,33 @@ public class VirtualMachine {
 
     public static boolean interruptHandler(long[] registers, short[] memory){
         return true;
+    }
+
+
+    private static String getInputMessage(short[] registers, short[] memory) {
+        int input_message_pointer = registers[8]; // string message stored at : SS
+        String input_message = "";
+        if (memory[input_message_pointer] != CPU.ARRAY_TERMINATOR) {
+            //System.out.println("Message stored at : 0x" + Integer.toHexString(input_message_pointer));
+            for (int i = input_message_pointer; memory[i] != CPU.ARRAY_TERMINATOR; i++) {
+                //  System.out.println("adding char : " + (char) memory[i]);
+                input_message += (char) memory[i];
+            }
+        } else input_message = "Input : "; // no message provided
+        return input_message;
+    }
+
+    private static String getInputMessage(int[] registers, short[] memory) {
+        int input_message_pointer = registers[20]; // string message stored at : SS
+        String input_message = "";
+        if (memory[input_message_pointer] != CPU.ARRAY_TERMINATOR) {
+            //System.out.println("Message stored at : 0x" + Integer.toHexString(input_message_pointer));
+            for (int i = input_message_pointer; memory[i] != CPU.ARRAY_TERMINATOR; i++) {
+                //  System.out.println("adding char : " + (char) memory[i]);
+                input_message += (char) memory[i];
+            }
+        } else input_message = "Input : "; // no message provided
+        return input_message;
     }
 
 }

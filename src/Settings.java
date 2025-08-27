@@ -9,7 +9,7 @@ import java.util.HashMap;
 public class Settings extends JFrame {
     private JPanel panel1;
     private JSlider MemorySlider;
-    private JSlider DataOffsetSlider;
+    private JSlider DataPercentageSlider;
     private JRadioButton a8BitRadioButton;
     private JRadioButton a16BitRadioButton;
     private JRadioButton a32BitRadioButton;
@@ -21,7 +21,7 @@ public class Settings extends JFrame {
     private JSlider CycleSpeedSlider;
     private JLabel CylceLabel;
     private JLabel DevInfo;
-    private JSlider StackSizeSlider;
+    private JSlider StackPercentageSlider;
     private JLabel StackSizeLabel;
     private JCheckBox allowDirectManipulationOfCheckBox;
     private JSlider UIintervalSlider;
@@ -63,11 +63,11 @@ public class Settings extends JFrame {
         MemorySlider.setValue(Integer.parseInt(settings.get("MemSize")));
         MemorySizeLabel.setText(settings.get("MemSize") + "KB");
 
-        DataOffsetSlider.setValue(Integer.parseInt(settings.get("OffsetSize")));
-        OffsetSizeLabel.setText(settings.get("OffsetSize") + "KB");
+        DataPercentageSlider.setValue(Integer.parseInt(settings.get("OffsetPercentage")));
+        OffsetSizeLabel.setText(settings.get("OffsetPercentage") + "%");
 
-        StackSizeSlider.setValue(Integer.parseInt(settings.get("StackSize")));
-        StackSizeLabel.setText(settings.get("StackSize") + "KB");
+        StackPercentageSlider.setValue(Integer.parseInt(settings.get("StackPercentage")));
+        StackSizeLabel.setText(settings.get("StackPercentage") + "%");
 
         switch (settings.get("Architecture")){
             case "8" -> a8BitRadioButton.setSelected(true);
@@ -89,17 +89,18 @@ public class Settings extends JFrame {
             @Override
             public void stateChanged(ChangeEvent e) {
                 MemorySizeLabel.setText( MemorySlider.getValue() + "KB" );
-                StackSizeSlider.setMaximum(MemorySlider.getValue() - 1);
+                StackPercentageSlider.setMaximum(MemorySlider.getValue() - 1);
 
             }
         });
 
 
-        DataOffsetSlider.addChangeListener(new ChangeListener() {
+        DataPercentageSlider.addChangeListener(new ChangeListener() {
             @Override
             public void stateChanged(ChangeEvent e) {
-                OffsetSizeLabel.setText( DataOffsetSlider.getValue() + "KB" );
-                DataOffsetSlider.setMaximum( StackSizeSlider.getValue() - 1 );
+                OffsetSizeLabel.setText( DataPercentageSlider.getValue() + "%" );
+                int stackMaximum = (DataPercentageSlider.getValue() - StackPercentageSlider.getValue());
+                //StackPercentageSlider.setMaximum( stackMaximum );
             }
         });
 
@@ -120,10 +121,12 @@ public class Settings extends JFrame {
         });
 
 
-        StackSizeSlider.addChangeListener(new ChangeListener() {
+        StackPercentageSlider.addChangeListener(new ChangeListener() {
             @Override
             public void stateChanged(ChangeEvent changeEvent) {
-                StackSizeLabel.setText( StackSizeSlider.getValue() + "KB" );
+                StackSizeLabel.setText( StackPercentageSlider.getValue() + "%" );
+                int dataMaximum = (StackPercentageSlider.getValue() - DataPercentageSlider.getValue());
+                //DataPercentageSlider.setMaximum(dataMaximum);
             }
         });
 
@@ -164,8 +167,8 @@ public class Settings extends JFrame {
 
             printer.println("Version=" + Launcher.version);
             printer.println("MemSize=" + MemorySlider.getValue());
-            printer.println("OffsetSize=" + DataOffsetSlider.getValue());
-            printer.println("StackSize=" + StackSizeSlider.getValue());
+            printer.println("OffsetPercentage=" + DataPercentageSlider.getValue());
+            printer.println("StackPercentage=" + StackPercentageSlider.getValue());
 
             if (a8BitRadioButton.isSelected()) printer.println("Architecture=8");
             if (a16BitRadioButton.isSelected()) printer.println("Architecture=16");

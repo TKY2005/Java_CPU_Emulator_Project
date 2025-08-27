@@ -11,12 +11,6 @@ public class CPUModule8BIT extends CPU {
 
     /// ///////////////////////////////////////
 
-    // Memory related Variables //
-    public int data_start;
-    public int stack_start;
-
-
-    public int mem_size_B;
 
     public short[] registers;
     public String[] registerNames;
@@ -29,11 +23,6 @@ public class CPUModule8BIT extends CPU {
 
 
 
-
-    int memorySize = Integer.parseInt(Settings.loadSettings().get("MemSize"));
-    int offsetSize = Integer.parseInt(Settings.loadSettings().get("OffsetSize"));
-    int stackSize = Integer.parseInt(Settings.loadSettings().get("StackSize"));
-
     StringBuilder code;
     int[] functionPointers;
     HashMap<Integer, String> functionAddresses;
@@ -45,10 +34,8 @@ public class CPUModule8BIT extends CPU {
         bit_length = 8;
 
         System.out.println("Starting 8 bit cpu module.");
-        mem_size_B = memorySize * 1024;
-        stack_start = mem_size_B - (stackSize * 1024);
-        data_start = stack_start - (offsetSize * 1024);
-        last_addressable_location = stack_start - 1;
+
+        calculateMemorySegments();
 
         memory = new short[mem_size_B];
 
@@ -64,15 +51,8 @@ public class CPUModule8BIT extends CPU {
                     errMsg, ErrorHandler.ERR_CODE_INVALID_MEMORY_LAYOUT);
         }
 
-        System.out.println(String.format("""
-                Starting with %dKB of memory. Total of %d locations
-                Data size %dKB starts at address 0x%X(%d)
-                Stack size %dKB start at address 0x%X(%d)
-                last addressable location : 0x%X(%d)
-                """, memorySize, mem_size_B,
-                offsetSize, data_start, data_start,
-                stackSize, stack_start, stack_start,
-                last_addressable_location, last_addressable_location));
+        System.out.println(memInitMsg);
+        Logger.addLog(memInitMsg);
 
         System.out.printf("CPU speed set to %s Cycles per second. With a step delay of %sMS\n",
                 Launcher.appConfig.get("Cycles"), delayAmountMilliseconds);
@@ -465,7 +445,7 @@ public class CPUModule8BIT extends CPU {
         for(int i = 0; i < compilerVersion.length(); i++)
             machineCodeList.add((int) compilerVersion.charAt(i));
 
-        machineCodeList.add( memorySize ); // The memory size in KB
+        machineCodeList.add( (int)  (memorySizeKB + 1) ); // The memory size in KB
         machineCodeList.add( bit_length ); // the CPU architecture flag
 
         // Add the program's entry point.
@@ -504,7 +484,6 @@ public class CPUModule8BIT extends CPU {
 
         outputString = new StringBuilder();
         machineCode = new int[] {0};
-        data_start = stack_start - (offsetSize * 1024);
 
 
         // set register names for search
@@ -524,7 +503,7 @@ public class CPUModule8BIT extends CPU {
             System.out.printf("%s => 0x%X\n", registerNames[i], i);
         }*/
 
-        registers[SP] = (short) (stack_start + memory.length - stack_start - 1);
+        registers[SP] = (short) stack_end;
         registers[PC] = 0;
 
         Z = false;

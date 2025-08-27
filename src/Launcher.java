@@ -13,13 +13,13 @@ import java.util.HashMap;
 
 public class Launcher{
     static String configFilePath = "./myEmulator.conf";
-    static String version = "3.1";
+    static String version = "3.2";
     static HashMap<String, String> appConfig;
     static String configDefaultTemplate = String.format("""
             Version=%s
             MemSize=8
-            OffsetSize=3
-            StackSize=2
+            OffsetPercentage=65
+            StackPercentage=35
             Architecture=16
             WriteDump=false
             Cycles=200

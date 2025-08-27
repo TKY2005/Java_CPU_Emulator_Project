@@ -10,11 +10,6 @@ public class CPUModule16BIT extends CPU {
 
     /// ///////
 
-    // Memory variables
-    public int data_start;
-    public int stack_start;
-
-
 
     // CPU architecture
     public int[] registers;
@@ -38,9 +33,6 @@ public class CPUModule16BIT extends CPU {
     // listeners
     private onStepListener stepListener;
 
-    int memorySize = Integer.parseInt(Launcher.appConfig.get("MemSize"));
-    int dataSize = Integer.parseInt(Launcher.appConfig.get("OffsetSize"));
-    int stackSize = Integer.parseInt(Launcher.appConfig.get("StackSize"));
 
 
     int[] functionPointers;
@@ -593,7 +585,7 @@ public class CPUModule16BIT extends CPU {
         for (int i = 0; i < compilerVersion.length(); i++)
             machineCodeList.add((int) compilerVersion.charAt(i));
 
-        machineCodeList.add(memorySize); // The memory size in KB
+        machineCodeList.add((int) (memorySizeKB + 1)); // The memory size in KB
         machineCodeList.add(bit_length); // the CPU architecture flag
 
         // The program's entry point.
@@ -766,7 +758,7 @@ public class CPUModule16BIT extends CPU {
         for (int i = 0; i < compilerVersion.length(); i++)
             machineCodeList.add((int) compilerVersion.charAt(i));
 
-        machineCodeList.add(memorySize); // The memory size in KB
+        machineCodeList.add((int) (memorySizeKB + 1)); // The memory size in KB
         machineCodeList.add(bit_length); // the CPU architecture flag
 
         // Add the program's entry point.
@@ -805,10 +797,10 @@ public class CPUModule16BIT extends CPU {
                     err, ErrorHandler.ERR_CODE_INCOMPATIBLE_ARCHITECTURE);
         }
 
-        if (machine_code[machine_code.length - 4] > memorySize) { // Check the allocated memory
-            String err = String.format("The selected binary file is generated with %dKB of memory." +
-                            "The current configuration uses %dKB. make sure current CPU uses the same or bigger memory size.",
-                    machine_code[machine_code.length - 2], memorySize);
+        if (machine_code[machine_code.length - 4] > (int) memorySizeKB + 1) { // Check the allocated memory
+            String err = String.format("The selected binary file is generated with %sKB of memory." +
+                            "The current configuration uses %sKB. make sure current CPU uses the same or bigger memory size.",
+                    machine_code[machine_code.length - 4], memorySizeKB);
 
             triggerProgramError(
                     err, ErrorHandler.ERR_CODE_INSUFFICIENT_MEMORY);
@@ -2322,10 +2314,7 @@ public class CPUModule16BIT extends CPU {
         System.out.println("Starting 16-bit CPU module");
         bit_length = 16;
 
-        mem_size_B = memorySize * 1024;
-        stack_start = mem_size_B - (stackSize * 1024);
-        data_start = stack_start - (dataSize * 1024);
-        last_addressable_location = stack_start - 1;
+        calculateMemorySegments();
 
         memory = new short[mem_size_B];
 
@@ -2342,28 +2331,12 @@ public class CPUModule16BIT extends CPU {
                     errMsg, ErrorHandler.ERR_CODE_INVALID_MEMORY_LAYOUT);
         }
 
-        System.out.println(String.format("""
-                Starting with %dKB of memory. Total of %d locations
-                Data size %dKB starts at address 0x%X(%d)
-                Stack size %dKB start at address 0x%X(%d)
-                last addressable location : 0x%X(%d)
-                """, memorySize, mem_size_B,
-                dataSize, data_start, data_start,
-                stackSize, stack_start, stack_start,
-                last_addressable_location, last_addressable_location));
+        System.out.println(memInitMsg);
 
         System.out.printf("CPU speed set to %s Cycles per second. With a step delay of %sMS\n",
                 Launcher.appConfig.get("Cycles"), delayAmountMilliseconds);
 
-        Logger.addLog(String.format("""
-                Starting with %dKB of memory. Total of %d locations
-                Data size %dKB starts at address 0x%X(%d)
-                Stack size %dKB start at address 0x%X(%d)
-                last addressable location : 0x%X(%d)
-                """, memorySize, mem_size_B,
-                dataSize, data_start, data_start,
-                stackSize, stack_start, stack_start,
-                last_addressable_location, last_addressable_location));
+        Logger.addLog(memInitMsg);
 
 
         Logger.addLog(String.format("CPU speed set to %s Cycles per second. With a step delay of %sMS\n",
@@ -2460,36 +2433,12 @@ public class CPUModule16BIT extends CPU {
 
         machineCode = new int[] {0};
 
-        data_start = stack_start - (dataSize * 1024);
 
-        registers[SP] = (stack_start + memory.length - stack_start - 1);
+        registers[SP] = stack_end;
         registers[PC] = 0;
 
     }
 
-    public void calculateMemorySegments(){
-        mem_size_B = (memorySize * 1024) + signature.length() + lastUpdateDate.length() + compilerVersion.length() + 4;
-
-        ROMsizeKB = (ROMpercentage * memorySize);
-        DATAsizeKB = (DATApercentage * memorySize);
-        STACKsizeKB = (STACKpercentage * memorySize);
-
-        ROMsizeB = (int) (ROMsizeKB * 1024);
-        DATAsizeB = (int) (DATAsizeKB * 1024);
-        STACKsizeB = (int) (STACKsizeKB * 1024);
-
-        rom_start = 0;
-        data_start = rom_start + ROMsizeB;
-        stack_start = data_start + DATAsizeB;
-
-        rom_end = data_start - 1;
-        data_end = stack_start - 1;
-        stack_end = stack_start + STACKsizeB;
-
-        dataOffset = data_start;
-        last_addressable_location = data_end;
-        System.out.println("Done calculating memory segments.");
-    }
     /// //////////////////////////////////////////////////////////////////////////////
     /// /////////////////////////////////////////////////////////////////////////////
     /// ////////////////////////////////////////////////////////////////////////////

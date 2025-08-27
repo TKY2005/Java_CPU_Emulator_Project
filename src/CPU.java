@@ -113,16 +113,19 @@ public abstract class CPU {
 
     protected short[] memory;
 
-    protected float ROMpercentage = (35.0f / 100);
-    protected float DATApercentage = (45.0f / 100);
-    protected float STACKpercentage = (20.0f / 100);
+    //protected float ROMpercentage = (35.0f / 100);
+    protected float DATApercentage = (65.0f / 100);
+    protected float STACKpercentage = (35.0f / 100);
 
     protected int dataOffset;
 
+    protected float memorySizeKB;
     protected float ROMsizeKB, DATAsizeKB, STACKsizeKB;
     protected int ROMsizeB, DATAsizeB, STACKsizeB, mem_size_B;
     protected int rom_start, data_start, stack_start;
     protected int rom_end, data_end, stack_end;
+
+    String memInitMsg;
 
     // Flags N = negative, C = carry, O = overflow, Z = zero //
     protected boolean N, C, O, Z;
@@ -167,9 +170,9 @@ public abstract class CPU {
     ///
     /// ////////////////////////////////////////////
     ///
-    String signature = "Made by T.K.Y";
-    String lastUpdateDate = " 9/8/2025";
-    String compilerVersion = " V1.1";
+    static String signature = "Made by T.K.Y";
+    static String lastUpdateDate = " 9/8/2025";
+    static String compilerVersion = " V1.1";
 
 
     public CPU() {
@@ -424,5 +427,35 @@ public abstract class CPU {
             }
         }
         return result.toString();
+    }
+
+    public void calculateMemorySegments(){
+        memorySizeKB = Float.parseFloat(Launcher.appConfig.get("MemSize"));
+
+        mem_size_B = (int) (memorySizeKB * 1024);
+
+        DATAsizeKB = (DATApercentage * memorySizeKB);
+        STACKsizeKB = (STACKpercentage * memorySizeKB);
+
+        DATAsizeB = (int) (DATAsizeKB * 1024);
+        STACKsizeB = (int) (STACKsizeKB * 1024);
+
+        data_start = 0;
+        stack_start = data_start + DATAsizeB;
+
+        data_end = stack_start - 1;
+        stack_end = stack_start + STACKsizeB;
+
+        last_addressable_location = data_end;
+
+        memInitMsg = String.format("""
+                Starting with %sKB of memory. Total of %d locations
+                DATA section size: %sKB(%dB), start address: 0x%X(%d) -> end address: 0x%X(%d)
+                STACK section size: %sKB(%dB), start address: 0x%X(%d) -> end address: 0x%X(%d)
+                """,
+                memorySizeKB, mem_size_B,
+                DATAsizeKB, DATAsizeB, data_start, data_start, data_end, data_end,
+                STACKsizeKB, STACKsizeB, stack_start, stack_start, stack_end, stack_end
+                );
     }
 }
