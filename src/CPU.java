@@ -118,6 +118,7 @@ public abstract class CPU {
     protected float STACKpercentage = (Float.parseFloat(Launcher.appConfig.get("StackPercentage")) / 100);
 
     protected int dataOffset;
+    protected int dataOrigin;
 
     protected float memorySizeKB;
     protected float ROMsizeKB, DATAsizeKB, STACKsizeKB;
@@ -447,7 +448,8 @@ public abstract class CPU {
         stack_end = stack_start + STACKsizeB;
 
         last_addressable_location = data_end;
-        dataOffset = (int) (0.25 * DATAsizeB);
+        dataOrigin = (int) (0.25 * DATAsizeB);
+        dataOffset = dataOrigin;
 
         memInitMsg = String.format("""
                 Starting with %sKB of memory. Total of %d locations

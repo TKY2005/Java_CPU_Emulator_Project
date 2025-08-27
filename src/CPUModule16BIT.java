@@ -455,7 +455,8 @@ public class CPUModule16BIT extends CPU {
                 while (!lines[i].equalsIgnoreCase("end")) {
 
                     String[] x = lines[i].trim().split(" ");
-                    if (x[0].equals("org")) data_start = Integer.parseInt(x[1].substring(1)) - offset;
+                    int dataStart = dataOffset;
+                    if (x[0].equals("org")) dataOffset = Integer.parseInt(x[1].substring(1)) - offset;
 
                     else {
                         // store mode
@@ -463,7 +464,7 @@ public class CPUModule16BIT extends CPU {
                         // 2- Word mode
                         // else- Undefined.
                         int storeMode = 0;
-                        dataMap.put(x[0], data_start + offset);
+                        dataMap.put(x[0], dataStart + offset);
 
                         if (x[1].equalsIgnoreCase("db")) storeMode = DATA_BYTE_MODE;
                         else if (x[1].equalsIgnoreCase("dw")) storeMode = DATA_WORD_MODE;
@@ -486,21 +487,21 @@ public class CPUModule16BIT extends CPU {
 
                                 if (storeMode == DATA_BYTE_MODE) {
                                     System.out.printf("Setting memory location 0x%X(%d) to byte char %c\n",
-                                            data_start + offset, data_start + offset, fullString.charAt(j));
-                                    setMemory(data_start + offset, (short) fullString.charAt(j), DATA_BYTE_MODE);
+                                            dataStart + offset, dataStart + offset, fullString.charAt(j));
+                                    setMemory(dataStart + offset, (short) fullString.charAt(j), DATA_BYTE_MODE);
                                     offset++;
 
                                 }else if (storeMode == DATA_WORD_MODE){
                                     int low = fullString.charAt(j) & 0xff;
                                     int high = (fullString.charAt(j) >> 8) & 0xff;
                                     System.out.printf("Setting memory location 0x%X(%d) to word char %c\n",
-                                            data_start + offset, data_start + offset, fullString.charAt(j));
-                                    setMemory(data_start + offset, fullString.charAt(j), DATA_WORD_MODE);
+                                            dataStart + offset, dataStart + offset, fullString.charAt(j));
+                                    setMemory(dataStart + offset, fullString.charAt(j), DATA_WORD_MODE);
                                     offset += 2;
                                 }
 
                             }
-                            setMemory(data_start + offset, ARRAY_TERMINATOR, DATA_BYTE_MODE);
+                            setMemory(dataStart + offset, ARRAY_TERMINATOR, DATA_BYTE_MODE);
                             offset++;
 
                             // We're storing an array of numbers
@@ -510,10 +511,10 @@ public class CPUModule16BIT extends CPU {
                                 if (storeMode == DATA_BYTE_MODE) {
 
                                     System.out.printf("Setting memory location 0x%X(%d) to byte value 0x%X(%d)\n",
-                                            data_start + offset, data_start + offset,
+                                            dataStart + offset, dataStart + offset,
                                             Integer.parseInt(x[j].substring(1)), Integer.parseInt(x[j].substring(1)));
 
-                                    setMemory(data_start + offset, Integer.parseInt(x[j].substring(1)), DATA_BYTE_MODE);
+                                    setMemory(dataStart + offset, Integer.parseInt(x[j].substring(1)), DATA_BYTE_MODE);
                                     offset++;
 
                                 }else if (storeMode == DATA_WORD_MODE){
@@ -522,14 +523,14 @@ public class CPUModule16BIT extends CPU {
                                     int high = (value >> 8) & 0xff;
 
                                     System.out.printf("Setting memory location 0x%X(%d) to word value 0x%X(%d)\n",
-                                            data_start + offset, data_start + offset,
+                                            dataStart + offset, dataStart + offset,
                                             value, value);
 
-                                    setMemory(data_start + offset, value, DATA_WORD_MODE);
+                                    setMemory(dataStart + offset, value, DATA_WORD_MODE);
                                     offset += 2;
                                 }
                             }
-                            setMemory(data_start + offset, ARRAY_TERMINATOR, DATA_BYTE_MODE);
+                            setMemory(dataStart + offset, ARRAY_TERMINATOR, DATA_BYTE_MODE);
                             offset++;
                         }
                     }
@@ -624,7 +625,8 @@ public class CPUModule16BIT extends CPU {
                 while (!lines[i].equalsIgnoreCase("end")) {
 
                     String[] x = lines[i].trim().split(" ");
-                    if (x[0].equals("org")) data_start = Integer.parseInt(x[1].substring(1)) - offset;
+                    int dataStart = dataOffset;
+                    if (x[0].equals("org")) dataOffset = Integer.parseInt(x[1].substring(1)) - offset;
 
                     else {
                         // store mode
@@ -632,7 +634,7 @@ public class CPUModule16BIT extends CPU {
                         // 2- Word mode
                         // else- Undefined.
                         int storeMode = 0;
-                        dataMap.put(x[0], data_start + offset);
+                        dataMap.put(x[0], dataStart + offset);
 
                         if (x[1].equalsIgnoreCase("db")) storeMode = DATA_BYTE_MODE;
                         else if (x[1].equalsIgnoreCase("dw")) storeMode = DATA_WORD_MODE;
@@ -655,21 +657,21 @@ public class CPUModule16BIT extends CPU {
 
                                 if (storeMode == DATA_BYTE_MODE) {
                                     System.out.printf("Setting memory location 0x%X(%d) to byte char %c\n",
-                                            data_start + offset, data_start + offset, fullString.charAt(j));
-                                    setMemory(data_start + offset, (short) fullString.charAt(j), DATA_BYTE_MODE);
+                                            dataStart + offset, dataStart + offset, fullString.charAt(j));
+                                    setMemory(dataStart + offset, (short) fullString.charAt(j), DATA_BYTE_MODE);
                                     offset++;
 
                                 }else if (storeMode == DATA_WORD_MODE){
                                     int low = fullString.charAt(j) & 0xff;
                                     int high = (fullString.charAt(j) >> 8) & 0xff;
                                     System.out.printf("Setting memory location 0x%X(%d) to word char %c\n",
-                                            data_start + offset, data_start + offset, fullString.charAt(j));
-                                    setMemory(data_start + offset, fullString.charAt(j), DATA_WORD_MODE);
+                                            dataStart + offset, dataStart + offset, fullString.charAt(j));
+                                    setMemory(dataStart + offset, fullString.charAt(j), DATA_WORD_MODE);
                                     offset += 2;
                                 }
 
                             }
-                            setMemory(data_start + offset, ARRAY_TERMINATOR, DATA_BYTE_MODE);
+                            setMemory(dataStart + offset, ARRAY_TERMINATOR, DATA_BYTE_MODE);
                             offset++;
 
                             // We're storing an array of numbers
@@ -679,10 +681,10 @@ public class CPUModule16BIT extends CPU {
                                 if (storeMode == DATA_BYTE_MODE) {
 
                                     System.out.printf("Setting memory location 0x%X(%d) to byte value 0x%X(%d)\n",
-                                            data_start + offset, data_start + offset,
+                                            dataStart + offset, dataStart + offset,
                                             Integer.parseInt(x[j].substring(1)), Integer.parseInt(x[j].substring(1)));
 
-                                    setMemory(data_start + offset, Integer.parseInt(x[j].substring(1)), DATA_BYTE_MODE);
+                                    setMemory(dataStart + offset, Integer.parseInt(x[j].substring(1)), DATA_BYTE_MODE);
                                     offset++;
 
                                 }else if (storeMode == DATA_WORD_MODE){
@@ -691,14 +693,14 @@ public class CPUModule16BIT extends CPU {
                                     int high = (value >> 8) & 0xff;
 
                                     System.out.printf("Setting memory location 0x%X(%d) to word value 0x%X(%d)\n",
-                                            data_start + offset, data_start + offset,
+                                            dataStart + offset, dataStart + offset,
                                             value, value);
 
-                                    setMemory(data_start + offset, value, DATA_WORD_MODE);
+                                    setMemory(dataStart + offset, value, DATA_WORD_MODE);
                                     offset += 2;
                                 }
                             }
-                            setMemory(data_start + offset, ARRAY_TERMINATOR, DATA_BYTE_MODE);
+                            setMemory(dataStart + offset, ARRAY_TERMINATOR, DATA_BYTE_MODE);
                             offset++;
                         }
                     }
@@ -2349,6 +2351,7 @@ public class CPUModule16BIT extends CPU {
     public void reset(){
         System.out.println("Initializing memory.");
         memory = new short[mem_size_B];
+        dataOffset = dataOrigin;
 
         // al, ah => ax
         // bl, bh => bx

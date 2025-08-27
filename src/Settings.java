@@ -28,6 +28,7 @@ public class Settings extends JFrame {
     private JLabel UIintervalLabel;
 
     private boolean adjustingSliders = false;
+    private int dataValue, stackValue;
 
     public Settings(String title){
         super(title);
@@ -66,9 +67,12 @@ public class Settings extends JFrame {
         MemorySizeLabel.setText(settings.get("MemSize") + "KB");
 
         // Ensure initial values sum to 100
-        int dataValue = Integer.parseInt(settings.get("DataPercentage"));
-        int stackValue = Integer.parseInt(settings.get("StackPercentage"));
+        dataValue = Integer.parseInt(settings.get("DataPercentage"));
+        stackValue = Integer.parseInt(settings.get("StackPercentage"));
+        System.out.println(dataValue);
+        System.out.println(stackValue);
         if (dataValue + stackValue != 100) {
+            System.out.println("detected faulty DATA and STACK sizes. readjusting");
             stackValue = 100 - dataValue;
             StackPercentageSlider.setValue(stackValue);
         }
@@ -95,8 +99,6 @@ public class Settings extends JFrame {
             @Override
             public void stateChanged(ChangeEvent e) {
                 MemorySizeLabel.setText( MemorySlider.getValue() + "KB" );
-                StackPercentageSlider.setMaximum(MemorySlider.getValue() - 1);
-
             }
         });
 
@@ -104,9 +106,9 @@ public class Settings extends JFrame {
         DataPercentageSlider.addChangeListener(e -> {
             if (adjustingSliders) return;
             adjustingSliders = true;
-            int newDataValue = DataPercentageSlider.getValue();
-            StackPercentageSlider.setValue(100 - newDataValue);
-            OffsetSizeLabel.setText(newDataValue + "%");
+            dataValue = DataPercentageSlider.getValue();
+            StackPercentageSlider.setValue(100 - dataValue);
+            OffsetSizeLabel.setText(dataValue + "%");
             StackSizeLabel.setText(StackPercentageSlider.getValue() + "%");
             adjustingSliders = false;
         });
@@ -131,9 +133,9 @@ public class Settings extends JFrame {
         StackPercentageSlider.addChangeListener(e -> {
             if (adjustingSliders) return;
             adjustingSliders = true;
-            int newStackValue = StackPercentageSlider.getValue();
-            DataPercentageSlider.setValue(100 - newStackValue);
-            StackSizeLabel.setText(newStackValue + "%");
+            stackValue = StackPercentageSlider.getValue();
+            DataPercentageSlider.setValue(100 - stackValue);
+            StackSizeLabel.setText(stackValue + "%");
             OffsetSizeLabel.setText(DataPercentageSlider.getValue() + "%");
             adjustingSliders = false;
         });
@@ -175,8 +177,10 @@ public class Settings extends JFrame {
 
             printer.println("Version=" + Launcher.version);
             printer.println("MemSize=" + MemorySlider.getValue());
-            printer.println("DataPercentage=" + DataPercentageSlider.getValue());
-            printer.println("StackPercentage=" + StackPercentageSlider.getValue());
+            System.out.println(dataValue);
+            System.out.println(stackValue);
+            printer.println("DataPercentage=" + dataValue);
+            printer.println("StackPercentage=" + stackValue);
 
             if (a8BitRadioButton.isSelected()) printer.println("Architecture=8");
             if (a16BitRadioButton.isSelected()) printer.println("Architecture=16");
@@ -196,7 +200,7 @@ public class Settings extends JFrame {
         }catch (Exception e) {
             e.printStackTrace();
             String failMSG = "Failed to write setting to new file.\n" + e.getMessage();
-            JOptionPane.showMessageDialog(panel1, failMSG, "Success", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(panel1, failMSG, "Failure", JOptionPane.ERROR_MESSAGE);
         }
     }
 }

@@ -353,10 +353,11 @@ public class CPUModule8BIT extends CPU {
              while (!lines[i].equals("end")) {
 
                  String[] x = lines[i].trim().split(" ");
-                 if (x[0].equals("org")) data_start = Integer.parseInt(x[1].substring(1)) - offset;
+                 int dataStart = dataOffset;
+                 if (x[0].equals("org")) dataOffset = Integer.parseInt(x[1].substring(1)) - offset;
 
                  else {
-                     dataMap.put(x[0], data_start + offset);
+                     dataMap.put(x[0], dataStart + offset);
                      if (x[1].startsWith(String.valueOf(STRING_PREFIX))) { // 34 in decimal 0x22 in hex
                          String fullString = String.join(" ", x);
 
@@ -365,22 +366,22 @@ public class CPUModule8BIT extends CPU {
                          fullString = fullString.substring(startIndex, endIndex);
                          for (int j = 0; j < fullString.length(); j++) {
                              System.out.printf("Setting memory location 0x%X(%d) to char %c\n",
-                                     data_start + offset, data_start + offset, fullString.charAt(j));
-                             setMemory(data_start + offset, (short) fullString.charAt(j));
+                                     dataStart + offset, dataStart + offset, fullString.charAt(j));
+                             setMemory(dataStart + offset, (short) fullString.charAt(j));
                              offset++;
                          }
-                         setMemory(data_start + offset, ARRAY_TERMINATOR);
+                         setMemory(dataStart + offset, ARRAY_TERMINATOR);
                          offset++;
                      } else {
                          for (int j = 1; j < x.length; j++) {
                              System.out.printf("Setting memory location 0x%X(%d) to value 0x%X(%d)\n",
-                                     data_start + offset, data_start + offset,
+                                     dataStart + offset, dataStart + offset,
                                      Integer.parseInt(x[j].substring(1)), Integer.parseInt(x[j].substring(1)));
 
-                             setMemory(data_start + offset, (short) Integer.parseInt(x[j].substring(1)));
+                             setMemory(dataStart + offset, (short) Integer.parseInt(x[j].substring(1)));
                              offset++;
                          }
-                         setMemory(data_start + offset, ARRAY_TERMINATOR);
+                         setMemory(dataStart + offset, ARRAY_TERMINATOR);
                          offset++;
                      }
                  }
@@ -473,6 +474,8 @@ public class CPUModule8BIT extends CPU {
         registerNames = new String[registers.length];
         bit_length = 8;
         memory = new short[mem_size_B];
+
+        dataOffset = dataOrigin;
         currentLine = 1;
         currentByte = 0;
         status_code = 0;
@@ -1697,10 +1700,11 @@ public class CPUModule8BIT extends CPU {
              while (!lines[i].equals("end")) {
 
                  String[] x = lines[i].trim().split(" ");
-                 if (x[0].equals("org")) data_start = Integer.parseInt(x[1].substring(1)) - offset;
+                 int dataStart = dataOffset;
+                 if (x[0].equals("org")) dataOffset = Integer.parseInt(x[1].substring(1)) - offset;
 
                  else {
-                     dataMap.put(x[0], data_start + offset);
+                     dataMap.put(x[0], dataStart + offset);
                      if (x[1].startsWith(String.valueOf(STRING_PREFIX))) { // 34 in decimal 0x22 in hex
                          String fullString = String.join(" ", x);
 
@@ -1709,22 +1713,22 @@ public class CPUModule8BIT extends CPU {
                          fullString = fullString.substring(startIndex, endIndex);
                          for (int j = 0; j < fullString.length(); j++) {
                              System.out.printf("Setting memory location 0x%X(%d) to char %c\n",
-                                     data_start + offset, data_start + offset, fullString.charAt(j));
-                             setMemory(data_start + offset, (short) fullString.charAt(j));
+                                     dataStart + offset, dataStart + offset, fullString.charAt(j));
+                             setMemory(dataStart + offset, (short) fullString.charAt(j));
                              offset++;
                          }
-                         setMemory(data_start + offset, ARRAY_TERMINATOR);
+                         setMemory(dataStart + offset, ARRAY_TERMINATOR);
                          offset++;
                      } else {
                          for (int j = 1; j < x.length; j++) {
                              System.out.printf("Setting memory location 0x%X(%d) to value 0x%X(%d)\n",
-                                     data_start + offset, data_start + offset,
+                                     dataStart + offset, dataStart + offset,
                                      Integer.parseInt(x[j].substring(1)), Integer.parseInt(x[j].substring(1)));
 
-                             setMemory(data_start + offset, Short.parseShort(x[j].substring(1)));
+                             setMemory(dataStart + offset, Short.parseShort(x[j].substring(1)));
                              offset++;
                          }
-                         setMemory(data_start + offset, ARRAY_TERMINATOR);
+                         setMemory(dataStart + offset, ARRAY_TERMINATOR);
                          offset++;
                      }
                  }
