@@ -18,7 +18,7 @@ public class Launcher{
     static String configDefaultTemplate = String.format("""
             Version=%s
             MemSize=8
-            OffsetPercentage=65
+            DataPercentage=65
             StackPercentage=35
             Architecture=16
             WriteDump=false

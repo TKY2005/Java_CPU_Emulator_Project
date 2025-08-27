@@ -66,7 +66,7 @@ public class Settings extends JFrame {
         MemorySizeLabel.setText(settings.get("MemSize") + "KB");
 
         // Ensure initial values sum to 100
-        int dataValue = Integer.parseInt(settings.get("OffsetPercentage"));
+        int dataValue = Integer.parseInt(settings.get("DataPercentage"));
         int stackValue = Integer.parseInt(settings.get("StackPercentage"));
         if (dataValue + stackValue != 100) {
             stackValue = 100 - dataValue;
@@ -175,7 +175,7 @@ public class Settings extends JFrame {
 
             printer.println("Version=" + Launcher.version);
             printer.println("MemSize=" + MemorySlider.getValue());
-            printer.println("OffsetPercentage=" + DataPercentageSlider.getValue());
+            printer.println("DataPercentage=" + DataPercentageSlider.getValue());
             printer.println("StackPercentage=" + StackPercentageSlider.getValue());
 
             if (a8BitRadioButton.isSelected()) printer.println("Architecture=8");

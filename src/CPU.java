@@ -114,8 +114,8 @@ public abstract class CPU {
     protected short[] memory;
 
     //protected float ROMpercentage = (35.0f / 100);
-    protected float DATApercentage = (65.0f / 100);
-    protected float STACKpercentage = (35.0f / 100);
+    protected float DATApercentage = (Float.parseFloat(Launcher.appConfig.get("DataPercentage")) / 100);
+    protected float STACKpercentage = (Float.parseFloat(Launcher.appConfig.get("StackPercentage")) / 100);
 
     protected int dataOffset;
 
@@ -447,15 +447,20 @@ public abstract class CPU {
         stack_end = stack_start + STACKsizeB;
 
         last_addressable_location = data_end;
+        dataOffset = (int) (0.25 * DATAsizeB);
 
         memInitMsg = String.format("""
                 Starting with %sKB of memory. Total of %d locations
                 DATA section size: %sKB(%dB), start address: 0x%X(%d) -> end address: 0x%X(%d)
                 STACK section size: %sKB(%dB), start address: 0x%X(%d) -> end address: 0x%X(%d)
+                last addressable location: 0x%X(%d)
+                data offset location: 0x%X(%d)
                 """,
                 memorySizeKB, mem_size_B,
                 DATAsizeKB, DATAsizeB, data_start, data_start, data_end, data_end,
-                STACKsizeKB, STACKsizeB, stack_start, stack_start, stack_end, stack_end
+                STACKsizeKB, STACKsizeB, stack_start, stack_start, stack_end, stack_end,
+                last_addressable_location, last_addressable_location,
+                dataOffset, dataOffset
                 );
     }
 }
