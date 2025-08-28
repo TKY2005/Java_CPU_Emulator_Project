@@ -63,7 +63,7 @@ public class Settings extends JFrame {
 
         HashMap<String, String> settings = loadSettings();
 
-        MemorySlider.setValue(Integer.parseInt(settings.get("MemSize")));
+        MemorySlider.setValue((int) Float.parseFloat(settings.get("MemSize")));
         MemorySizeLabel.setText(settings.get("MemSize") + "KB");
 
         // Ensure initial values sum to 100

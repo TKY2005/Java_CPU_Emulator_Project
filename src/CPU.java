@@ -453,8 +453,8 @@ public abstract class CPU {
 
         memInitMsg = String.format("""
                 Starting with %sKB of memory. Total of %d locations
-                DATA section size: %sKB(%dB), start address: 0x%X(%d) -> end address: 0x%X(%d)
-                STACK section size: %sKB(%dB), start address: 0x%X(%d) -> end address: 0x%X(%d)
+                DATA section size: %.3fKB(%dB), start address: 0x%X(%d) -> end address: 0x%X(%d)
+                STACK section size: %.3fKB(%dB), start address: 0x%X(%d) -> end address: 0x%X(%d)
                 last addressable location: 0x%X(%d)
                 data offset location: 0x%X(%d)
                 """,
