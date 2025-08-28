@@ -33,7 +33,7 @@ public class VirtualMachine {
             for (String token : tokens) {
                 if (token.startsWith(CPU.HEX_PREFIX)) {
                     // Hexadecimal to decimal conversion
-                    String hex = token.substring(1);
+                    String hex = token.substring(2);
                     int decimal = Integer.parseInt(hex, 16);
                     newLine.append("!").append(decimal).append(" ");
                 } else if (token.startsWith(CPU.CHAR_PREFIX)) {
@@ -47,6 +47,11 @@ public class VirtualMachine {
                     int decimal = Integer.parseInt(hex, 16);
                     newLine.append("%").append(decimal).append(" ");
                 }
+                else if (token.startsWith(CPU.SIGNAL_PREFIX)){
+                    String signal = String.valueOf(cpuModule.programSignals.get(token.substring(1)));
+                    byte numeric = Byte.parseByte(signal);
+                    newLine.append("!").append(numeric);
+                }
                 else {
                     newLine.append(token).append(" ");
                 }
@@ -59,10 +64,12 @@ public class VirtualMachine {
             if (compileDirection == 0) cpuModule.machineCode = cpuModule.compileCode(result.toString());
             else if (compileDirection == 1) cpuModule.machineCode = cpuModule.compileToFileBinary(result.toString());
 
+
             ui = UIMode;
         }catch (RuntimeException e) {
             e.printStackTrace();
             err_msg = e.getMessage();
+            System.out.println(err_msg);
             readyToExecute = false;
             throw e;
         }
@@ -70,7 +77,13 @@ public class VirtualMachine {
     }
 
     public void executeCode(){
-        cpuModule.executeCompiledCode(cpuModule.machineCode);
+        try {
+            cpuModule.executeCompiledCode(cpuModule.machineCode);
+            System.out.println(cpuModule.output);
+        } catch (Exception e){
+            System.out.println(e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     public void resetCPU(){
@@ -120,7 +133,7 @@ public class VirtualMachine {
                     memory[i] = (short) input.charAt(index);
                     index++;
                 }
-                memory[write_address + input.length() + 1] = CPU.NULL_TERMINATOR;
+                memory[write_address + input.length()] = CPU.ARRAY_TERMINATOR;
                 registers[9] = (short) (write_address + input.length()); // string end position stored in SE
 
             }
@@ -156,21 +169,37 @@ public class VirtualMachine {
                 System.out.println(cpuModule.dumpRegisters());
                 Scanner s = new Scanner(System.in);
 
-                boolean debugPause = true;
+                if (ui){
+                    JOptionPane.showMessageDialog(null, "Debug interrupts are not supported in UI mode.");
+                }
+                else {
+                    boolean debugPause = true;
 
-                while (debugPause){
-                    System.out.print(">> ");
-                    String[] x = s.nextLine().trim().split(" ");
-                    if (x[0].equals("d")){
-                        int address = 0;
-                        if (x[1].charAt(x[1].length() - 1) == 'h') address = Integer.parseInt(
-                                x[1].substring(0, x[1].length() - 1), 16
-                        );
-                        else address = Integer.parseInt(x[1]);
-                        System.out.println(cpuModule.dumpMemoryDebug(address));
+                    while (debugPause) {
+                        System.out.print(">> ");
+                        String[] x = s.nextLine().trim().split(" ");
+                        if (x[0].equals("d")) {
+                            int address = 0;
+                            if (x[1].charAt(x[1].length() - 1) == 'h') address = Integer.parseInt(
+                                    x[1].substring(0, x[1].length() - 1), 16
+                            );
+                            else address = Integer.parseInt(x[1]);
+                            System.out.println(cpuModule.dumpMemoryDebug(address));
+                        }
+                        else if (x[0].equals("ds")){
+
+                            if (cpuModule.functionCallStack.isEmpty()){
+                                System.out.println("The function call stack is currently empty.");
+                                continue;
+                            }
+                            for(int i = cpuModule.functionCallStack.size() - 1; i >= 0; i--){
+                                System.out.printf("[%d] => 0x%04X\n", i, cpuModule.functionCallStack.get(i));
+                            }
+
+                        }
+                        else if (x[0].equals("g")) debugPause = false;
+                        else System.out.println("Unknown command '" + x[0] + "'");
                     }
-                    else if (x[0].equals("g")) debugPause = false;
-                    else System.out.println("Unknown command '" + x[0] + "'");
                 }
             }
 
@@ -181,45 +210,23 @@ public class VirtualMachine {
         return validInterrupt;
     }
 
-    private static String getInputMessage(short[] registers, short[] memory) {
-        int input_message_pointer = registers[8]; // string message stored at : SS
-        String input_message = "";
-        if (memory[input_message_pointer] != CPU.NULL_TERMINATOR) {
-            //System.out.println("Message stored at : 0x" + Integer.toHexString(input_message_pointer));
-            for (int i = input_message_pointer; memory[i] != CPU.NULL_TERMINATOR; i++) {
-                //  System.out.println("adding char : " + (char) memory[i]);
-                input_message += (char) memory[i];
-            }
-        } else input_message = "Input : "; // no message provided
-        return input_message;
-    }
-
-    private static String getInputMessage(int[] registers, short[] memory) {
-        int input_message_pointer = registers[20]; // string message stored at : SS
-        String input_message = "";
-        if (memory[input_message_pointer] != CPU.NULL_TERMINATOR) {
-            //System.out.println("Message stored at : 0x" + Integer.toHexString(input_message_pointer));
-            for (int i = input_message_pointer; memory[i] != CPU.NULL_TERMINATOR; i++) {
-                //  System.out.println("adding char : " + (char) memory[i]);
-                input_message += (char) memory[i];
-            }
-        } else input_message = "Input : "; // no message provided
-        return input_message;
-    }
 
     // 16-BIT INTERRUPT HANDLER
     public static boolean interruptHandler(int[] registers, short[] memory){
          boolean validInterrupt = true;
-        switch (registers[1]){ // interrupt register : RAH
+        switch (registers[1]){ // interrupt register: AH
 
             case CPU.INT_INPUT_STR -> {
 
+                int mode = registers[0]; // store mode register: AL
+                if (mode != CPU.DATA_BYTE_MODE && mode != CPU.DATA_WORD_MODE) mode = CPU.DATA_BYTE_MODE;
+
                 Logger.addLog("Calling interrupt for input string");
                 String input_message = getInputMessage(registers, memory);
-                //System.out.println("Message is : " + input_message);
+
                 String input = "";
                 if (ui){
-                  //  System.out.println("Showing message for ui input");
+                    Logger.addLog("Showing message for ui input");
                     input = JOptionPane.showInputDialog(null, input_message,
                             "Input", JOptionPane.INFORMATION_MESSAGE);
 
@@ -237,17 +244,34 @@ public class VirtualMachine {
                 }
 
 
-                int write_address = registers[22]; // write_pointer_register : DI
+                int write_address = registers[22]; // write position register: DI
 
                 int index = 0;
 
-                for(int i = write_address; i < write_address + input.length(); i++){
-
-                    memory[i] = (short) input.charAt(index);
-                    index++;
+                if (mode == CPU.DATA_BYTE_MODE) {
+                    for (int i = write_address; i < write_address + input.length(); i++) {
+                        memory[i] = (short) input.charAt(index);
+                        index++;
+                    }
                 }
-                memory[write_address + input.length() + 1] = CPU.NULL_TERMINATOR;
-                registers[21] = (short) (write_address + input.length()); // string end position stored in SE
+                else if (mode == CPU.DATA_WORD_MODE){
+                    for(int i = write_address; i < write_address + input.length() * 2; i += 2){
+                        short low = (short) (input.charAt(index) & 0xff);
+                        short high = (short) ((input.charAt(index) >> 8) & 0xff);
+                        //System.out.printf("processing word char %c -> low: 0x%X, high 0x%X\n", input.charAt(index), low, high);
+                        memory[i + 1] = high;
+                        memory[i] = low;
+                        index++;
+                    }
+                }
+
+                int endPosition = 0;
+                if (mode == CPU.DATA_BYTE_MODE) endPosition = write_address + input.length();
+                else if (mode == CPU.DATA_WORD_MODE ) endPosition = write_address + input.length() * 2;
+
+                memory[endPosition] = CPU.ARRAY_TERMINATOR;
+
+                registers[21] = endPosition; // string end position stored in SE
 
             }
 
@@ -274,7 +298,10 @@ public class VirtualMachine {
                     input = new Scanner(System.in).nextShort();
                 }
 
-                registers[15] = input; // place input in RDX
+                registers[15] = input; // place input in DX
+                // update DL, DH
+                registers[6] = registers[15] & 0xff;
+                registers[7] = (registers[15] >> 8) & 0xff;
             }
 
             case CPU.INT_DEBUG -> {
@@ -282,21 +309,38 @@ public class VirtualMachine {
                 System.out.println(cpuModule.dumpRegisters());
                 Scanner s = new Scanner(System.in);
 
-                boolean debugPause = true;
+                if (ui){
+                    JOptionPane.showMessageDialog(null, "Debug interrupts are not supported in UI mode.");
+                }
+                else {
+                    boolean debugPause = true;
 
-                while (debugPause){
-                    System.out.print(">> ");
-                    String[] x = s.nextLine().trim().split(" ");
-                    if (x[0].equals("d")){
-                        int address = 0;
-                        if (x[1].charAt(x[1].length() - 1) == 'h') address = Integer.parseInt(
-                                x[1].substring(0, x[1].length() - 1), 16
-                        );
-                        else address = Integer.parseInt(x[1]);
-                        System.out.println(cpuModule.dumpMemoryDebug(address));
+                    while (debugPause) {
+                        System.out.print(">> ");
+                        String[] x = s.nextLine().trim().split(" ");
+                        if (x[0].equals("d")) {
+                            int address = 0;
+                            if (x[1].charAt(x[1].length() - 1) == 'h') address = Integer.parseInt(
+                                    x[1].substring(0, x[1].length() - 1), 16
+                            );
+                            else address = Integer.parseInt(x[1]);
+                            System.out.println(cpuModule.dumpMemoryDebug(address));
+
+                        } else if (x[0].equals("g")) debugPause = false;
+
+                        else if (x[0].equals("ds")){
+
+                            if (cpuModule.functionCallStack.isEmpty()){
+                                System.out.println("The function call stack is currently empty.");
+                                continue;
+                            }
+                            for(int i = cpuModule.functionCallStack.size() - 1; i >= 0; i--){
+                                System.out.printf("[%d] => 0x%04X\n", i, cpuModule.functionCallStack.get(i));
+                            }
+
+                        }
+                        else System.out.println("Unknown command '" + x[0] + "'");
                     }
-                    else if (x[0].equals("g")) debugPause = false;
-                    else System.out.println("Unknown command '" + x[0] + "'");
                 }
             }
 
@@ -309,6 +353,33 @@ public class VirtualMachine {
 
     public static boolean interruptHandler(long[] registers, short[] memory){
         return true;
+    }
+
+
+    private static String getInputMessage(short[] registers, short[] memory) {
+        int input_message_pointer = registers[8]; // string message stored at : SS
+        String input_message = "";
+        if (memory[input_message_pointer] != CPU.ARRAY_TERMINATOR) {
+            //System.out.println("Message stored at : 0x" + Integer.toHexString(input_message_pointer));
+            for (int i = input_message_pointer; memory[i] != CPU.ARRAY_TERMINATOR; i++) {
+                //  System.out.println("adding char : " + (char) memory[i]);
+                input_message += (char) memory[i];
+            }
+        } else input_message = "Input : "; // no message provided
+        return input_message;
+    }
+
+    private static String getInputMessage(int[] registers, short[] memory) {
+        int input_message_pointer = registers[20]; // string message stored at : SS
+        String input_message = "";
+        if (memory[input_message_pointer] != CPU.ARRAY_TERMINATOR) {
+            //System.out.println("Message stored at : 0x" + Integer.toHexString(input_message_pointer));
+            for (int i = input_message_pointer; memory[i] != CPU.ARRAY_TERMINATOR; i++) {
+                //  System.out.println("adding char : " + (char) memory[i]);
+                input_message += (char) memory[i];
+            }
+        } else input_message = "Input : "; // no message provided
+        return input_message;
     }
 
 }

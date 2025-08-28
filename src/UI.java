@@ -1,9 +1,12 @@
 import javax.swing.*;
+import javax.swing.text.DefaultCaret;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.*;
 import java.nio.file.Files;
 import java.util.*;
+import java.util.Timer;
 
 public class UI extends JFrame implements onStepListener {
     private JPanel panel1;
@@ -18,6 +21,7 @@ public class UI extends JFrame implements onStepListener {
     private JButton settingsButton;
     private JButton resetMemoryButton;
     private JScrollPane MemoryScrollPane;
+    private DefaultCaret caret;
 
     //private LineNumberComponent lineNumbers;
 
@@ -38,6 +42,9 @@ public class UI extends JFrame implements onStepListener {
         this.setDefaultCloseOperation(EXIT_ON_CLOSE);
 
         this.setExtendedState(JFrame.MAXIMIZED_BOTH);
+
+        caret = (DefaultCaret) MemoryDumpArea.getCaret();
+        caret.setUpdatePolicy(DefaultCaret.NEVER_UPDATE);
 
         this.pack();
         this.setVisible(true);
@@ -184,18 +191,13 @@ public class UI extends JFrame implements onStepListener {
 
     @Override
     public void updateUI(){
-//        JScrollBar vertical = MemoryScrollPane.getVerticalScrollBar();
-//        JScrollBar horizontal = MemoryScrollPane.getHorizontalScrollBar();
-//         int verticalPosition = vertical.getValue();
-//         int horizontalPosition = horizontal.getValue();
+
         SwingUtilities.invokeLater( () -> {
 
             RegisterDumpArea.setText(cpuModule.dumpRegisters() + "\n\n" + cpuModule.dumpFlags());
             MemoryDumpArea.setText(cpuModule.dumpMemory());
-//            vertical.setValue(verticalPosition);
-//            horizontal.setValue( horizontalPosition );
-            MemoryDumpArea.setCaretPosition(0);
             OutputDumpArea.setText(cpuModule.outputString.toString());
+
         });
     }
 

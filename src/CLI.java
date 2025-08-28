@@ -19,6 +19,7 @@ public class CLI {
             System.exit(-1);
         }
 
+        System.out.println("Running the file using the architecture present in the config file.");
         if (architecture.equals("8")) cpuModule = new CPUModule8BIT();
         else if (architecture.equals("16")) cpuModule = new CPUModule16BIT();
         // implement 32 and 64 bit when done.
@@ -26,6 +27,41 @@ public class CLI {
         vm = new VirtualMachine(cpuModule);
         vm.UIMode = false;
         loadBinaryFile();
+
+
+
+        if (cpuModule.machineCode[ cpuModule.machineCode.length - 3 ] != cpuModule.bit_length){
+            System.out.printf("This code has been compiled for %d-bit architecture." +
+                    " the current CPU architecture is %d-bit.\n",
+                    cpuModule.machineCode[cpuModule.machineCode.length - 3], cpuModule.bit_length);
+
+            System.exit(-1);
+        }
+        vm.readyToExecute = true;
+        int entryPointLow = cpuModule.machineCode[ cpuModule.machineCode.length - 1 ];
+        int entryPointHigh = cpuModule.machineCode[ cpuModule.machineCode.length - 2 ];
+
+        cpuModule.functions.put("MAIN",  (entryPointHigh << 8) | entryPointLow );
+        vm.executeCode();
+    }
+
+    public CLI(String filePath, String architecture){
+
+        binFile = new File(filePath);
+        if (!binFile.exists()){
+            System.out.println("Couldn't find the specified file.");
+            System.exit(-1);
+        }
+
+        System.out.println("Running the file using the " + architecture + "-bit module.");
+        if (architecture.equals("8")) cpuModule = new CPUModule8BIT();
+        else if (architecture.equals("16")) cpuModule = new CPUModule16BIT();
+        // implement 32 and 64 bit when done.
+
+        vm = new VirtualMachine(cpuModule);
+        vm.UIMode = false;
+        loadBinaryFile();
+
 
 
         if (cpuModule.machineCode[ cpuModule.machineCode.length - 3 ] != cpuModule.bit_length){
@@ -58,7 +94,7 @@ public class CLI {
 
 
             if (MEMsize > cpuModule.memory.length){
-                System.out.printf("The selected binary file is generated with %dKB of memory." +
+                System.out.printf("The selected binary file is compiled with %dKB of memory." +
                     "The current configuration uses %dKB. make sure current CPU uses the same or bigger memory size.\n",
                         MEMsize / 1024, cpuModule.memory.length / 1024);
 
@@ -76,7 +112,7 @@ public class CLI {
             System.out.println("Loading the DATA and STACK sections into memory.");
             int index = 0;
             for(int i = ROMsize + 1; machineCode[i] != CPU.MEMORY_SECTION_END; i++) {
-                cpuModule.memory[index] = machineCode[i];
+                cpuModule.memory[index] = (short) (machineCode[i] & 0xff);
                 index++;
             }
             System.out.println("Done. Starting execution.\n");

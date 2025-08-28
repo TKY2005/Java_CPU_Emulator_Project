@@ -9,7 +9,7 @@ import java.util.HashMap;
 public class Settings extends JFrame {
     private JPanel panel1;
     private JSlider MemorySlider;
-    private JSlider DataOffsetSlider;
+    private JSlider DataPercentageSlider;
     private JRadioButton a8BitRadioButton;
     private JRadioButton a16BitRadioButton;
     private JRadioButton a32BitRadioButton;
@@ -21,9 +21,14 @@ public class Settings extends JFrame {
     private JSlider CycleSpeedSlider;
     private JLabel CylceLabel;
     private JLabel DevInfo;
-    private JSlider StackSizeSlider;
+    private JSlider StackPercentageSlider;
     private JLabel StackSizeLabel;
     private JCheckBox allowDirectManipulationOfCheckBox;
+    private JSlider UIintervalSlider;
+    private JLabel UIintervalLabel;
+
+    private boolean adjustingSliders = false;
+    private int dataValue, stackValue;
 
     public Settings(String title){
         super(title);
@@ -58,14 +63,21 @@ public class Settings extends JFrame {
 
         HashMap<String, String> settings = loadSettings();
 
-        MemorySlider.setValue(Integer.parseInt(settings.get("MemSize")));
+        MemorySlider.setValue((int) Float.parseFloat(settings.get("MemSize")));
         MemorySizeLabel.setText(settings.get("MemSize") + "KB");
 
-        DataOffsetSlider.setValue(Integer.parseInt(settings.get("OffsetSize")));
-        OffsetSizeLabel.setText(settings.get("OffsetSize") + "KB");
-
-        StackSizeSlider.setValue(Integer.parseInt(settings.get("StackSize")));
-        StackSizeLabel.setText(settings.get("StackSize") + "KB");
+        // Ensure initial values sum to 100
+        dataValue = Integer.parseInt(settings.get("DataPercentage"));
+        stackValue = Integer.parseInt(settings.get("StackPercentage"));
+        //System.out.println(dataValue);
+        //System.out.println(stackValue);
+        if (dataValue + stackValue != 100) {
+            System.out.println("detected faulty DATA and STACK sizes. readjusting");
+            stackValue = 100 - dataValue;
+            StackPercentageSlider.setValue(stackValue);
+        }
+        OffsetSizeLabel.setText(dataValue + "%");
+        StackSizeLabel.setText(stackValue + "%");
 
         switch (settings.get("Architecture")){
             case "8" -> a8BitRadioButton.setSelected(true);
@@ -80,23 +92,25 @@ public class Settings extends JFrame {
         CycleSpeedSlider.setValue(Integer.parseInt(settings.get("Cycles")));
         CylceLabel.setText(settings.get("Cycles") + " Cycles/Second");
 
+        UIintervalSlider.setValue(Integer.parseInt(settings.get("UiUpdateInterval")));
+        UIintervalLabel.setText(settings.get("UiUpdateInterval") + "ms");
 
         MemorySlider.addChangeListener(new ChangeListener() {
             @Override
             public void stateChanged(ChangeEvent e) {
                 MemorySizeLabel.setText( MemorySlider.getValue() + "KB" );
-                StackSizeSlider.setMaximum(MemorySlider.getValue() - 1);
-
             }
         });
 
 
-        DataOffsetSlider.addChangeListener(new ChangeListener() {
-            @Override
-            public void stateChanged(ChangeEvent e) {
-                OffsetSizeLabel.setText( DataOffsetSlider.getValue() + "KB" );
-                DataOffsetSlider.setMaximum( StackSizeSlider.getValue() - 1 );
-            }
+        DataPercentageSlider.addChangeListener(e -> {
+            if (adjustingSliders) return;
+            adjustingSliders = true;
+            dataValue = DataPercentageSlider.getValue();
+            StackPercentageSlider.setValue(100 - dataValue);
+            OffsetSizeLabel.setText(dataValue + "%");
+            StackSizeLabel.setText(StackPercentageSlider.getValue() + "%");
+            adjustingSliders = false;
         });
 
 
@@ -116,13 +130,25 @@ public class Settings extends JFrame {
         });
 
 
-        StackSizeSlider.addChangeListener(new ChangeListener() {
+        StackPercentageSlider.addChangeListener(e -> {
+            if (adjustingSliders) return;
+            adjustingSliders = true;
+            stackValue = StackPercentageSlider.getValue();
+            DataPercentageSlider.setValue(100 - stackValue);
+            StackSizeLabel.setText(stackValue + "%");
+            OffsetSizeLabel.setText(DataPercentageSlider.getValue() + "%");
+            adjustingSliders = false;
+        });
+
+        UIintervalSlider.addChangeListener(new ChangeListener() {
             @Override
             public void stateChanged(ChangeEvent changeEvent) {
-                StackSizeLabel.setText( StackSizeSlider.getValue() + "KB" );
+                UIintervalLabel.setText(UIintervalSlider.getValue() + "ms");
             }
         });
     }
+
+
 
     public static HashMap<String, String> loadSettings(){
         HashMap<String, String> settings = new HashMap<>();
@@ -151,8 +177,10 @@ public class Settings extends JFrame {
 
             printer.println("Version=" + Launcher.version);
             printer.println("MemSize=" + MemorySlider.getValue());
-            printer.println("OffsetSize=" + DataOffsetSlider.getValue());
-            printer.println("StackSize=" + StackSizeSlider.getValue());
+            //System.out.println(dataValue);
+            //System.out.println(stackValue);
+            printer.println("DataPercentage=" + dataValue);
+            printer.println("StackPercentage=" + stackValue);
 
             if (a8BitRadioButton.isSelected()) printer.println("Architecture=8");
             if (a16BitRadioButton.isSelected()) printer.println("Architecture=16");
@@ -161,7 +189,8 @@ public class Settings extends JFrame {
 
             printer.println("WriteDump=" + writeLogsAndProgramCheckBox.isSelected());
             printer.println("Cycles=" + CycleSpeedSlider.getValue());
-            printer.print("OverwritePC=" + allowDirectManipulationOfCheckBox.isSelected());
+            printer.println("OverwritePC=" + allowDirectManipulationOfCheckBox.isSelected());
+            printer.print("UiUpdateInterval=" + UIintervalSlider.getValue());
 
             printer.close();
             writer.close();
@@ -171,7 +200,7 @@ public class Settings extends JFrame {
         }catch (Exception e) {
             e.printStackTrace();
             String failMSG = "Failed to write setting to new file.\n" + e.getMessage();
-            JOptionPane.showMessageDialog(panel1, failMSG, "Success", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(panel1, failMSG, "Failure", JOptionPane.ERROR_MESSAGE);
         }
     }
 }

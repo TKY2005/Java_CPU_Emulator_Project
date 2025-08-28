@@ -36,7 +36,7 @@ public class CLICompiler {
             vm.sendCode(code.toString());
 
             byte[] binaryCode = new byte[cpuModule.machineCode.length];
-            for(int i = 0; i < binaryCode.length; i++) binaryCode[i] = (byte) cpuModule.machineCode[i];
+            for(int i = 0; i < binaryCode.length; i++) binaryCode[i] = (byte) (cpuModule.machineCode[i] & 0xff);
 
             Files.write(Path.of(outputFilePath), binaryCode);
 
