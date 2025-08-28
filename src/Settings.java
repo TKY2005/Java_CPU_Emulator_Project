@@ -69,8 +69,8 @@ public class Settings extends JFrame {
         // Ensure initial values sum to 100
         dataValue = Integer.parseInt(settings.get("DataPercentage"));
         stackValue = Integer.parseInt(settings.get("StackPercentage"));
-        System.out.println(dataValue);
-        System.out.println(stackValue);
+        //System.out.println(dataValue);
+        //System.out.println(stackValue);
         if (dataValue + stackValue != 100) {
             System.out.println("detected faulty DATA and STACK sizes. readjusting");
             stackValue = 100 - dataValue;
@@ -177,8 +177,8 @@ public class Settings extends JFrame {
 
             printer.println("Version=" + Launcher.version);
             printer.println("MemSize=" + MemorySlider.getValue());
-            System.out.println(dataValue);
-            System.out.println(stackValue);
+            //System.out.println(dataValue);
+            //System.out.println(stackValue);
             printer.println("DataPercentage=" + dataValue);
             printer.println("StackPercentage=" + stackValue);
 
