@@ -23,7 +23,7 @@ public class Launcher{
             WriteDump=false
             Cycles=200
             OverwritePC=false
-            UiUpdateInterval=50
+            UiUpdateInterval=35
             """, version);
 
     static void createConfigFile(){
@@ -138,12 +138,14 @@ public class Launcher{
                 System.exit(-1);
             }
             String filePath = args[1];
-            String architecture;
-            if (args.length == 3){
-                architecture = args[2];
-                new CLI(filePath, architecture);
+            if (args.length >= 3){
+                appConfig.put("Architecture", args[2]);
             }
-            else new CLI(filePath);
+            if (args.length >= 4){
+                appConfig.put("MemSize", args[3]);
+            }
+            validateSettings();
+            new CLI(filePath);
             System.exit(0);
         }
 
@@ -155,19 +157,27 @@ public class Launcher{
             }
 
 
+
             String sourceCodeFilePath = args[1];
             String outputPath = args[2];
-            if (args.length == 4) {
+            if (args.length >= 4) {
                 String architecture = args[3];
+                appConfig.put("Architecture", architecture);
                 System.out.println("Compiling for " + architecture + "-bit module");
-                new CLICompiler(sourceCodeFilePath, outputPath, architecture);
+            }
+
+            if (args.length >= 5){
+                String memSize = args[4];
+                appConfig.put("MemSize", memSize);
+                System.out.println("Compiling with " + memSize + "KB of memory.");
             }
 
             else if (args.length == 3){
                 System.out.println("Compiling for architecture present in config file.");
-                new CLICompiler(sourceCodeFilePath, outputPath);
             }
 
+            validateSettings();
+            new CLICompiler(sourceCodeFilePath, outputPath);
             System.exit(0);
         }
 
@@ -187,8 +197,8 @@ public class Launcher{
             System.out.println("""
                     Available commands:
                     None -> go into UI
-                    CLI path/to/binary_file.tky -> execute a binary file with the CPU config in the config file.
-                    COMPILE -> /path/to/source_code_file.ast /path/to/output_file.tky (optional)architecture -> compile source code to binary file.
+                    CLI path/to/binary_file.tky architecture(optional) memsize(optional) -> execute a binary file with the CPU config in the config file.
+                    COMPILE -> /path/to/source_code_file.ast /path/to/output_file.tky architecture(optional) memsize(optional) -> compile source code to binary file.
                     DECOMPILE /path/to/binary_file.tky /path/to/output_file.ast -> disassemble the given binary file.
                     """);
         }

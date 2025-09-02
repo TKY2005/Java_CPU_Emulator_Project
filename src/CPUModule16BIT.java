@@ -206,7 +206,7 @@ public class CPUModule16BIT extends CPU {
 
             if (i % chunkSize == 0) result.append(String.format("%05X :\t", i));
 
-            result.append(String.format("0x%02X\t", memory[i]));
+            result.append(String.format("0x%02X", memory[i]));
             charSet.append((Character.isLetterOrDigit(memory[i])) ? (char) memory[i] : ".");
 
             if ((i + 1) % chunkSize == 0) {
