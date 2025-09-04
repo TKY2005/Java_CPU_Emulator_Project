@@ -99,6 +99,8 @@ public abstract class CPU {
     protected boolean UIMode = false;
     protected int currentLine = 1;
 
+    protected HashMap<Integer, Integer> lineMap = new HashMap<>();
+
     protected int max_pair_value = 0xffff;
     protected int max_byte_value = 255;
     protected int last_addressable_location;
@@ -243,6 +245,7 @@ public abstract class CPU {
     }
 
     public abstract void reset();
+    public abstract Integer getPC();
 
 
     private HashMap<String, Integer> createTranslationMap(HashMap<Integer, String> instructionSet){

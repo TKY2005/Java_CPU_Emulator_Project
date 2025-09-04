@@ -43,6 +43,9 @@ public class CPUModule16BIT extends CPU {
     /// /////////////////////////// HELPER FUNCTIONS /////////////////////////////////////////////////////////
     /// /////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    public Integer getPC(){
+        return registers[PC];
+    }
 
     public int getOperandValue(int[] source) {
         Logger.addLog("Fetching source");
@@ -440,10 +443,14 @@ public class CPUModule16BIT extends CPU {
         List<Integer> machineCodeList = new ArrayList<>();
 
         StringBuilder machineCodeString = new StringBuilder();
+        List<Integer> instructionStartAddresses = new ArrayList<>();
+        List<Integer> codeLines = new ArrayList<>();
+        instructionStartAddresses.add(0);
 
 
         // Step 1- Calculate the function offset addresses, add .DATA variables to the data section, and build a raw code string
         String fullCode = "";
+        currentLine = 0;
         for (int i = 0; i < lines.length; i++) {
             currentLine++;
             // Which section are we in? (is it a line of code? is it a function. and if it starts with '.' is it the data section?)
@@ -547,7 +554,10 @@ public class CPUModule16BIT extends CPU {
                 // 2 operand instruction = 5 bytes
                 // if the instruction includes loading addresses or word operations, then 2 more bytes will be added.
                 if (lines[i].isEmpty() || lines[i].startsWith(COMMENT_PREFIX)) continue;
+
                 currentByte += getInstructionLength(lines[i]);
+                instructionStartAddresses.add(currentByte);
+                codeLines.add(currentLine);
 
                 fullCode += lines[i] + "\n";
             }
@@ -558,12 +568,13 @@ public class CPUModule16BIT extends CPU {
         // Step 2- convert the raw code to machine code array.
         String[] fullLines = fullCode.split("\n");
 
-        currentLine = 1;
         eachInstruction = new HashMap<>();
         for (int i = 0; i < fullLines.length; i++) {
 
             currentLine++;
-            String a = Arrays.toString(toMachineCode(fullLines[i])).replace("[", "").replace("]", "");
+            int[] translatedLine = toMachineCode(fullLines[i]);
+
+            String a = Arrays.toString(translatedLine).replace("[", "").replace("]", "");
             //eachInstruction.put(i, toMachineCode(fullLines[i]));
             machineCodeString.append(a);
             if (i < fullLines.length - 1) machineCodeString.append(", ");
@@ -600,6 +611,11 @@ public class CPUModule16BIT extends CPU {
 
         machineCode = machineCodeList.stream().mapToInt(Integer::intValue).toArray();
         stepListener.updateUI();
+        instructionStartAddresses.removeLast();
+
+        for(int i = 0; i < instructionStartAddresses.size(); i++){
+            lineMap.put(instructionStartAddresses.get(i), codeLines.get(i));
+        }
         return machineCode;
     }
 
@@ -2367,6 +2383,7 @@ public class CPUModule16BIT extends CPU {
         // DP
 
         eachInstruction = new HashMap<>();
+        lineMap = new HashMap<>();
 
         Logger.resetLogs();
 

@@ -1,4 +1,5 @@
 import javax.swing.*;
+import java.util.Map;
 import java.util.Scanner;
 
 public class VirtualMachine {
@@ -64,7 +65,10 @@ public class VirtualMachine {
             if (compileDirection == 0) cpuModule.machineCode = cpuModule.compileCode(result.toString());
             else if (compileDirection == 1) cpuModule.machineCode = cpuModule.compileToFileBinary(result.toString());
 
-
+            /*for(Map.Entry<Integer, Integer> entry : cpuModule.lineMap.entrySet()){
+                System.out.printf("Line %d is mapped to address 0x%X decoded as : %s\n",
+                        entry.getValue(), entry.getKey(), cpuModule.instructionSet.get(cpuModule.machineCode[entry.getKey()]));
+            }*/
             ui = UIMode;
         }catch (RuntimeException e) {
             e.printStackTrace();

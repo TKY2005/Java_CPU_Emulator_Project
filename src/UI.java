@@ -21,9 +21,10 @@ public class UI extends JFrame implements onStepListener {
     private JButton settingsButton;
     private JButton resetMemoryButton;
     private JScrollPane MemoryScrollPane;
+    private JScrollPane CodeAreaScrollPane;
     private DefaultCaret caret;
 
-    //private LineNumberComponent lineNumbers;
+    public LineNumberComponent lineNumbers;
 
     private JButton[] executionButtons = new JButton[]{
             executeCodeButton,
@@ -45,6 +46,9 @@ public class UI extends JFrame implements onStepListener {
 
         caret = (DefaultCaret) MemoryDumpArea.getCaret();
         caret.setUpdatePolicy(DefaultCaret.NEVER_UPDATE);
+
+        lineNumbers = new LineNumberComponent(CodeArea);
+        CodeAreaScrollPane.setRowHeaderView(lineNumbers);
 
         this.pack();
         this.setVisible(true);
@@ -197,7 +201,8 @@ public class UI extends JFrame implements onStepListener {
             RegisterDumpArea.setText(cpuModule.dumpRegisters() + "\n\n" + cpuModule.dumpFlags());
             MemoryDumpArea.setText(cpuModule.dumpMemory());
             OutputDumpArea.setText(cpuModule.outputString.toString());
-
+            if (cpuModule.getPC() != null && cpuModule.lineMap.get(cpuModule.getPC()) != null)
+                lineNumbers.moveCaretToLine(cpuModule.lineMap.get(cpuModule.getPC()));
         });
     }
 

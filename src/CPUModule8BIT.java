@@ -28,6 +28,10 @@ public class CPUModule8BIT extends CPU {
     HashMap<Integer, String> functionAddresses;
 
 
+    public Integer getPC(){
+        return (int) registers[PC];
+    }
+
     public CPUModule8BIT() {
         super();
 
@@ -1686,9 +1690,13 @@ public class CPUModule8BIT extends CPU {
         List<Integer> machineCodeList = new ArrayList<>();
 
         StringBuilder machineCodeString = new StringBuilder();
+        List<Integer> instructionStartAddresses = new ArrayList<>();
+        List<Integer> codeLines = new ArrayList<>();
+        instructionStartAddresses.add(0);
 
         // Step 1- Calculate the function offset addresses, add .DATA variables to the data section, and build a raw code string
         String fullCode = "";
+        currentLine = 0;
         for(int i = 0; i < lines.length; i++){
             currentLine++;
             // Which section are we in? (is it a line of code? is it a function. and if it starts with '.' is it the data section?)
@@ -1746,7 +1754,10 @@ public class CPUModule8BIT extends CPU {
                 // single-operand instruction = 3 bytes
                 // 2 operand instruction = 5 bytes
                 if (lines[i].isEmpty() || lines[i].startsWith(COMMENT_PREFIX)) continue;
+
                 currentByte += getInstructionLength(lines[i]);
+                instructionStartAddresses.add(currentByte);
+                codeLines.add(currentLine);
 
                 fullCode += lines[i] + "\n";
             }
@@ -1779,6 +1790,12 @@ public class CPUModule8BIT extends CPU {
         }
         machineCodeList.add( bit_length );
         machineCode = machineCodeList.stream().mapToInt(Integer::intValue).toArray();
+        instructionStartAddresses.removeLast();
+
+        for(int i = 0; i < instructionStartAddresses.size(); i++){
+            lineMap.put(instructionStartAddresses.get(i), codeLines.get(i));
+        }
+
         stepListener.updateUI();
         return machineCode;
     }
