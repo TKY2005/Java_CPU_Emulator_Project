@@ -1,8 +1,9 @@
 <component name="ArtifactManager">
   <artifact type="jar" name="TKY_CPU_Emulator:jar">
     <output-path>$PROJECT_DIR$/out/artifacts/TKY_CPU_Emulator_jar</output-path>
-    <root id="archive" name="Java_CPU_Emulation_Project.jar">
+    <root id="archive" name="TKY CPU Emulator V3.2.jar">
       <element id="module-output" name="Java_CPU_Emulation_Project" />
+      <element id="dir-copy" path="$PROJECT_DIR$/resources" />
     </root>
   </artifact>
 </component>

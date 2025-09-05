@@ -228,8 +228,7 @@ public class CPUModule16BIT extends CPU {
 
             if (i % registersPerLine == 0) result.append("\n");
 
-            result.append(String.format("%-20s",
-                    String.format("%s: 0x%04X", registerNames[i].toUpperCase(), registers[i])));
+            result.append(String.format("%s: 0x%04X\t", registerNames[i].toUpperCase(), registers[i]));
         }
         return result.toString();
     }
@@ -341,6 +340,7 @@ public class CPUModule16BIT extends CPU {
                     case IMMEDIATE_PREFIX -> 0x3;
                     case DATA_PREFIX -> 0x4;
                     case STRING_PREFIX -> 0x5;
+                    case MEMORY_SEGMENT_OFFSET_PREFIX -> 0x10;
                     default -> 0x6;
                 };
 
@@ -369,7 +369,8 @@ public class CPUModule16BIT extends CPU {
                         triggerProgramError(
                                 err, status_code);
                         return new int[]{-1};
-                    } else {
+                    }
+                    else {
                         int low = dataPointer & 0xff;
                         int high = (dataPointer >> 8) & 0xff;
                         result[i + 1] = high;
@@ -378,6 +379,7 @@ public class CPUModule16BIT extends CPU {
                         break;
                     }
                 }
+
                 if (result[i] == 0x6) {
                     Integer functionPointer = functions.get(tokens[tokenIndex]);
 
@@ -460,6 +462,7 @@ public class CPUModule16BIT extends CPU {
                 i++; // skip .DATA line
 
                 while (!lines[i].equalsIgnoreCase("end")) {
+                    currentLine++;
 
                     String[] x = lines[i].trim().split(" ");
                     int dataStart = dataOffset;
@@ -543,6 +546,7 @@ public class CPUModule16BIT extends CPU {
                     }
                     i++;
                 }
+                currentLine++;
             } else if (lines[i].startsWith(".")) { // regular function. add the function along with the calculated offset
                 functions.put(lines[i].substring(1), currentByte);
                 System.out.println("Mapped function '" + lines[i].substring(1) + "' to address: 0x" +

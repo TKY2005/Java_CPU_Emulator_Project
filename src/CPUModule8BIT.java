@@ -354,7 +354,7 @@ public class CPUModule8BIT extends CPU {
                 int offset = 0;
                 i++; // skip .DATA line
 
-             while (!lines[i].equals("end")) {
+             while (!lines[i].equalsIgnoreCase("end")) {
 
                  String[] x = lines[i].trim().split(" ");
                  int dataStart = dataOffset;
@@ -1707,6 +1707,8 @@ public class CPUModule8BIT extends CPU {
 
              while (!lines[i].equals("end")) {
 
+                 currentLine++;
+
                  String[] x = lines[i].trim().split(" ");
                  int dataStart = dataOffset;
                  if (x[0].equals("org")) dataOffset = Integer.parseInt(x[1].substring(1)) - offset;
@@ -1742,6 +1744,7 @@ public class CPUModule8BIT extends CPU {
                  }
                  i++;
              }
+             currentLine++;
             }
             else if (lines[i].startsWith(".")){ // regular function. add the function along with the calculated offset
                 functions.put(lines[i].substring(1), currentByte);

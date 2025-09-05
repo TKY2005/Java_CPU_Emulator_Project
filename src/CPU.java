@@ -149,6 +149,7 @@ public abstract class CPU {
     public final static char DIRECT_MEMORY_PREFIX = '%';
     public final static char IMMEDIATE_PREFIX = '!';
     public final static char INDIRECT_MEMORY_PREFIX = '&';
+    public static final char MEMORY_SEGMENT_OFFSET_PREFIX = '[';
     public final static char DATA_PREFIX = '~';
     public final static char STRING_PREFIX = '\"';
     public final static String HEX_PREFIX = "0x";
