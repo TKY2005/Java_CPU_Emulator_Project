@@ -62,10 +62,12 @@ public abstract class CPU {
     /// ///////////// Interrupts ////////////////////
     public static final int INT_INPUT_STR = 0x00;
     public static final int INT_INPUT_NUM = 0x01;
-    public static final int INT_STR_STRING = 0x02;
+    public static final int INT_STRING_CONCAT = 0x02;
     public static final int INT_DEBUG = 0x03;
     public static final int INT_DATE = 0x04;
     public static final int INT_FILE = 0x05;
+    public static final int INT_STR_CPY = 0x06;
+    public static final int INT_MEM_CPY = 0x07;
 
 
 
@@ -157,6 +159,13 @@ public abstract class CPU {
     public static final String HEX_MEMORY = "*";
     public final static String SIGNAL_PREFIX = "^";
     public static final String COMMENT_PREFIX = ";";
+
+    public static final char ESC_NEWLINE = 'n';
+    public static final char ESC_NULL = '0';
+    public static final char ESC_TAB = 't';
+    public static final char ESC_BACKLASH = '\\';
+    public static final char ESC_DOUBLE_QUOTE = '\"';
+    public static final char ESC_UNICODE = 'Ω';
 
     public static final byte ARRAY_TERMINATOR = 0x7F;
     public static final byte TEXT_SECTION_END = (byte) 0xEA;
@@ -292,6 +301,31 @@ public abstract class CPU {
         } catch (NumberFormatException e) {
             return false;
         }
+    }
+
+    static List<Integer> toByteString(String fullString) {
+        List<Integer> string_bytes = new ArrayList<>();
+
+        for(int j = 0; j < fullString.length(); j++){
+            if (fullString.charAt(j) == '\\'){
+                char a;
+                switch (fullString.charAt(j + 1)){
+
+                    case ESC_NEWLINE -> a = '\n';
+                    case ESC_NULL -> a = '\0';
+                    case ESC_TAB -> a = '\t';
+                    case ESC_BACKLASH -> a = '\\';
+                    case ESC_UNICODE -> a = 'Ω';
+                    case ESC_DOUBLE_QUOTE -> a = '\"';
+                    default -> a = '.';
+                }
+                string_bytes.add((int) a);
+                j++;
+                continue;
+            }
+            string_bytes.add((int) fullString.charAt(j));
+        }
+        return string_bytes;
     }
 
 

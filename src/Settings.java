@@ -107,7 +107,8 @@ public class Settings extends JFrame {
             if (adjustingSliders) return;
             adjustingSliders = true;
             dataValue = DataPercentageSlider.getValue();
-            StackPercentageSlider.setValue(100 - dataValue);
+            stackValue = 100 - dataValue;
+            StackPercentageSlider.setValue(stackValue);
             OffsetSizeLabel.setText(dataValue + "%");
             StackSizeLabel.setText(StackPercentageSlider.getValue() + "%");
             adjustingSliders = false;
@@ -134,7 +135,8 @@ public class Settings extends JFrame {
             if (adjustingSliders) return;
             adjustingSliders = true;
             stackValue = StackPercentageSlider.getValue();
-            DataPercentageSlider.setValue(100 - stackValue);
+            dataValue = 100 - stackValue;
+            DataPercentageSlider.setValue(dataValue);
             StackSizeLabel.setText(stackValue + "%");
             OffsetSizeLabel.setText(DataPercentageSlider.getValue() + "%");
             adjustingSliders = false;

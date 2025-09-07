@@ -18,13 +18,13 @@ public class CPUModule16BIT extends CPU {
     int registerPairStart;
 
 
-    int PC = 18;
-    int SP = 19;
-    int SS = 20;
-    int SE = 21;
-    int DI = 22;
-    int DP = 23;
-    int CX;
+    static int PC = 18;
+    static int SP = 19;
+    static int SS = 20;
+    static int SE = 21;
+    static int DI = 22;
+    static int DP = 23;
+    static int CX;
 
 
     // flags
@@ -449,6 +449,11 @@ public class CPUModule16BIT extends CPU {
         List<Integer> codeLines = new ArrayList<>();
         instructionStartAddresses.add(0);
 
+        if (mem_size_B > 0xffff) {
+            String err = "This Maximum amount of addressable memory for this architecture is 64KB";
+            triggerProgramError(err, ErrorHandler.ERR_CODE_INVALID_MEMORY_LAYOUT);
+        }
+
 
         // Step 1- Calculate the function offset addresses, add .DATA variables to the data section, and build a raw code string
         String fullCode = "";
@@ -492,6 +497,16 @@ public class CPUModule16BIT extends CPU {
                             int startIndex = fullString.indexOf(34) + 1;
                             int endIndex = fullString.length() - 1;
                             fullString = fullString.substring(startIndex, endIndex);
+
+
+                            // Handle escape characters //
+
+                            List<Integer> string_bytes = toByteString(fullString);
+
+                            fullString = "";
+                            for(int j = 0; j < string_bytes.size(); j++){
+                                fullString += (char) (int) string_bytes.get(j);
+                            }
 
                             for (int j = 0; j < fullString.length(); j++) {
 
@@ -631,6 +646,11 @@ public class CPUModule16BIT extends CPU {
 
         StringBuilder machineCodeString = new StringBuilder();
 
+        if (mem_size_B > 0xffff) {
+            String err = "This Maximum amount of addressable memory for this architecture is 64KB";
+            triggerProgramError(err, ErrorHandler.ERR_CODE_INVALID_MEMORY_LAYOUT);
+        }
+
 
         // Step 1- Calculate the function offset addresses, add .DATA variables to the data section, and build a raw code string
         String fullCode = "";
@@ -672,6 +692,16 @@ public class CPUModule16BIT extends CPU {
                             int startIndex = fullString.indexOf(34) + 1;
                             int endIndex = fullString.length() - 1;
                             fullString = fullString.substring(startIndex, endIndex);
+
+                            // Handle escape characters //
+
+                            List<Integer> string_bytes = toByteString(fullString);
+
+                            fullString = "";
+                            for(int j = 0; j < string_bytes.size(); j++){
+                                fullString += (char) (int) string_bytes.get(j);
+                            }
+
 
                             for (int j = 0; j < fullString.length(); j++) {
 
@@ -819,11 +849,16 @@ public class CPUModule16BIT extends CPU {
                     err, ErrorHandler.ERR_CODE_INCOMPATIBLE_ARCHITECTURE);
         }
 
+
+        if (mem_size_B > 0xffff) {
+            String err = "This Maximum amount of addressable memory for this architecture is 64KB";
+            triggerProgramError(err, ErrorHandler.ERR_CODE_INVALID_MEMORY_LAYOUT);
+        }
+
         if (machine_code[machine_code.length - 4] > (int) memorySizeKB + 1) { // Check the allocated memory
             String err = String.format("The selected binary file is generated with %sKB of memory." +
                             "The current configuration uses %sKB. make sure current CPU uses the same or bigger memory size.",
                     machine_code[machine_code.length - 4], memorySizeKB);
-
             triggerProgramError(
                     err, ErrorHandler.ERR_CODE_INSUFFICIENT_MEMORY);
         }
@@ -2459,6 +2494,7 @@ public class CPUModule16BIT extends CPU {
 
 
         registers[SP] = stack_end;
+        registers[DP] = dataOrigin;
         registers[PC] = 0;
 
     }

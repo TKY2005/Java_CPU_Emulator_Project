@@ -7,7 +7,7 @@ import java.util.HashMap;
 /*
     Java simple CPU emulator
     T.K.Y
-    last updated: August 22 2025
+    last updated: September 5 2025
  */
 
 public class Launcher{

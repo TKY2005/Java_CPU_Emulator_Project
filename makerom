@@ -6,7 +6,7 @@ import sys
 filename = sys.argv[1]
 memsize = int(sys.argv[2])
 architecture = int(sys.argv[3])
-entryPoint = int(sys.argv[4])
+entryPoint = int(sys.argv[4], 16)
 
 x = bytearray([0x00] * memsize * 1024)
 x.append(0xCC)

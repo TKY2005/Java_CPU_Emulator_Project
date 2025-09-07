@@ -1,5 +1,5 @@
 import javax.swing.*;
-import java.util.Map;
+import java.io.*;
 import java.util.Scanner;
 
 public class VirtualMachine {
@@ -71,9 +71,19 @@ public class VirtualMachine {
             }*/
             ui = UIMode;
         }catch (RuntimeException e) {
-            e.printStackTrace();
-            err_msg = e.getMessage();
-            System.out.println(err_msg);
+            try {
+                File file = new File("./CompileError.log");
+                BufferedWriter writer = new BufferedWriter(new FileWriter(file));
+                err_msg = e.getMessage();
+                System.out.println(err_msg);
+                StringWriter sw = new StringWriter();
+                PrintWriter pw = new PrintWriter(sw);
+                e.printStackTrace(pw);
+                writer.write(sw.toString());
+                writer.close();
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
             readyToExecute = false;
             throw e;
         }
@@ -85,8 +95,19 @@ public class VirtualMachine {
             cpuModule.executeCompiledCode(cpuModule.machineCode);
             System.out.println(cpuModule.output);
         } catch (Exception e){
-            System.out.println(e.getMessage());
-            e.printStackTrace();
+            try {
+                File file = new File("./RuntimeError.log");
+                BufferedWriter writer = new BufferedWriter(new FileWriter(file));
+                err_msg = e.getMessage();
+                System.out.println(err_msg);
+                StringWriter sw = new StringWriter();
+                PrintWriter pw = new PrintWriter(sw);
+                e.printStackTrace(pw);
+                writer.write(sw.toString());
+                writer.close();
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
         }
     }
 
@@ -204,6 +225,48 @@ public class VirtualMachine {
                         else if (x[0].equals("g")) debugPause = false;
                         else System.out.println("Unknown command '" + x[0] + "'");
                     }
+                }
+            }
+
+            case CPU.INT_STRING_CONCAT -> {
+                int string1_address = registers[11]; // first string address: DI
+                int string2_address = registers[10]; // second string address: DP
+                int copy_address = registers[8]; // result will be copied to address: SS
+                String concat = "";
+                for(int i = string1_address; memory[i] != CPU.ARRAY_TERMINATOR; i++){
+                    //System.out.println("Concatenating: 0x" + Integer.toHexString(i) + " => " + (char) memory[i]);
+                    concat += (char) memory[i];
+                }
+                for(int i = string2_address; memory[i] != CPU.ARRAY_TERMINATOR; i++){
+                    //System.out.println("Concatenating: 0x" + Integer.toHexString(i) + " => " + (char) memory[i]);
+                    concat += (char) memory[i];
+                }
+
+                int index = 0;
+                for(int i = copy_address; i < copy_address + concat.length(); i++){
+                    memory[i] = (short) concat.charAt(index); index++;
+                    memory[i + 1] = CPU.ARRAY_TERMINATOR;
+                }
+            }
+
+            case CPU.INT_STR_CPY -> {
+                int strAddr = registers[8]; // original string address at : SS
+                int strDest = registers[9]; // copy destination address at : SE
+
+                for(int i = strAddr; memory[i] != CPU.ARRAY_TERMINATOR; i++){
+                    int destination = strDest + (i - strAddr);
+                    memory[destination] = memory[i];
+                    memory[destination + 1] = CPU.ARRAY_TERMINATOR;
+                }
+            }
+
+            case CPU.INT_MEM_CPY -> {
+                int startAddress = registers[11]; // start address at: DI
+                int destinationAddress = registers[10]; // destination address at: DP
+                int numBytes = registers[3]; // number of bytes to copy at: RD
+
+                for(int i = startAddress; i < startAddress + numBytes; i++){
+                    memory[destinationAddress + (i - startAddress)] = memory[i];
                 }
             }
 
@@ -348,6 +411,48 @@ public class VirtualMachine {
                 }
             }
 
+            case CPU.INT_STRING_CONCAT -> {
+                int string1_address = registers[22]; // first string address: DI
+                int string2_address = registers[23]; // second string address: DP
+                int copy_address = registers[20]; // result will be copied to address: SS
+                String concat = "";
+                for(int i = string1_address; memory[i] != CPU.ARRAY_TERMINATOR; i++){
+                    //System.out.println("Concatenating: 0x" + Integer.toHexString(i) + " => " + (char) memory[i]);
+                    concat += (char) memory[i];
+                }
+                for(int i = string2_address; memory[i] != CPU.ARRAY_TERMINATOR; i++){
+                    //System.out.println("Concatenating: 0x" + Integer.toHexString(i) + " => " + (char) memory[i]);
+                    concat += (char) memory[i];
+                }
+
+                int index = 0;
+                for(int i = copy_address; i < copy_address + concat.length(); i++){
+                    memory[i] = (short) concat.charAt(index); index++;
+                    memory[i + 1] = CPU.ARRAY_TERMINATOR;
+                }
+            }
+
+            case CPU.INT_STR_CPY -> {
+                int strAddr = registers[20]; // original string address at : SS
+                int strDest = registers[21]; // copy destination address at : SE
+
+                for(int i = strAddr; memory[i] != CPU.ARRAY_TERMINATOR; i++){
+                    int destination = strDest + (i - strAddr);
+                    memory[destination] = memory[i];
+                    memory[destination + 1] = CPU.ARRAY_TERMINATOR;
+                }
+            }
+
+            case CPU.INT_MEM_CPY -> {
+                int startAddress = registers[22]; // start address at: DI
+                int destinationAddress = registers[23]; // destination address at: DP
+                int numBytes = registers[15]; // number of bytes to copy at: DX
+
+                for(int i = startAddress; i < startAddress + numBytes; i++){
+                    memory[destinationAddress + (i - startAddress)] = memory[i];
+                }
+            }
+
 
             default -> validInterrupt = false;
         }
@@ -360,12 +465,14 @@ public class VirtualMachine {
     }
 
 
+
+    // Get string prompt for 8-bit module
     private static String getInputMessage(short[] registers, short[] memory) {
         int input_message_pointer = registers[8]; // string message stored at : SS
         String input_message = "";
         if (memory[input_message_pointer] != CPU.ARRAY_TERMINATOR) {
             //System.out.println("Message stored at : 0x" + Integer.toHexString(input_message_pointer));
-            for (int i = input_message_pointer; memory[i] != CPU.ARRAY_TERMINATOR; i++) {
+            for (int i = input_message_pointer; memory[i] != CPU.ARRAY_TERMINATOR || input_message_pointer + i > 100; i++) {
                 //  System.out.println("adding char : " + (char) memory[i]);
                 input_message += (char) memory[i];
             }
@@ -373,6 +480,7 @@ public class VirtualMachine {
         return input_message;
     }
 
+    // Get string prompt for 16-bit module
     private static String getInputMessage(int[] registers, short[] memory) {
         int input_message_pointer = registers[20]; // string message stored at : SS
         String input_message = "";

@@ -134,14 +134,17 @@
       </component>
       <scrollpane id="2c877">
         <constraints>
-          <grid row="6" column="1" row-span="5" col-span="1" vsize-policy="7" hsize-policy="7" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
+          <grid row="6" column="1" row-span="5" col-span="1" vsize-policy="5" hsize-policy="5" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
         </constraints>
         <properties/>
         <border type="none"/>
         <children>
           <component id="44aa8" class="javax.swing.JTextArea" binding="OutputDumpArea">
             <constraints/>
-            <properties/>
+            <properties>
+              <columns value="15"/>
+              <editable value="false"/>
+            </properties>
           </component>
         </children>
       </scrollpane>

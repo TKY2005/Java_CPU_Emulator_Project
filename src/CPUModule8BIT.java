@@ -343,6 +343,11 @@ public class CPUModule8BIT extends CPU {
 
         StringBuilder machineCodeString = new StringBuilder();
 
+        if (mem_size_B > 0xffff) {
+            String err = "This Maximum amount of addressable memory for this architecture is 64KB";
+            triggerProgramError(err, ErrorHandler.ERR_CODE_INVALID_MEMORY_LAYOUT);
+        }
+
 
         // Step 1- Calculate the function offset addresses, add .DATA variables to the data section, and build a raw code string
         String fullCode = "";
@@ -368,6 +373,16 @@ public class CPUModule8BIT extends CPU {
                          int startIndex = fullString.indexOf(34) + 1;
                          int endIndex = fullString.length() - 1;
                          fullString = fullString.substring(startIndex, endIndex);
+
+                            // Handle escape characters //
+
+                            List<Integer> string_bytes = toByteString(fullString);
+
+                            fullString = "";
+                            for(int j = 0; j < string_bytes.size(); j++){
+                                fullString += (char) (int) string_bytes.get(j);
+                            }
+
                          for (int j = 0; j < fullString.length(); j++) {
                              System.out.printf("Setting memory location 0x%X(%d) to char %c\n",
                                      dataStart + offset, dataStart + offset, fullString.charAt(j));
@@ -511,6 +526,7 @@ public class CPUModule8BIT extends CPU {
         }*/
 
         registers[SP] = (short) stack_end;
+        registers[DP] = (short) dataOrigin;
         registers[PC] = 0;
 
         Z = false;
@@ -535,6 +551,10 @@ public class CPUModule8BIT extends CPU {
         registers[PC] = (short) (int) mainEntryPoint;
         I = true;
 
+        if (mem_size_B > 0xffff) {
+            String err = "This Maximum amount of addressable memory for this architecture is 64KB";
+            triggerProgramError(err, ErrorHandler.ERR_CODE_INVALID_MEMORY_LAYOUT);
+        }
 
         while (!programEnd && registers[PC] < machine_code.length){
 
@@ -1694,6 +1714,11 @@ public class CPUModule8BIT extends CPU {
         List<Integer> codeLines = new ArrayList<>();
         instructionStartAddresses.add(0);
 
+        if (mem_size_B > 0xffff) {
+            String err = "This Maximum amount of addressable memory for this architecture is 64KB";
+            triggerProgramError(err, ErrorHandler.ERR_CODE_INVALID_MEMORY_LAYOUT);
+        }
+
         // Step 1- Calculate the function offset addresses, add .DATA variables to the data section, and build a raw code string
         String fullCode = "";
         currentLine = 0;
@@ -1721,6 +1746,16 @@ public class CPUModule8BIT extends CPU {
                          int startIndex = fullString.indexOf(34) + 1;
                          int endIndex = fullString.length() - 1;
                          fullString = fullString.substring(startIndex, endIndex);
+
+                            // Handle escape characters //
+
+                            List<Integer> string_bytes = toByteString(fullString);
+
+                            fullString = "";
+                            for(int j = 0; j < string_bytes.size(); j++){
+                                fullString += (char) (int) string_bytes.get(j);
+                            }
+
                          for (int j = 0; j < fullString.length(); j++) {
                              System.out.printf("Setting memory location 0x%X(%d) to char %c\n",
                                      dataStart + offset, dataStart + offset, fullString.charAt(j));
