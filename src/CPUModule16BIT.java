@@ -55,7 +55,7 @@ public class CPUModule16BIT extends CPU {
             case DIRECT_WORD_MODE -> bytePairToWordLE((readWord(source[1])));
             case INDIRECT_MODE -> readByte(getRegister(source[1]));
             case INDIRECT_WORD_MODE -> bytePairToWordLE(readWord(getRegister(source[1])));
-            case IMMEDIATE_MODE -> source[1];
+            case IMMEDIATE_MODE -> (source[1] << 8) | machineCode[step()];
             default -> max_pair_value + 1;
         };
     }
@@ -65,7 +65,7 @@ public class CPUModule16BIT extends CPU {
             case REGISTER_MODE, REGISTER_WORD_MODE -> CPU.REGISTER_PREFIX + getRegisterName(operand[1], false);
             case DIRECT_MODE, DIRECT_WORD_MODE -> CPU.HEX_MEMORY + Integer.toHexString(operand[1]);
             case INDIRECT_MODE, INDIRECT_WORD_MODE -> CPU.INDIRECT_MEMORY_PREFIX + getRegisterName(operand[1], false);
-            case IMMEDIATE_MODE -> CPU.HEX_PREFIX + Integer.toHexString(operand[1]).toUpperCase();
+            case IMMEDIATE_MODE -> CPU.HEX_PREFIX + Integer.toHexString( ( operand[1] << 8 ) | machineCode[step()]).toUpperCase();
 
             case DATA_MODE -> {
                 int high = operand[1], low = operand[2];
@@ -315,7 +315,7 @@ public class CPUModule16BIT extends CPU {
 
             //length += 2; // 2 bytes for all remaining operands
             switch (tokens[i].charAt(0)) {
-                case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX, IMMEDIATE_PREFIX -> length += 2;
+                case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX -> length += 2;
                 default -> length += 3;
             }
         }
@@ -359,7 +359,18 @@ public class CPUModule16BIT extends CPU {
                     result[i] = INDIRECT_WORD_MODE;
 
 
-                if (result[i] == 0x4) {
+                if (result[i] == 0x3){ // 16-bit immediate
+                    int imm16 = Integer.parseInt(tokens[tokenIndex].substring(1));
+
+                    int low = imm16 & 0xff;
+                    int high = (imm16 >> 8) & 0xff;
+                    result[i + 1] = high;
+                    result[i + 2] = low;
+                    tokenIndex++;
+                    break;
+                }
+
+                if (result[i] == 0x4) { // 16-bit data section address
                     Integer dataPointer = dataMap.get(tokens[tokenIndex].substring(1));
 
                     if (dataPointer == null) {
@@ -380,7 +391,7 @@ public class CPUModule16BIT extends CPU {
                     }
                 }
 
-                if (result[i] == 0x6) {
+                if (result[i] == 0x6) { // 16-bit rom address
                     Integer functionPointer = functions.get(tokens[tokenIndex]);
 
                     if (functionPointer == null) {
@@ -431,7 +442,7 @@ public class CPUModule16BIT extends CPU {
         for (int i = 1; i < tokens.length; i++) {
             //length += 2; // 2 bytes for all remaining operands
             switch (tokens[i].charAt(0)) {
-                case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX, IMMEDIATE_PREFIX -> length += 2;
+                case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX -> length += 2;
                 default -> length += 3;
             }
         }
@@ -1347,6 +1358,8 @@ public class CPUModule16BIT extends CPU {
                         // we step two times for each operand. one step for mode. another step for value
                         case INS_SET -> {
                             numBytes = 5;
+                            if (machine_code[registers[PC] + 1] == CPU.IMMEDIATE_MODE) numBytes += 1;
+                            if (machine_code[registers[PC] + 3] == CPU.IMMEDIATE_MODE) numBytes += 1;
                             for (int i = 0; i < numBytes; i++)
                                 byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
                             code.append(String.format("%-20s", byteStr.toString()));
@@ -1359,8 +1372,9 @@ public class CPUModule16BIT extends CPU {
                         case INS_OUT,
                              INS_SQRT,
                              INS_INC, INS_DEC,
-                             INS_NOT, INS_PUSH, INS_POP -> {
+                             INS_NOT, INS_PUSH, INS_POP, INS_OUTC -> {
                             numBytes = 3;
+                            if (machine_code[registers[PC] + 1] == CPU.IMMEDIATE_MODE) numBytes += 1;
                             for (int i = 0; i < numBytes; i++)
                                 byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
                             code.append(String.format("%-20s", byteStr.toString()));
@@ -1369,21 +1383,12 @@ public class CPUModule16BIT extends CPU {
                             code.append(getDisassembledOperand(destination));
                         }
 
-                        case INS_OUTC -> {
-                            numBytes = 3;
-                            for (int i = 0; i < numBytes; i++)
-                                byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                            code.append(String.format("%-20s", byteStr.toString()));
-                            code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
-                            int[] source = getNextOperand();
-                            code.append(getDisassembledOperand(source));
-                            outc(source);
-                        }
-
 
                         case INS_ADD, INS_SUB, INS_MUL, INS_DIV, INS_POW,
                              INS_RND, INS_AND, INS_OR, INS_XOR, INS_NAND, INS_NOR, INS_SHL, INS_SHR -> {
                             numBytes = 5;
+                            if (machine_code[registers[PC] + 1] == CPU.IMMEDIATE_MODE) numBytes += 1;
+                            if (machine_code[registers[PC] + 3] == CPU.IMMEDIATE_MODE) numBytes += 1;
                             for (int i = 0; i < numBytes; i++)
                                 byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
                             code.append(String.format("%-20s", byteStr.toString()));
@@ -1446,6 +1451,8 @@ public class CPUModule16BIT extends CPU {
 
                         case INS_CMP -> {
                             numBytes = 5;
+                            if (machine_code[registers[PC] + 1] == CPU.IMMEDIATE_MODE) numBytes += 1;
+                            if (machine_code[registers[PC] + 3] == CPU.IMMEDIATE_MODE) numBytes += 1;
                             for (int i = 0; i < numBytes; i++)
                                 byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
                             code.append(String.format("%-20s", byteStr.toString()));
@@ -1553,6 +1560,7 @@ public class CPUModule16BIT extends CPU {
             case INDIRECT_MODE -> setMemory(getRegister(destination[1]), operandValue, DATA_BYTE_MODE);
             case INDIRECT_WORD_MODE -> setMemory(getRegister(destination[1]), operandValue, DATA_WORD_MODE);
             default -> E = true;
+
         }
     }
 
