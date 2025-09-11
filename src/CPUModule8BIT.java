@@ -170,25 +170,15 @@ public class CPUModule8BIT extends CPU {
                     code.append(getDisassembledOperand(source));
                 }
                 case INS_OUT,
-                        INS_SQRT,
-                        INS_INC, INS_DEC,
-                        INS_NOT, INS_PUSH, INS_POP -> {
+                     INS_SQRT,
+                     INS_INC, INS_DEC,
+                     INS_NOT, INS_PUSH, INS_POP, INS_OUTC -> {
                     numBytes = 3;
                     for (int i = 0; i < numBytes; i++) byteStr.append(String.format("%02X ", machineCode[registers[PC] + i]));
                     code.append(String.format("%-20s", byteStr.toString()));
                     code.append(instructionSet.get(machineCode[registers[PC]])).append(" ");
                     short[] destination = getNextOperand();
                     code.append(getDisassembledOperand(destination));
-                }
-
-                case INS_OUTC -> {
-                    numBytes = 3;
-                    for (int i = 0; i < numBytes; i++) byteStr.append(String.format("%02X ", machineCode[registers[PC] + i]));
-                    code.append(String.format("%-20s", byteStr.toString()));
-                    code.append(instructionSet.get(machineCode[registers[PC]])).append(" ");
-                    short[] source = getNextOperand();
-                    code.append(getDisassembledOperand(source));
-                    outc(source);
                 }
 
 
