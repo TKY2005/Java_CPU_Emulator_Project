@@ -101,6 +101,8 @@ public abstract class CPU {
     protected boolean UIMode = false;
     protected int currentLine = 1;
 
+    protected int MAX_STRING_LENGTH = 250;
+
     protected HashMap<Integer, Integer> lineMap = new HashMap<>();
 
     protected int max_pair_value = 0xffff;

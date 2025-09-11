@@ -471,9 +471,10 @@ public class VirtualMachine {
         int input_message_pointer = registers[8]; // string message stored at : SS
         String input_message = "";
         if (memory[input_message_pointer] != CPU.ARRAY_TERMINATOR) {
-            //System.out.println("Message stored at : 0x" + Integer.toHexString(input_message_pointer));
-            for (int i = input_message_pointer; memory[i] != CPU.ARRAY_TERMINATOR || input_message_pointer + i > 100; i++) {
-                //  System.out.println("adding char : " + (char) memory[i]);
+
+            for (int i = input_message_pointer;
+                 memory[i] != CPU.ARRAY_TERMINATOR || i - input_message_pointer >= cpuModule.MAX_STRING_LENGTH;
+                 i++) {
                 input_message += (char) memory[i];
             }
         } else input_message = "Input : "; // no message provided
@@ -486,7 +487,9 @@ public class VirtualMachine {
         String input_message = "";
         if (memory[input_message_pointer] != CPU.ARRAY_TERMINATOR) {
             //System.out.println("Message stored at : 0x" + Integer.toHexString(input_message_pointer));
-            for (int i = input_message_pointer; memory[i] != CPU.ARRAY_TERMINATOR; i++) {
+            for (int i = input_message_pointer;
+                 memory[i] != CPU.ARRAY_TERMINATOR || i - input_message_pointer >= cpuModule.MAX_STRING_LENGTH;
+                 i++) {
                 //  System.out.println("adding char : " + (char) memory[i]);
                 input_message += (char) memory[i];
             }
