@@ -36,7 +36,9 @@ public class CPUModule16BIT extends CPU {
 
 
     int[] functionPointers;
+    int[] dataPointers;
     HashMap<Integer, String> functionAddresses;
+    HashMap<Integer, String> dataAddresses;
     StringBuilder code;
 
 
@@ -70,7 +72,7 @@ public class CPUModule16BIT extends CPU {
             case DATA_MODE -> {
                 int high = operand[1], low = operand[2];
                 int address = (high << 8) | low;
-                yield "[" + CPU.HEX_PREFIX + Integer.toHexString(address).toUpperCase() + "]";
+                yield String.format("%s%s @0x%04X", DATA_PREFIX, dataAddresses.get(address), address);
             }
 
             case FUNCTION_MODE -> {
@@ -1301,10 +1303,19 @@ public class CPUModule16BIT extends CPU {
             delayAmountMilliseconds = 0;
 
             Set<Integer> functionCollector = new TreeSet<>();
+            Set<Integer> dataCollector = new TreeSet<>();
 
             for (int i = 0; machine_code[i] != (TEXT_SECTION_END & 0xff); i++) {
 
-                if (machine_code[i] >= INS_CALL && machine_code[i] <= INS_JB || machine_code[i] == INS_LOOP) {
+                if (machine_code[i] == INS_LA || machine_code[i] == INS_LLEN || machine_code[i] == INS_LENW){
+                    if (machine_code[i + 3] == DATA_MODE) {
+                        int high = machine_code[i + 4], low = machine_code[i + 5];
+                        int address = bytePairToWordLE(low, high);
+                        dataCollector.add(address);
+                    }
+                }
+
+                else if (machine_code[i] >= INS_CALL && machine_code[i] <= INS_JB || machine_code[i] == INS_LOOP) {
                     if (machine_code[i + 1] == FUNCTION_MODE) {
                         int high = machine_code[i + 2], low = machine_code[i + 3];
                         int address = bytePairToWordLE(low, high);
@@ -1313,11 +1324,40 @@ public class CPUModule16BIT extends CPU {
                 }
             }
             functionPointers = functionCollector.stream().mapToInt(Integer::intValue).toArray();
+            dataPointers = dataCollector.stream().mapToInt(Integer::intValue).toArray();
             functionAddresses = new HashMap<>();
+            dataAddresses = new HashMap<>();
 
+
+            System.out.println("Collecting function entries...");
             for (int i = 0; i < functionPointers.length; i++) {
                 functionAddresses.put(functionPointers[i], "func_" + i);
             }
+
+            System.out.println("Collecting data entries...");
+            for(int i = 0; i < dataPointers.length; i++){
+                dataAddresses.put(dataPointers[i], "n" + i);
+            }
+
+            System.out.println("Calculating data offset...");
+            int dataOffset = 0;
+            while(machine_code[dataOffset] != (TEXT_SECTION_END & 0xff)) dataOffset++;
+
+            System.out.println("Rebuilding the DATA section...");
+            StringBuilder dataSectionRebuild = new StringBuilder();
+            dataSectionRebuild.append(".DATA");
+
+            for(int i = 0; i < dataPointers.length; i++){
+                dataSectionRebuild.append("\n\t").append(dataAddresses.get(dataPointers[i])).append(" ").append("\"");
+                int start_address = dataPointers[i] + dataOffset + 1; // +1 to skip the previous data terminator
+                String data = "";
+                for(int j = start_address; machine_code[j] != ARRAY_TERMINATOR; j++){
+                    if (machine_code[j] != '\n') data += (char) machine_code[j];
+                    else data += "\\n";
+                }
+                dataSectionRebuild.append(data).append("\"");
+            }
+            dataSectionRebuild.append("\nEND");
 
             int mainEntryPoint = ((machine_code[machine_code.length - 2] & 0xff) | machine_code[machine_code.length - 1]);
             code.append("Program's entry point: ").append("0x").append(Integer.toHexString(mainEntryPoint).toUpperCase()).append("\n");
@@ -1510,6 +1550,7 @@ public class CPUModule16BIT extends CPU {
                 }
 
             }
+            code.append("\n").append(dataSectionRebuild);
 
             outputString.append("Program terminated with code : ").append(status_code);
             output = "Program terminated with code : " + status_code;

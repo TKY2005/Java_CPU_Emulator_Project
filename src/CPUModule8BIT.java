@@ -25,7 +25,10 @@ public class CPUModule8BIT extends CPU {
 
     StringBuilder code;
     int[] functionPointers;
+    int[] dataPointers;
+
     HashMap<Integer, String> functionAddresses;
+    HashMap<Integer, String> dataAddresses;
 
 
     public Integer getPC(){
@@ -76,10 +79,10 @@ public class CPUModule8BIT extends CPU {
             case INDIRECT_MODE -> CPU.INDIRECT_MEMORY_PREFIX + getRegisterName(operand[1], false);
             case IMMEDIATE_MODE -> CPU.HEX_PREFIX + Integer.toHexString(operand[1]).toUpperCase();
 
-            case DATA_MODE-> {
+            case DATA_MODE -> {
                 int high = operand[1], low = operand[2];
                 int address = (high << 8) | low;
-                yield "[" + CPU.HEX_PREFIX + Integer.toHexString(address).toUpperCase() + "]";
+                yield String.format("%s%s @0x%04X", DATA_PREFIX, dataAddresses.get(address), address);
             }
 
             case FUNCTION_MODE -> {
@@ -104,6 +107,7 @@ public class CPUModule8BIT extends CPU {
     delayAmountMilliseconds = 0;
 
     Set<Integer> functionCollector = new TreeSet<>();
+    Set<Integer> dataCollector = new TreeSet<>();
 
     for (int i = 0; machineCode[i] != (TEXT_SECTION_END & 0xff); i++) {
 
@@ -114,13 +118,51 @@ public class CPUModule8BIT extends CPU {
                 functionCollector.add(address);
             }
         }
-    }
-    functionPointers = functionCollector.stream().mapToInt(Integer::intValue).toArray();
-    functionAddresses = new HashMap<>();
 
+        if (machineCode[i] == INS_LA || machineCode[i] == INS_LLEN || machineCode[i] == INS_LENW){
+                if (machineCode[i + 3] == DATA_MODE) {
+                    int high = machineCode[i + 4], low = machineCode[i + 5];
+                    int address = bytePairToWordLE(low, high);
+                    dataCollector.add(address);
+                }
+        }
+    }
+
+
+    functionPointers = functionCollector.stream().mapToInt(Integer::intValue).toArray();
+    dataPointers = dataCollector.stream().mapToInt(Integer::intValue).toArray();
+    functionAddresses = new HashMap<>();
+    dataAddresses = new HashMap<>();
+
+    System.out.println("Collecting function entries...");
     for (int i = 0; i < functionPointers.length; i++) {
         functionAddresses.put(functionPointers[i], "func_" + i);
     }
+
+    System.out.println("Collecting data entries...");
+    for(int i = 0; i < dataPointers.length; i++){
+        dataAddresses.put(dataPointers[i], "n" + i);
+    }
+
+    System.out.println("Calculating data offset...");
+    int dataOffset = 0;
+    while(machineCode[dataOffset] != (TEXT_SECTION_END & 0xff)) dataOffset++;
+
+    System.out.println("Rebuilding the DATA section...");
+    StringBuilder dataSectionRebuild = new StringBuilder();
+    dataSectionRebuild.append(".DATA");
+
+    for(int i = 0; i < dataPointers.length; i++){
+        dataSectionRebuild.append("\n\t").append(dataAddresses.get(dataPointers[i])).append(" ").append("\"");
+        int start_address = dataPointers[i] + dataOffset + 1; // +1 to skip the previous data terminator
+        String data = "";
+        for(int j = start_address; machineCode[j] != ARRAY_TERMINATOR; j++){
+            if (machineCode[j] != '\n') data += (char) machineCode[j];
+            else data += "\\n";
+        }
+        dataSectionRebuild.append(data).append("\"");
+    }
+    dataSectionRebuild.append("\nEND");
 
     int mainEntryPoint = ((machineCode[machineCode.length - 2] & 0xff) | machineCode[machineCode.length - 1]);
     code.append("Program's entry point: ").append("0x").append(Integer.toHexString(mainEntryPoint).toUpperCase()).append("\n");
@@ -301,6 +343,8 @@ public class CPUModule8BIT extends CPU {
         }
 
     }
+
+    code.append("\n").append(dataSectionRebuild);
 
     outputString.append("Program terminated with code : ").append(status_code);
     output = "Program terminated with code : " + status_code;
