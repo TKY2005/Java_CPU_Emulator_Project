@@ -7,14 +7,14 @@ import java.time.format.DateTimeFormatter;
 public class Logger {
     static String singleLog;
     static StringBuilder logString = new StringBuilder();
-
+    static String source = "null";
 
     public static void addLog(String log){
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
         LocalDateTime time = LocalDateTime.now();
         String timeNow = time.format(formatter);
 
-        singleLog = "[" +  timeNow + "] " + log;
+        singleLog = "[" +  timeNow + "  " + source + "] " + log;
         logString.append(singleLog).append("\n");
     }
 

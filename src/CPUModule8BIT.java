@@ -21,7 +21,7 @@ public class CPUModule8BIT extends CPU {
     /// Listeners /////////////////////////////
     private onStepListener stepListener;
 
-
+    String debugSource = "CPU_MODULE_8_BIT";
 
     StringBuilder code;
     int[] functionPointers;
@@ -37,6 +37,7 @@ public class CPUModule8BIT extends CPU {
 
     public CPUModule8BIT() {
         super();
+        Logger.source = debugSource;
 
         bit_length = 8;
 

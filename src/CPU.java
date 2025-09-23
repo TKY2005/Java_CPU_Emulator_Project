@@ -69,6 +69,9 @@ public abstract class CPU {
     public static final int INT_STR_CPY = 0x06;
     public static final int INT_MEM_CPY = 0x07;
 
+    public static final int FILE_READ = 0x00;
+    public static final int FILE_WRITE = 0x01;
+    public static final int FILE_APPEND = 0x02;
 
 
     public static final int REGISTER_MODE = 0;
@@ -191,7 +194,12 @@ public abstract class CPU {
 
 
     public CPU() {
+
+        Logger.source = "CPU_GENERIC";
+
         System.out.println("Setting up CPU.");
+        Logger.addLog("Setting up CPU.");
+
         instructionSet.put(INS_EXT, "ext");
         instructionSet.put(INS_NOP, "nop");
         instructionSet.put(INS_SET, "set");
@@ -252,7 +260,6 @@ public abstract class CPU {
         programSignals.put("at", ARRAY_TERMINATOR);
         programSignals.put("re", TEXT_SECTION_END);
         programSignals.put("me", MEMORY_SECTION_END);
-
 
     }
 

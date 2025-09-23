@@ -33,7 +33,7 @@ public class CPUModule16BIT extends CPU {
     // listeners
     private onStepListener stepListener;
 
-
+    String debugSource = "CPU_MODULE_16_BIT";
 
     int[] functionPointers;
     int[] dataPointers;
@@ -2385,7 +2385,7 @@ public class CPUModule16BIT extends CPU {
         Logger.addLog(String.format("Pushing return address %X into function call stack.", return_address));
         functionCallStack.push(return_address); // save the return address
         Logger.addLog(String.format("Updating PC to point to caller's address : %X", address));
-        registers[PC] = address - 1; // sub 2 to nullify the step() and the address byte
+        registers[PC] = address - 1; // sub 1 to nullify the step() and the address byte
     }
 
 
@@ -2416,7 +2416,7 @@ public class CPUModule16BIT extends CPU {
     public CPUModule16BIT(){
         super();
 
-
+        Logger.source = debugSource;
         System.out.println("Starting 16-bit CPU module");
         bit_length = 16;
 
