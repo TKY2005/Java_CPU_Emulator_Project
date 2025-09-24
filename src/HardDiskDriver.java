@@ -11,9 +11,11 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
     private RandomAccessFile diskFile;
 
     public static final int INODE_ENTRY_END = 0xFD;
-    public static final int DIRECT_INODE_POINTER_MAX_COUNT = 40;
-    public static final int INDIRECT_INODE_POINTER_MAX_COUNT = 20;
-    public static final int DOUBLE_INDIRECT_INODE_POINTER_MAX_COUNT = 4;
+    public static final int DIRECT_INODE_POINTER_MAX_COUNT = 15;
+    public static final int INDIRECT_INODE_POINTER_MAX_COUNT = 40;
+    public static final int DOUBLE_INDIRECT_INODE_POINTER_MAX_COUNT = 9;
+    public static final int MAX_FILE_LENGTH_B = 32;
+    public static final int MAX_INODE_SIZE_B = 2 + 1 + 1 + (17 * ( Integer.SIZE / 8 ));
 
     // initialization variables
     private int diskSize;
@@ -128,7 +130,7 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
                 fileNameBlockStartAddress, fileNameBlockLength, fileNameBlockLengthB,
                 contentStartAddress);
 
-        System.out.println(init);
+        //System.out.println(init);
         Logger.addLog(init);
     }
 
@@ -144,7 +146,7 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
             if (!checkHardDriveFile(diskImagePath)){
                 isFirstCreation = true;
 
-                System.out.println("No hard drive file found... creating new one.");
+                //System.out.println("No hard drive file found... creating new one.");
                 Logger.addLog("No hard drive file found... creating new one.");
 
                 diskFile = new RandomAccessFile(diskImagePath, "rw");
@@ -182,7 +184,7 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
                     getFreeSpaceBytes(), getFreeSpaceBytes() / 1e+6,
                      diskSize - getFreeSpaceBytes(), (diskSize - getFreeSpaceBytes()) / 1e+6);
 
-            System.out.println(spaceInfo);
+            //System.out.println(spaceInfo);
             Logger.addLog(spaceInfo);
 
 
@@ -238,8 +240,9 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
     public void createInodeTableEntry(String fileName, int size, int block_count, int[] block_pointers) throws IOException {
         int currentPos = Math.toIntExact(diskFile.getFilePointer());
         int writePos = getFirstAvailableInodePosition();
+        int bytePadding = 0;
 
-        System.out.printf("Found space for inode entry at 0x%06X\n", writePos);
+        //System.out.printf("Found space for inode entry at 0x%06X\n", writePos);
         Logger.addLog(String.format("Found space for inode entry at 0x%06X", writePos));
 
         diskFile.seek(writePos);
@@ -247,32 +250,41 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
         // inode table entry structure
         // 1- file size (2 bytes)
         // 2- block count (1 byte)
-        // 3- block pointers (4 bytes each)
+        // 3- block pointers (4 bytes each) (17 pointers max with a total of 68 bytes)
         // 4- inode entry end marker (1 byte)
-        // total : 4 bytes + (block count * 4)
+        // total : 72 bytes
 
         // file names are stored at their own blocks.
 
         diskFile.writeShort(size);
         diskFile.writeByte(block_count);
+        bytePadding += 3;
+
         for(int i = 0; i < block_count; i++){
             diskFile.writeInt(blockLocations[ block_pointers[i] ]);
             setBlockUsed(block_pointers[i]);
+            bytePadding += 4;
         }
+        diskFile.skipBytes(MAX_INODE_SIZE_B - bytePadding);
         diskFile.writeByte(INODE_ENTRY_END);
 
-        // file name block structure
+        // file name entry structure
         //
-        //1- file name (variable length) (end marked with a null terminator)
-        //2- pointer to the inode entry of the file (4 bytes)
-        //3- inode end marker (1 byte)
+        // 1- file name (32 bytes) (end marked with a null terminator)
+        // 2- pointer to the inode entry of the file (4 bytes)
+        // 3- inode end marker (1 byte)
+        // total : 37 bytes
 
         int namePos = getFirstAvailableFileNameEntry();
-        System.out.printf("Found space for file name entry at 0x%06X\n", namePos);
+        //System.out.printf("Found space for file name entry at 0x%06X\n", namePos);
         Logger.addLog( String.format("Found space for file name entry at 0x%06X", namePos) );
 
         diskFile.seek(namePos);
-        diskFile.writeBytes(fileName + "\0");
+
+        byte[] nameBytes = new byte[MAX_FILE_LENGTH_B];
+        System.arraycopy(fileName.getBytes(), 0, nameBytes, 0, fileName.getBytes().length);
+
+        diskFile.writeBytes(new String(nameBytes) + "\0");
         diskFile.writeInt(writePos);
         diskFile.writeByte(INODE_ENTRY_END);
 
@@ -280,17 +292,21 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
     }
 
     public int getFileInodeAddress(String fileName) throws IOException {
+        int currentPos = Math.toIntExact(diskFile.getFilePointer());
+
         int pos = getNameEntryAddress(fileName, true);
         if (pos == -1) return -1;
         else{
             diskFile.seek(pos);
-            return diskFile.readInt();
+            int targetPos = diskFile.readInt();
+            diskFile.seek(currentPos);
+            return targetPos;
         }
     }
 
     public int getNameEntryAddress(String fileName, boolean returnNameEndPosition) throws IOException {
         int currentPos = Math.toIntExact(diskFile.getFilePointer());
-        diskFile.seek(fileNameBlockStartAddress + 1);
+        diskFile.seek(fileNameBlockStartAddress + 1); // skip the first node end marker
 
         StringBuilder name = new StringBuilder();
         while (diskFile.getFilePointer() <= fileNameBlockEndAddress) {
@@ -301,12 +317,14 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
             else {
                 if (fileName.contentEquals(name)) {
                     int targetPos;
+                    // sub 1 to compensate for the null terminator byte
                     if(!returnNameEndPosition) targetPos = Math.toIntExact(diskFile.getFilePointer() - name.length() - 1);
-                    else targetPos = Math.toIntExact( diskFile.getFilePointer() );
+                    else targetPos = Math.toIntExact( diskFile.getFilePointer() + (MAX_FILE_LENGTH_B - name.length()) );
                     diskFile.seek(currentPos);
                     return targetPos;
                 }
-                diskFile.skipBytes(5);
+                // null terminator byte + inode entry pointer length = 5 bytes
+                diskFile.skipBytes(MAX_FILE_LENGTH_B - name.length() + 5);
                 name = new StringBuilder();
             }
         }
@@ -383,7 +401,7 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
                 int index = getFirstAvailableContentBlock();
                 blocksAllocated[i] = index;
                 setBlockUsed(index);
-                System.out.printf("Block #%d -> (located at address : 0x%06X) allocated.\n", index, blockToAddress(index));
+                //System.out.printf("Block #%d -> (located at address : 0x%06X) allocated.\n", index, blockToAddress(index));
                 Logger.addLog( String.format("Block #%d -> (located at address : 0x%06X) allocated.", index, blockToAddress(index)) );
             }
         }
@@ -411,7 +429,7 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
                 diskFile.writeByte(b);
                 currentByte++;
             }
-            System.out.println("File saved successfully.");
+           // System.out.println("File saved successfully.");
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -428,7 +446,7 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
             }
             else {
                 diskFile.seek(inodeAddress);
-                System.out.println("Reading the file inode address at : 0x" + Integer.toHexString(inodeAddress));
+                //System.out.println("Reading the file inode address at : 0x" + Integer.toHexString(inodeAddress));
                 Logger.addLog("Reading the file inode address at : 0x" + Integer.toHexString(inodeAddress));
 
                 int fileLength = diskFile.readShort();
@@ -436,17 +454,17 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
                 int[] blocksAddresses = new int[blockCount];
                 for (int i = 0; i < blocksAddresses.length; i++) blocksAddresses[i] = diskFile.readInt();
 
-                System.out.printf("""
-                                file info :
-                                file name : %s
-                                file size : %d
-                                blocks allocated : %d
-                                """, fileName,
-                        fileLength,
-                        blockCount);
+                //System.out.printf("""
+                  //              file info :
+                    //            file name : %s
+                      //          file size : %d
+                        //        blocks allocated : %d
+                          //      """, fileName,
+                //        fileLength,
+                  //      blockCount);
 
-                for (int i = 0; i < blocksAddresses.length; i++)
-                    System.out.printf("Block #%d address : 0x%06X\n", i, blocksAddresses[i]);
+                //for (int i = 0; i < blocksAddresses.length; i++)
+                  //  System.out.printf("Block #%d address : 0x%06X\n", i, blocksAddresses[i]);
 
                 byte[] fileBytes = new byte[fileLength];
                 diskFile.seek(blocksAddresses[0]);
