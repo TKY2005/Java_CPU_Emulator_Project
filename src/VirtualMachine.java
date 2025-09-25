@@ -480,6 +480,7 @@ public class VirtualMachine {
                 // AL = 0x0 for CPU.FILE_READ
                 // SS : file path
                 // DI : the location the file will be loaded to
+                // DX : the total number of bytes that were read will be placed here
 
                 // append data to a file
                 // AL = 0x2 for CPU.FILE_APPEND
@@ -499,6 +500,7 @@ public class VirtualMachine {
                 if (operation == CPU.FILE_READ) {
                     byte[] file_data = diskDriver.readFile(fileName);
                     for(int i = 0; i < file_data.length; i++) memory[read_write_addr + i] = file_data[i];
+                    registers[15] = file_data.length;
                 }
 
                 else if (operation == CPU.FILE_WRITE) {
