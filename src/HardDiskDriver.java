@@ -1,7 +1,5 @@
 import javax.swing.*;
 import java.io.*;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -14,7 +12,8 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
     public static final int DIRECT_INODE_POINTER_MAX_COUNT = 15;
     public static final int INDIRECT_INODE_POINTER_MAX_COUNT = 40;
     public static final int DOUBLE_INDIRECT_INODE_POINTER_MAX_COUNT = 9;
-    public static final int MAX_FILE_LENGTH_B = 32;
+    public static final int MAX_FILE_NAME_LENGTH_B = 32;
+    public static final int MAX_FILE_ENTRY_LENGTH_B = MAX_FILE_NAME_LENGTH_B + 4 + 1;
     public static final int MAX_INODE_SIZE_B = 2 + 1 + 1 + (17 * ( Integer.SIZE / 8 ));
 
     // initialization variables
@@ -130,7 +129,7 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
                 fileNameBlockStartAddress, fileNameBlockLength, fileNameBlockLengthB,
                 contentStartAddress);
 
-        //System.out.println(init);
+        System.out.println(init);
         Logger.addLog(init);
     }
 
@@ -146,7 +145,7 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
             if (!checkHardDriveFile(diskImagePath)){
                 isFirstCreation = true;
 
-                //System.out.println("No hard drive file found... creating new one.");
+                System.out.println("No hard drive file found... creating new one.");
                 Logger.addLog("No hard drive file found... creating new one.");
 
                 diskFile = new RandomAccessFile(diskImagePath, "rw");
@@ -184,9 +183,8 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
                     getFreeSpaceBytes(), getFreeSpaceBytes() / 1e+6,
                      diskSize - getFreeSpaceBytes(), (diskSize - getFreeSpaceBytes()) / 1e+6);
 
-            //System.out.println(spaceInfo);
+            System.out.println(spaceInfo);
             Logger.addLog(spaceInfo);
-
 
             System.out.println("Hard drive ready...");
             Logger.addLog("Hard drive ready...");
@@ -281,7 +279,7 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
 
         diskFile.seek(namePos);
 
-        byte[] nameBytes = new byte[MAX_FILE_LENGTH_B];
+        byte[] nameBytes = new byte[MAX_FILE_NAME_LENGTH_B];
         System.arraycopy(fileName.getBytes(), 0, nameBytes, 0, fileName.getBytes().length);
 
         diskFile.writeBytes(new String(nameBytes) + "\0");
@@ -289,6 +287,34 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
         diskFile.writeByte(INODE_ENTRY_END);
 
         diskFile.seek(currentPos);
+    }
+
+    public void overwriteInodeEntry(int inodeAddress, int size, int block_count, int[] block_pointers){
+        try {
+            int currentPos = Math.toIntExact(diskFile.getFilePointer());
+            diskFile.seek(inodeAddress);
+
+            for(int i = 0; i < MAX_INODE_SIZE_B; i++) diskFile.writeByte(0x00);
+            diskFile.seek(inodeAddress);
+
+            int bytePadding = 0;
+            diskFile.writeShort(size);
+            diskFile.writeByte(block_count);
+            bytePadding += 3;
+
+            for(int i = 0; i < block_pointers.length; i++) {
+                diskFile.writeInt( blockLocations[ block_pointers[i] ] );
+                if (!isBlockUsed( block_pointers[i] )) setBlockUsed( block_pointers[i] );
+                bytePadding += 4;
+            }
+
+            diskFile.skipBytes( MAX_INODE_SIZE_B - bytePadding );
+            diskFile.writeByte(INODE_ENTRY_END);
+
+            diskFile.seek(currentPos);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public int getFileInodeAddress(String fileName) throws IOException {
@@ -319,12 +345,12 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
                     int targetPos;
                     // sub 1 to compensate for the null terminator byte
                     if(!returnNameEndPosition) targetPos = Math.toIntExact(diskFile.getFilePointer() - name.length() - 1);
-                    else targetPos = Math.toIntExact( diskFile.getFilePointer() + (MAX_FILE_LENGTH_B - name.length()) );
+                    else targetPos = Math.toIntExact( diskFile.getFilePointer() + (MAX_FILE_NAME_LENGTH_B - name.length()) );
                     diskFile.seek(currentPos);
                     return targetPos;
                 }
                 // null terminator byte + inode entry pointer length = 5 bytes
-                diskFile.skipBytes(MAX_FILE_LENGTH_B - name.length() + 5);
+                diskFile.skipBytes(MAX_FILE_NAME_LENGTH_B - name.length() + 5);
                 name = new StringBuilder();
             }
         }
@@ -333,10 +359,13 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
     }
 
     public int getFirstAvailableFileNameEntry() throws IOException {
-        diskFile.seek(fileNameBlockStartAddress);
+        diskFile.seek(fileNameBlockStartAddress + 1);
         while (diskFile.getFilePointer() <= fileNameBlockEndAddress){
-            if ((diskFile.readByte() & 0xff) == INODE_ENTRY_END && diskFile.readInt() == 0)
-                return Math.toIntExact(diskFile.getFilePointer() - (Integer.SIZE / 8));
+
+            if (diskFile.readShort() == 0) return Math.toIntExact(diskFile.getFilePointer() - 2);
+            else{
+                diskFile.skipBytes(MAX_FILE_ENTRY_LENGTH_B - 1);
+            }
         }
         return -1;
     }
@@ -366,14 +395,14 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
     }
 
     public int getFirstAvailableInodePosition() throws IOException{
-        diskFile.seek(InodeTableBlockStartAddress);
+        diskFile.seek(InodeTableBlockStartAddress + 1);
 
         while (diskFile.getFilePointer() <= InodeTableBlockEndAddress){
 
-            if ( (diskFile.readByte() & 0xff) == INODE_ENTRY_END )
-            {
-                // if the next 2 bytes after the end marker (the file size) is 0 then we found an empty place for a new entry.
-                if (diskFile.readShort() == 0) return Math.toIntExact(diskFile.getFilePointer() - (Short.SIZE / 8));
+            if (diskFile.readShort() == 0) return Math.toIntExact( diskFile.getFilePointer() - 2 );
+            else {
+                //System.out.printf("Inode entry at 0x%06X is busy. skipping.\n", diskFile.getFilePointer() - 2);
+                diskFile.skipBytes(MAX_INODE_SIZE_B - 1);
             }
         }
         return -1;
@@ -409,30 +438,121 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
         return blocksAllocated;
     }
 
+    public int[] allocateBlocksToFile(int lengthB, int[] prev_blocks) throws IOException {
+        int[] blocksAllocated = new int[ (int) Math.ceil( (double) lengthB / blockSizeB ) + prev_blocks.length ];
+        int index = 0;
+        for(; index < prev_blocks.length; index++) blocksAllocated[index] = prev_blocks[index];
+
+        if (getFreeSpaceBytes() < lengthB) {
+            // TODO : Add error handling
+        }
+        else{
+
+            for(; index < blocksAllocated.length; index++){
+                int blockIndex = getFirstAvailableContentBlock();
+                blocksAllocated[index] = blockIndex;
+                setBlockUsed(blockIndex);
+            }
+        }
+        return blocksAllocated;
+    }
+
 
      // FILE OPERATIONS //
 
     public void saveFile(String fileName, byte[] fileMemory) {
         try {
-            int[] blocks = allocateBlocksToFile(fileMemory.length);
-            createInodeTableEntry(fileName, fileMemory.length, blocks.length, blocks);
-            int blockIndex = 0;
-            int currentByte = 0;
-            diskFile.seek(blockToAddress(blocks[0]));
+            // if the file already exists we just rewrite the inode entry contents and write the file to the already allocated blocks
+            int fileInodeEntry = getFileInodeAddress(fileName);
 
-            for (byte b : fileMemory) {
-                if (currentByte >= blockSizeB) {
-                    blockIndex++;
-                    diskFile.seek(blockToAddress(blocks[blockIndex]));
-                    currentByte = 0;
+            if (fileInodeEntry != -1){
+                System.out.println("This file already exists. overwriting content");
+                diskFile.seek(fileInodeEntry);
+                diskFile.skipBytes(2);
+
+                int size = fileMemory.length;
+                int blocksUsedCount = diskFile.readByte();
+                int[] blocksUsed = new int[blocksUsedCount];
+                for(int i = 0; i < blocksUsedCount; i++) blocksUsed[i] = addressToBlock(diskFile.readInt());
+                int[] newBlocks = allocateBlocksToFile(fileMemory.length, blocksUsed);
+
+                overwriteInodeEntry(fileInodeEntry, size, newBlocks.length, newBlocks );
+
+                diskFile.seek( blockToAddress(newBlocks[0]) );
+                int blockIndex = 0, currentByte = 0;
+                for(byte b : fileMemory){
+                    if (currentByte >= blockSizeB){
+                        blockIndex++;
+                        diskFile.seek( blockToAddress( newBlocks[blockIndex] ) );
+                        currentByte = 0;
+                    }
+                    diskFile.writeByte(b);
+                    currentByte++;
                 }
-                diskFile.writeByte(b);
-                currentByte++;
+            }
+            else {// otherwise allocate new blocks and create a new inode entry
+                int[] blocks = allocateBlocksToFile(fileMemory.length);
+                createInodeTableEntry(fileName, fileMemory.length, blocks.length, blocks);
+                int blockIndex = 0;
+                int currentByte = 0;
+                diskFile.seek(blockToAddress(blocks[0]));
+
+                for (byte b : fileMemory) {
+                    if (currentByte >= blockSizeB) {
+                        blockIndex++;
+                        diskFile.seek(blockToAddress(blocks[blockIndex]));
+                        currentByte = 0;
+                    }
+                    diskFile.writeByte(b);
+                    currentByte++;
+                }
             }
            // System.out.println("File saved successfully.");
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public void appendFile(String fileName, byte[] fileMemory){
+        try{
+            int inodePos = getFileInodeAddress(fileName);
+            if (inodePos == -1) saveFile(fileName, fileMemory);
+            else{
+                diskFile.seek(inodePos);
+                int oldSize = diskFile.readShort();
+                int oldBlockCount = diskFile.readByte();
+                int[] oldBlocks = new int[oldBlockCount];
+                for(int i = 0; i < oldBlocks.length; i++) oldBlocks[i] = addressToBlock(diskFile.readInt());
+
+                byte[] fileContent = readFile(fileName);
+
+                // There's probably a way to track the file offset and append only new data. but I'm too lazy ATM.
+                int newSize = fileContent.length + fileMemory.length;
+                int[] newBlocks = allocateBlocksToFile(newSize, oldBlocks);
+
+                byte[] newData = new byte[newSize];
+
+                overwriteInodeEntry(inodePos, newSize, newBlocks.length, newBlocks);
+
+                System.arraycopy(fileContent, 0, newData, 0, fileContent.length);
+                System.arraycopy(fileMemory, 0, newData, fileContent.length, fileMemory.length);
+
+
+                int currentByte = 0, blockIndex = 0;
+                diskFile.seek( blockToAddress( newBlocks[0] ) );
+
+                for(byte b : newData) {
+                    if (currentByte >= blockSizeB) {
+                        blockIndex++;
+                        diskFile.seek( blockToAddress( newBlocks[blockIndex] ) );
+                        currentByte = 0;
+                    }
+                    diskFile.writeByte(b);
+                    currentByte++;
+                }
+            }
+        }
+        catch (Exception e) {throw new RuntimeException(e);}
     }
 
     public byte[] readFile(String fileName) {
@@ -490,29 +610,34 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
         }
     }
 
-    public void deleteFile(String fileName) throws IOException {
-        int inodeAddress = getFileInodeAddress(fileName);
-        if (inodeAddress == -1) System.out.printf("file '%s' not found\n", fileName);
+    public void deleteFile(String fileName) {
 
-        else{
-            // delete the file content
-            diskFile.seek(inodeAddress);
-            int size = diskFile.readShort();
-            int blocks = diskFile.readByte();
-            int[] blockAddresses = new int[blocks];
+        try {
+            int inodeAddress = getFileInodeAddress(fileName);
+            if (inodeAddress == -1) System.out.printf("file '%s' not found\n", fileName);
 
-            for(int i = 0; i < blockAddresses.length; i++) blockAddresses[i] = diskFile.readInt();
+            else{
+                // get the file info...
+                diskFile.seek(inodeAddress);
+                int size = diskFile.readShort();
+                int blocks = diskFile.readByte();
+                int[] blockAddresses = new int[blocks];
 
-            // delete the inode entry
-            diskFile.seek(inodeAddress);
-            while ( (diskFile.readByte() & 0xff) != INODE_ENTRY_END){
-                diskFile.seek( diskFile.getFilePointer() - 1 );
-                diskFile.writeByte(0x0);
+                for(int i = 0; i < blockAddresses.length; i++) blockAddresses[i] = diskFile.readInt();
+
+                // delete the inode entry
+                diskFile.seek(inodeAddress);
+                while ( (diskFile.readByte() & 0xff) != INODE_ENTRY_END){
+                    diskFile.seek( diskFile.getFilePointer() - 1 );
+                    diskFile.writeByte(0x0);
+                }
+
+
+                // free the blocks allocated to the deleted file
+                for (int blockAddress : blockAddresses) setBlockAvailable(addressToBlock(blockAddress));
             }
-
-
-            // free the blocks allocated to the deleted file
-            for (int blockAddress : blockAddresses) setBlockAvailable(addressToBlock(blockAddress));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 

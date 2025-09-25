@@ -17,7 +17,7 @@ public class VirtualMachine {
     public VirtualMachine(CPU cpuModule){
         System.out.println("Starting the virtual machine with the selected CPU module.");
         this.cpuModule = cpuModule;
-
+        //diskDriver = new HardDiskDriver("./disk0.img");
         System.out.println("Welcome");
     }
 
@@ -94,8 +94,10 @@ public class VirtualMachine {
 
     public void executeCode(){
         try {
+            diskDriver = new HardDiskDriver("./disk0.img");
             cpuModule.executeCompiledCode(cpuModule.machineCode);
             System.out.println(cpuModule.output);
+            diskDriver.closeDrive();
         } catch (Exception e){
             try {
                 File file = new File("./RuntimeError.log");
@@ -110,6 +112,7 @@ public class VirtualMachine {
             } catch (IOException ex) {
                 throw new RuntimeException(ex);
             }
+            diskDriver.closeDrive();
         }
     }
 
@@ -461,7 +464,6 @@ public class VirtualMachine {
 
             case CPU.INT_FILE -> {
 
-                diskDriver = new HardDiskDriver("./disk0.img");
                 int read_write_addr = registers[22]; // the address where the file will be loaded / fetched : DI
                 int file_path_addr = registers[20]; // the address of the file path : SS
 
@@ -478,6 +480,16 @@ public class VirtualMachine {
                 // AL = 0x0 for CPU.FILE_READ
                 // SS : file path
                 // DI : the location the file will be loaded to
+
+                // append data to a file
+                // AL = 0x2 for CPU.FILE_APPEND
+                // SS : file path
+                // DI : the beginning of the data to be appended
+                // DX : the number of bytes to write
+
+                // delete a file
+                // AL = 0x3 for CPU.DELETE_FILE
+                // SS : file path
 
                 String fileName = "";
                 for(int i = file_path_addr; memory[i] != CPU.ARRAY_TERMINATOR; i++) {
@@ -497,11 +509,25 @@ public class VirtualMachine {
                         file_data[i] = (byte) memory[read_write_addr + i];
                     }
                     diskDriver.saveFile(fileName, file_data);
-                }else {
+                }
+
+                else if (operation == CPU.FILE_APPEND){
+                    int file_length = registers[15];
+                    byte[] file_data = new byte[file_length];
+                    for(int i = 0; i < file_data.length; i++){
+                        file_data[i] = (byte) memory[read_write_addr + i];
+                    }
+                    diskDriver.appendFile(fileName, file_data);
+                }
+
+                else if (operation == CPU.FILE_DELETE){
+
+                    diskDriver.deleteFile(fileName);
+                }
+                else {
                     validInterrupt = false;
                 }
 
-                diskDriver.closeDrive();
             }
 
             default -> validInterrupt = false;
