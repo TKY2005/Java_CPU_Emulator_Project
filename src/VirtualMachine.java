@@ -486,7 +486,7 @@ public class VirtualMachine {
                 // AL = 0x2 for CPU.FILE_APPEND
                 // SS : file path
                 // DI : the beginning of the data to be appended
-                // DX : the number of bytes to write
+                // DX : the number of bytes to append
 
                 // delete a file
                 // AL = 0x3 for CPU.DELETE_FILE

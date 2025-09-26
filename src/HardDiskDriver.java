@@ -443,18 +443,22 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
         int index = 0;
         for(; index < prev_blocks.length; index++) blocksAllocated[index] = prev_blocks[index];
 
-        if (getFreeSpaceBytes() < lengthB) {
-            // TODO : Add error handling
-        }
-        else{
+        // do we actually need to allocate new blocks?
+        if (lengthB <= prev_blocks.length * blockSizeB) return prev_blocks;
 
-            for(; index < blocksAllocated.length; index++){
-                int blockIndex = getFirstAvailableContentBlock();
-                blocksAllocated[index] = blockIndex;
-                setBlockUsed(blockIndex);
+        else {
+            if (getFreeSpaceBytes() < lengthB) {
+                // TODO : Add error handling
+            } else {
+
+                for (; index < blocksAllocated.length; index++) {
+                    int blockIndex = getFirstAvailableContentBlock();
+                    blocksAllocated[index] = blockIndex;
+                    setBlockUsed(blockIndex);
+                }
             }
+            return blocksAllocated;
         }
-        return blocksAllocated;
     }
 
 
