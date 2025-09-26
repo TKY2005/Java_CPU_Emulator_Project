@@ -159,6 +159,7 @@ public abstract class CPU {
     public final static char INDIRECT_MEMORY_PREFIX = '&';
     public static final char MEMORY_SEGMENT_OFFSET_PREFIX = '[';
     public final static char DATA_PREFIX = '~';
+    public static final char DATA_PREFIX_ALT = '=';
     public final static char STRING_PREFIX = '\"';
     public final static String HEX_PREFIX = "0x";
     public final static String CHAR_PREFIX = "@";
@@ -172,6 +173,7 @@ public abstract class CPU {
     public static final char ESC_BACKLASH = '\\';
     public static final char ESC_DOUBLE_QUOTE = '\"';
     public static final char ESC_UNICODE = 'Ω';
+    public static final char ESC_UNICODE_ESCAPE = 'u';
 
     public static final byte ARRAY_TERMINATOR = 0x7F;
     public static final byte TEXT_SECTION_END = (byte) 0xEA;
@@ -327,6 +329,7 @@ public abstract class CPU {
                     case ESC_BACKLASH -> a = '\\';
                     case ESC_UNICODE -> a = 'Ω';
                     case ESC_DOUBLE_QUOTE -> a = '\"';
+                    case ESC_UNICODE_ESCAPE -> a = (char) Integer.parseInt( fullString.substring(j + 2), 16 );
                     default -> a = '.';
                 }
                 string_bytes.add((int) a);

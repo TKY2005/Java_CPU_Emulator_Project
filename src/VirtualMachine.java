@@ -276,8 +276,73 @@ public class VirtualMachine {
             }
 
             case CPU.INT_FILE -> {
-                int write_address = registers[11];
-                int file_path_address = registers[8];
+
+                int read_write_addr = registers[11]; // the address where the file will be loaded / fetched : DI
+                int file_path_addr = registers[8]; // the address of the file path : SS
+
+                int operation = registers[1]; // the operation to perform : RB
+
+
+                // for write operations
+                // RB = 0x1 for CPU.FILE_WRITE
+                // SS : file path
+                // DI : the beginning of the file
+                // DP : the number of bytes to write
+
+                // for read operations
+                // RB = 0x0 for CPU.FILE_READ
+                // SS : file path
+                // DI : the location the file will be loaded to
+                // DP : the total number of bytes that were read will be placed here
+
+                // append data to a file
+                // RA = 0x2 for CPU.FILE_APPEND
+                // SS : file path
+                // DI : the beginning of the data to be appended
+                // DP : the number of bytes to append
+
+                // delete a file
+                // RB = 0x3 for CPU.DELETE_FILE
+                // SS : file path
+
+                String fileName = "";
+                for(int i = file_path_addr; memory[i] != CPU.ARRAY_TERMINATOR; i++) {
+                    fileName += (char) memory[i];
+                }
+
+                if (operation == CPU.FILE_READ) {
+                    byte[] file_data = diskDriver.readFile(fileName);
+                    for(int i = 0; i < file_data.length; i++) memory[read_write_addr + i] = file_data[i];
+                    registers[10] = (short) file_data.length; // the total number of bytes that are read from the disk
+                }
+
+                else if (operation == CPU.FILE_WRITE) {
+                    int file_length = registers[10]; // the number of bytes to copy : DP
+                    byte[] file_data = new byte[file_length];
+
+                    for(int i = 0; i < file_data.length; i++) {
+                        file_data[i] = (byte) memory[read_write_addr + i];
+                    }
+                    diskDriver.saveFile(fileName, file_data);
+                }
+
+                else if (operation == CPU.FILE_APPEND){
+                    int file_length = registers[10];
+                    byte[] file_data = new byte[file_length];
+                    for(int i = 0; i < file_data.length; i++){
+                        file_data[i] = (byte) memory[read_write_addr + i];
+                    }
+                    diskDriver.appendFile(fileName, file_data);
+                }
+
+                else if (operation == CPU.FILE_DELETE){
+
+                    diskDriver.deleteFile(fileName);
+                }
+                else {
+                    validInterrupt = false;
+                }
+
             }
 
             default -> validInterrupt = false;

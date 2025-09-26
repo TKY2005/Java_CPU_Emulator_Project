@@ -340,7 +340,7 @@ public class CPUModule16BIT extends CPU {
                     case DIRECT_MEMORY_PREFIX -> 0x1;
                     case INDIRECT_MEMORY_PREFIX -> 0x2;
                     case IMMEDIATE_PREFIX -> 0x3;
-                    case DATA_PREFIX -> 0x4;
+                    case DATA_PREFIX, DATA_PREFIX_ALT -> 0x4;
                     case STRING_PREFIX -> 0x5;
                     case MEMORY_SEGMENT_OFFSET_PREFIX -> 0x10;
                     default -> 0x6;
