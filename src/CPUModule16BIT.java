@@ -64,9 +64,18 @@ public class CPUModule16BIT extends CPU {
 
     public String getDisassembledOperand(int[] operand) {
         return switch (operand[0]) {
-            case REGISTER_MODE, REGISTER_WORD_MODE -> CPU.REGISTER_PREFIX + getRegisterName(operand[1], false);
-            case DIRECT_MODE, DIRECT_WORD_MODE -> CPU.HEX_MEMORY + Integer.toHexString(operand[1]);
-            case INDIRECT_MODE, INDIRECT_WORD_MODE -> CPU.INDIRECT_MEMORY_PREFIX + getRegisterName(operand[1], false);
+            case REGISTER_MODE, REGISTER_WORD_MODE -> {
+                String mode = (operand[0] == REGISTER_MODE && operand[1] < CPUModule16BIT.PC) ? "BYTE" : "WORD";
+                yield mode + " " + CPU.REGISTER_PREFIX + getRegisterName(operand[1], false);
+            }
+            case DIRECT_MODE, DIRECT_WORD_MODE ->{
+                String mode = (operand[0] == DIRECT_MODE) ? "BYTE" : "WORD";
+                yield mode + " " + CPU.HEX_MEMORY + Integer.toHexString(operand[1]);
+            }
+            case INDIRECT_MODE, INDIRECT_WORD_MODE ->{
+                String mode = (operand[0] == INDIRECT_MODE && operand[1] < CPUModule16BIT.PC) ? "BYTE" : "WORD";
+                yield mode + " " + CPU.INDIRECT_MEMORY_PREFIX + getRegisterName(operand[1], false);
+            }
             case IMMEDIATE_MODE -> CPU.HEX_PREFIX + Integer.toHexString( ( operand[1] << 8 ) | machineCode[step()]).toUpperCase();
 
             case DATA_MODE -> {
@@ -368,6 +377,7 @@ public class CPUModule16BIT extends CPU {
                     switch (tokens[tokenIndex + 1].charAt(0)){
                         case DIRECT_MEMORY_PREFIX -> result[i] = DIRECT_MODE;
                         case INDIRECT_MEMORY_PREFIX -> result[i] = INDIRECT_MODE;
+                        case REGISTER_PREFIX -> result[i] = REGISTER_MODE;
                     }
                     tokenIndex++;
                 }
@@ -375,6 +385,7 @@ public class CPUModule16BIT extends CPU {
                     switch (tokens[tokenIndex + 1].charAt(0)){
                         case DIRECT_MEMORY_PREFIX -> result[i] = DIRECT_WORD_MODE;
                         case INDIRECT_MEMORY_PREFIX -> result[i] = INDIRECT_WORD_MODE;
+                        case REGISTER_PREFIX -> result[i] = REGISTER_WORD_MODE;
                     }
                     tokenIndex++;
                 }
@@ -464,6 +475,7 @@ public class CPUModule16BIT extends CPU {
             //length += 2; // 2 bytes for all remaining operands
             switch (tokens[i].charAt(0)) {
                 case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX -> length += 2;
+                case 'b', 'B', 'w', 'W' -> length += 0;
                 default -> length += 3;
             }
         }
