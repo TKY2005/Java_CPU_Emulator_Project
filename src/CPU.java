@@ -329,7 +329,10 @@ public abstract class CPU {
                     case ESC_BACKLASH -> a = '\\';
                     case ESC_UNICODE -> a = 'Ω';
                     case ESC_DOUBLE_QUOTE -> a = '\"';
-                    case ESC_UNICODE_ESCAPE -> a = (char) Integer.parseInt( fullString.substring(j + 2), 16 );
+                    case ESC_UNICODE_ESCAPE ->{
+                        a = (char) Integer.parseInt( fullString.substring(j + 2), 16 );
+                        j += 4;
+                    }
                     default -> a = '.';
                 }
                 string_bytes.add((int) a);

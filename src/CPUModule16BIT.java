@@ -318,6 +318,7 @@ public class CPUModule16BIT extends CPU {
             //length += 2; // 2 bytes for all remaining operands
             switch (tokens[i].charAt(0)) {
                 case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX -> length += 2;
+                case 'b', 'B', 'w', 'W' -> length += 0;
                 default -> length += 3;
             }
         }
@@ -342,7 +343,7 @@ public class CPUModule16BIT extends CPU {
                     case IMMEDIATE_PREFIX -> 0x3;
                     case DATA_PREFIX, DATA_PREFIX_ALT -> 0x4;
                     case STRING_PREFIX -> 0x5;
-                    case MEMORY_SEGMENT_OFFSET_PREFIX -> 0x10;
+                    case MEMORY_SEGMENT_OFFSET_PREFIX -> 0x0A;
                     default -> 0x6;
                 };
 
@@ -359,6 +360,24 @@ public class CPUModule16BIT extends CPU {
                 else if (tokens[tokenIndex].charAt(0) == INDIRECT_MEMORY_PREFIX &&
                         tokens[tokenIndex].charAt(tokens[tokenIndex].length() - 1) == 'x')
                     result[i] = INDIRECT_WORD_MODE;
+
+
+                // maybe the user wants to manually specify the mode.
+                if (tokens[tokenIndex].equalsIgnoreCase("byte")){
+
+                    switch (tokens[tokenIndex + 1].charAt(0)){
+                        case DIRECT_MEMORY_PREFIX -> result[i] = DIRECT_MODE;
+                        case INDIRECT_MEMORY_PREFIX -> result[i] = INDIRECT_MODE;
+                    }
+                    tokenIndex++;
+                }
+                else if (tokens[tokenIndex].equalsIgnoreCase("word")){
+                    switch (tokens[tokenIndex + 1].charAt(0)){
+                        case DIRECT_MEMORY_PREFIX -> result[i] = DIRECT_WORD_MODE;
+                        case INDIRECT_MEMORY_PREFIX -> result[i] = INDIRECT_WORD_MODE;
+                    }
+                    tokenIndex++;
+                }
 
 
                 if (result[i] == 0x3){ // 16-bit immediate
@@ -887,15 +906,6 @@ public class CPUModule16BIT extends CPU {
                         err, ErrorHandler.ERR_CODE_PC_ACCESS_VIOLATION);
             }
             if (canExecute) {
-
-//                TimerTask timeout = new TimerTask() {
-//              @Override
-//              public void run(){
-//                  String err = "Program timed out.";
-//                  triggerProgramError(err, ErrorHandler.ERR_PROG_TIMEOUT);
-//              }
-//            };
-//                timeoutTimer.schedule(timeout, timeoutDuration);
 
                 Logger.addLog(String.format("Executing instruction 0x%X -> %s at ROM address 0x%X",
                         machine_code[registers[PC]],
