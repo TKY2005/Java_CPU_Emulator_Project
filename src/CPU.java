@@ -192,8 +192,8 @@ public abstract class CPU {
     /// ////////////////////////////////////////////
     ///
     static String signature = "Made by T.K.Y";
-    static String lastUpdateDate = " 9/8/2025";
-    static String compilerVersion = " V1.1";
+    static String lastUpdateDate = " 9/30/2025";
+    static String compilerVersion = " V1.2";
 
 
     public CPU() {

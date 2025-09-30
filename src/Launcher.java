@@ -12,7 +12,7 @@ import java.util.HashMap;
 
 public class Launcher{
     static String configFilePath = "./myEmulator.conf";
-    static String version = "3.2";
+    static String version = "3.3";
     static HashMap<String, String> appConfig;
     static String configDefaultTemplate = String.format("""
             Version=%s

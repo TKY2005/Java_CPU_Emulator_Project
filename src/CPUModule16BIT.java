@@ -1330,7 +1330,12 @@ public class CPUModule16BIT extends CPU {
             for (int i = 0; machine_code[i] != (TEXT_SECTION_END & 0xff); i++) {
 
                 if (machine_code[i] == INS_LA || machine_code[i] == INS_LLEN || machine_code[i] == INS_LENW){
-                    if (machine_code[i + 3] == DATA_MODE) {
+                    if (
+                                    machine_code[i + 1] == REGISTER_MODE || machine_code[i + 1] == REGISTER_WORD_MODE ||
+                                    machine_code[i + 1] == DIRECT_MODE || machine_code[i + 1] == DIRECT_WORD_MODE ||
+                                    machine_code[i + 1] == INDIRECT_MODE || machine_code[i + 1] == INDIRECT_WORD_MODE
+                                    && machine_code[i + 3] == DATA_MODE) {
+
                         int high = machine_code[i + 4], low = machine_code[i + 5];
                         int address = bytePairToWordLE(low, high);
                         dataCollector.add(address);
@@ -1373,8 +1378,12 @@ public class CPUModule16BIT extends CPU {
                 dataSectionRebuild.append("\n\t").append(dataAddresses.get(dataPointers[i])).append(" ").append("\"");
                 int start_address = dataPointers[i] + dataOffset + 1; // +1 to skip the previous data terminator
                 String data = "";
-                for(int j = start_address; machine_code[j] != ARRAY_TERMINATOR; j++){
-                    if (machine_code[j] != '\n') data += (char) machine_code[j];
+                for(int j = start_address; machine_code[j] != ARRAY_TERMINATOR && data.length() <= MAX_STRING_LENGTH; j++){
+
+                    if (machine_code[j] != '\n'
+                            || machine_code[j] != '\t'
+                            || machine_code[j] != '\0') data += (char) machine_code[j];
+
                     else data += "\\n";
                 }
                 dataSectionRebuild.append(data).append("\"");
