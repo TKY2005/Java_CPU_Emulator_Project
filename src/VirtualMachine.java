@@ -55,6 +55,9 @@ public class VirtualMachine {
                     byte numeric = Byte.parseByte(signal);
                     newLine.append("!").append(numeric);
                 }
+                else if (token.equalsIgnoreCase("byte") || token.equalsIgnoreCase("word")){
+                    newLine.append(CPU.MEMORY_MODE_PREFIX).append(token).append(" ");
+                }
                 else if (token.startsWith(CPU.COMMENT_PREFIX)) break;
                 else {
                     newLine.append(token).append(" ");
@@ -63,6 +66,7 @@ public class VirtualMachine {
 
             result.append(newLine.toString().trim()).append("\n");
         }
+        System.out.println(result);
 
         try {
             if (compileDirection == 0) cpuModule.machineCode = cpuModule.compileCode(result.toString());

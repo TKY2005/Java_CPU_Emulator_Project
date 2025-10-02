@@ -166,6 +166,7 @@ public abstract class CPU {
     public static final String HEX_MEMORY = "*";
     public final static String SIGNAL_PREFIX = "^";
     public static final String COMMENT_PREFIX = ";";
+    public static final char MEMORY_MODE_PREFIX = '#';
 
     public static final char ESC_NEWLINE = 'n';
     public static final char ESC_NULL = '0';

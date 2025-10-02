@@ -314,8 +314,7 @@ public class CPUModule16BIT extends CPU {
 
     @Override
     public int[] toMachineCode(String instruction) {
-        String[] commentedTokens = instruction.trim().split(COMMENT_PREFIX);
-        String[] tokens = commentedTokens[0].trim().split(" ");
+        String[] tokens = instruction.trim().split(" ");
 
 
         // Instruction format: opcode (1 byte) optional: operand1 (2 bytes) optional: operand2 (2 bytes)
@@ -327,7 +326,7 @@ public class CPUModule16BIT extends CPU {
             //length += 2; // 2 bytes for all remaining operands
             switch (tokens[i].charAt(0)) {
                 case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX -> length += 2;
-                case 'b', 'B', 'w', 'W' -> length += 0;
+                case MEMORY_MODE_PREFIX -> length += 0;
                 default -> length += 3;
             }
         }
@@ -372,7 +371,7 @@ public class CPUModule16BIT extends CPU {
 
 
                 // maybe the user wants to manually specify the mode.
-                if (tokens[tokenIndex].equalsIgnoreCase("byte")){
+                if (tokens[tokenIndex].equalsIgnoreCase(MEMORY_MODE_PREFIX + "byte")){
 
                     switch (tokens[tokenIndex + 1].charAt(0)){
                         case DIRECT_MEMORY_PREFIX -> result[i] = DIRECT_MODE;
@@ -381,7 +380,7 @@ public class CPUModule16BIT extends CPU {
                     }
                     tokenIndex++;
                 }
-                else if (tokens[tokenIndex].equalsIgnoreCase("word")){
+                else if (tokens[tokenIndex].equalsIgnoreCase(MEMORY_MODE_PREFIX + "word")){
                     switch (tokens[tokenIndex + 1].charAt(0)){
                         case DIRECT_MEMORY_PREFIX -> result[i] = DIRECT_WORD_MODE;
                         case INDIRECT_MEMORY_PREFIX -> result[i] = INDIRECT_WORD_MODE;
@@ -456,7 +455,7 @@ public class CPUModule16BIT extends CPU {
                 tokenIndex++;
             }
         }
-        System.out.print(commentedTokens[0] + " => ");
+        System.out.print(instruction + " => ");
         for (int j : result) System.out.printf("0x%X ", j);
         System.out.println();
         return result;
@@ -475,7 +474,7 @@ public class CPUModule16BIT extends CPU {
             //length += 2; // 2 bytes for all remaining operands
             switch (tokens[i].charAt(0)) {
                 case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX -> length += 2;
-                case 'b', 'B', 'w', 'W' -> length += 0;
+                case MEMORY_MODE_PREFIX -> length += 0;
                 default -> length += 3;
             }
         }
