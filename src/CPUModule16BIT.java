@@ -1331,10 +1331,9 @@ public class CPUModule16BIT extends CPU {
 
                 if (machine_code[i] == INS_LA || machine_code[i] == INS_LLEN || machine_code[i] == INS_LENW){
                     if (
-                                    machine_code[i + 1] == REGISTER_MODE || machine_code[i + 1] == REGISTER_WORD_MODE ||
+                            (machine_code[i + 1] == REGISTER_MODE || machine_code[i + 1] == REGISTER_WORD_MODE ||
                                     machine_code[i + 1] == DIRECT_MODE || machine_code[i + 1] == DIRECT_WORD_MODE ||
-                                    machine_code[i + 1] == INDIRECT_MODE || machine_code[i + 1] == INDIRECT_WORD_MODE
-                                    && machine_code[i + 3] == DATA_MODE) {
+                                    machine_code[i + 1] == INDIRECT_MODE || machine_code[i + 1] == INDIRECT_WORD_MODE) && machine_code[i + 3] == DATA_MODE) {
 
                         int high = machine_code[i + 4], low = machine_code[i + 5];
                         int address = bytePairToWordLE(low, high);
@@ -1343,6 +1342,7 @@ public class CPUModule16BIT extends CPU {
                 }
 
                 else if (machine_code[i] >= INS_CALL && machine_code[i] <= INS_JB || machine_code[i] == INS_LOOP) {
+
                     if (machine_code[i + 1] == FUNCTION_MODE) {
                         int high = machine_code[i + 2], low = machine_code[i + 3];
                         int address = bytePairToWordLE(low, high);

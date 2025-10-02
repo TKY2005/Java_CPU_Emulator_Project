@@ -55,6 +55,7 @@ public class VirtualMachine {
                     byte numeric = Byte.parseByte(signal);
                     newLine.append("!").append(numeric);
                 }
+                else if (token.startsWith(CPU.COMMENT_PREFIX)) break;
                 else {
                     newLine.append(token).append(" ");
                 }
