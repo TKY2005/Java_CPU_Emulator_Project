@@ -65,7 +65,7 @@ public class CPUModule16BIT extends CPU {
     public String getDisassembledOperand(int[] operand) {
         return switch (operand[0]) {
             case REGISTER_MODE, REGISTER_WORD_MODE -> {
-                String mode = (operand[0] == REGISTER_MODE && operand[1] < CPUModule16BIT.PC) ? "BYTE" : "WORD";
+                String mode = ((operand[0] == REGISTER_MODE) && operand[1] < 18) ? "BYTE" : "WORD";
                 yield mode + " " + CPU.REGISTER_PREFIX + getRegisterName(operand[1], false);
             }
             case DIRECT_MODE, DIRECT_WORD_MODE ->{
@@ -73,7 +73,7 @@ public class CPUModule16BIT extends CPU {
                 yield mode + " " + CPU.HEX_MEMORY + Integer.toHexString((operand[1] << 8) | operand[2]);
             }
             case INDIRECT_MODE, INDIRECT_WORD_MODE ->{
-                String mode = (operand[0] == INDIRECT_MODE && operand[1] < CPUModule16BIT.PC) ? "BYTE" : "WORD";
+                String mode = ((operand[0] == INDIRECT_MODE)) ? "BYTE" : "WORD";
                 yield mode + " " + CPU.INDIRECT_MEMORY_PREFIX + getRegisterName(operand[1], false);
             }
             case IMMEDIATE_MODE -> CPU.HEX_PREFIX + Integer.toHexString( ( operand[1] << 8 ) | operand[2] ).toUpperCase();
