@@ -53,11 +53,11 @@ public class CPUModule16BIT extends CPU {
         Logger.addLog("Fetching source");
         return switch (source[0]) {
             case REGISTER_MODE, REGISTER_WORD_MODE -> getRegister(source[1]);
-            case DIRECT_MODE -> readByte(source[1]);
-            case DIRECT_WORD_MODE -> bytePairToWordLE((readWord(source[1])));
+            case DIRECT_MODE -> readByte( ( source[1] << 8 ) | source[2]);
+            case DIRECT_WORD_MODE -> bytePairToWordLE((readWord( ( source[1] << 8 ) | source[2])));
             case INDIRECT_MODE -> readByte(getRegister(source[1]));
             case INDIRECT_WORD_MODE -> bytePairToWordLE(readWord(getRegister(source[1])));
-            case IMMEDIATE_MODE -> (source[1] << 8) | machineCode[step()];
+            case IMMEDIATE_MODE -> (source[1] << 8) | source[2];
             default -> max_pair_value + 1;
         };
     }
@@ -70,13 +70,13 @@ public class CPUModule16BIT extends CPU {
             }
             case DIRECT_MODE, DIRECT_WORD_MODE ->{
                 String mode = (operand[0] == DIRECT_MODE) ? "BYTE" : "WORD";
-                yield mode + " " + CPU.HEX_MEMORY + Integer.toHexString(operand[1]);
+                yield mode + " " + CPU.HEX_MEMORY + Integer.toHexString((operand[1] << 8) | operand[2]);
             }
             case INDIRECT_MODE, INDIRECT_WORD_MODE ->{
                 String mode = (operand[0] == INDIRECT_MODE && operand[1] < CPUModule16BIT.PC) ? "BYTE" : "WORD";
                 yield mode + " " + CPU.INDIRECT_MEMORY_PREFIX + getRegisterName(operand[1], false);
             }
-            case IMMEDIATE_MODE -> CPU.HEX_PREFIX + Integer.toHexString( ( operand[1] << 8 ) | machineCode[step()]).toUpperCase();
+            case IMMEDIATE_MODE -> CPU.HEX_PREFIX + Integer.toHexString( ( operand[1] << 8 ) | operand[2] ).toUpperCase();
 
             case DATA_MODE -> {
                 int high = operand[1], low = operand[2];
@@ -290,7 +290,12 @@ public class CPUModule16BIT extends CPU {
     }
 
     public int[] getNextOperand() {
-        return new int[]{machineCode[step()], machineCode[step()]};
+        List<Integer> n = new ArrayList<>();
+        n.add(machineCode[step()]);
+        if (n.getFirst() == DIRECT_MODE || n.getFirst() == DIRECT_WORD_MODE) n.add(machineCode[step()]);
+        else if (n.getFirst() == IMMEDIATE_MODE) n.add(machineCode[step()]);
+        n.add(machineCode[step()]);
+        return n.stream().mapToInt(Integer::intValue).toArray();
     }
 
 
@@ -313,146 +318,143 @@ public class CPUModule16BIT extends CPU {
     }
 
     @Override
-    public int[] toMachineCode(String instruction) {
-        String[] tokens = instruction.trim().split(" ");
+    public int[] toMachineCode(String instruction) {return new int[] {0};}
 
+
+    public List<Integer> toMachineCode16(String instruction) {
+        String[] tokens = instruction.trim().split(" ");
+        List<Integer> result = new ArrayList<>();
 
         // Instruction format: opcode (1 byte) optional: operand1 (2 bytes) optional: operand2 (2 bytes)
         // NOTE: if the instruction has an address, then operand size will be 3 bytes (1 byte for mode, 2 bytes for address)
         // Output machine code: opcode operand1_addressing_mode operand1_value operand2_addressing_mode operand2_value
-        int length = 1; // 1 byte for opcode
-        for (int i = 1; i < tokens.length; i++) {
-
-            //length += 2; // 2 bytes for all remaining operands
-            switch (tokens[i].charAt(0)) {
-                case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX -> length += 2;
-                case MEMORY_MODE_PREFIX -> length += 0;
-                default -> length += 3;
-            }
-        }
-        int[] result = new int[length];
 
         Integer opCode = translationMap.get(tokens[0].toLowerCase());
         if (opCode == null) {
             String err = String.format("Unknown instruction : %s\n", tokens[0]);
             status_code = ErrorHandler.ERR_COMP_UNDEFINED_INSTRUCTION;
             triggerProgramError(err, status_code);
-        } else result[0] = opCode; // tokens[0] should always be the opcode.
+        } else result.add(opCode); // tokens[0] should always be the opcode.
 
         // figure out which addressing mode is used.
         if (tokens.length > 1) {
-            int tokenIndex = 1;
-            for (int i = 1; i < result.length; i += 2) {
+            int byteIndex = 1;
+            for (int i = 1; i < tokens.length; i++) {
 
-                result[i] = switch (tokens[tokenIndex].charAt(0)) {
-                    case REGISTER_PREFIX -> 0x0;
-                    case DIRECT_MEMORY_PREFIX -> 0x1;
-                    case INDIRECT_MEMORY_PREFIX -> 0x2;
-                    case IMMEDIATE_PREFIX -> 0x3;
-                    case DATA_PREFIX, DATA_PREFIX_ALT -> 0x4;
-                    case STRING_PREFIX -> 0x5;
-                    case MEMORY_SEGMENT_OFFSET_PREFIX -> 0x0A;
-                    default -> 0x6;
-                };
+
+                switch (tokens[i].charAt(0)) {
+                    case REGISTER_PREFIX -> {
+                        result.add(REGISTER_MODE);
+                        result.add(getRegisterCode( tokens[i].substring(1) ));
+                        byteIndex += 2;
+                    }
+                    case DIRECT_MEMORY_PREFIX ->{
+                        result.add(DIRECT_MODE);
+                        int addr = Integer.parseInt(tokens[i].substring(1));
+                        int low = addr & 0xff;
+                        int high = (addr >> 8) & 0xff;
+                        result.add(high);
+                        result.add(low);
+                        byteIndex += 3;
+                    }
+                    case INDIRECT_MEMORY_PREFIX ->{
+                        result.add(INDIRECT_MODE);
+                        result.add( getRegisterCode( tokens[i].substring(1) ) );
+                        byteIndex += 2;
+                    }
+                    case IMMEDIATE_PREFIX -> {
+                        result.add(IMMEDIATE_MODE);
+                        int imm16 = Integer.parseInt(tokens[i].substring(1));
+                        int low = imm16 & 0xff;
+                        int high = (imm16 >> 8) & 0xff;
+                        result.add(high);
+                        result.add(low);
+                        byteIndex += 3;
+                    }
+                    case DATA_PREFIX, DATA_PREFIX_ALT -> {
+                        result.add(DATA_MODE);
+                        Integer addr = dataMap.get( tokens[i].substring(1) );
+                        if (addr == null) {
+                            String err = String.format("The variable '%s' doesn't exist in the data section.\n",
+                                tokens[i].substring(1));
+                            status_code = ErrorHandler.ERR_COMP_NULL_DATA_POINTER;
+                            triggerProgramError(
+                                err, status_code);
+                        }
+                        else {
+                            int low = addr & 0xff;
+                            int high = (addr >> 8) & 0xff;
+                            result.add(high);
+                            result.add(low);
+                            byteIndex += 3;
+                        }
+                    }
+                    case STRING_PREFIX ->{
+                        result.add(STRING_MODE);
+                        byteIndex++;
+                    }
+                    case MEMORY_SEGMENT_OFFSET_PREFIX ->{
+                        result.add(0x0A);
+                        byteIndex++;
+                    }
+                    case MEMORY_MODE_PREFIX -> {
+                        continue;
+                    }
+                    default -> {
+                        result.add(FUNCTION_MODE);
+                        Integer addr = functions.get( tokens[i] );
+                        if (addr == null) {
+                            String err = String.format("The function '%s' doesn't exist in the ROM.\n",
+                                tokens[i].substring(1));
+                            status_code = ErrorHandler.ERR_COMP_NULL_DATA_POINTER;
+                            triggerProgramError(
+                                err, status_code);
+
+                            return result;
+                        }
+                        else {
+                            int low = addr & 0xff;
+                            int high = (addr >> 8) & 0xff;
+                            result.add(high);
+                            result.add(low);
+                            byteIndex += 3;
+                        }
+                    }
+                }
 
                 // decide if we are dealing with a byte or a word depending on the register name
-                if (tokens[tokenIndex].charAt(0) == REGISTER_PREFIX &&
-                        tokens[tokenIndex].charAt(tokens[tokenIndex].length() - 1) == 'x')
-                    result[i] = REGISTER_WORD_MODE;
+                if (tokens[i].charAt(0) == REGISTER_PREFIX &&
+                        tokens[i].charAt(tokens[i].length() - 1) == 'x')
+                    result.set(byteIndex - 2, REGISTER_WORD_MODE);
 
-                if (tokens[tokenIndex].charAt(0) == DIRECT_MEMORY_PREFIX &&
-                        tokens[tokenIndex - 1].charAt(0) == REGISTER_PREFIX &&
-                        tokens[tokenIndex - 1].charAt(tokens[tokenIndex - 1].length() - 1) == 'x')
-                    result[i] = DIRECT_WORD_MODE;
+                if (tokens[i].charAt(0) == DIRECT_MEMORY_PREFIX &&
+                        tokens[i - 1].charAt(0) == REGISTER_PREFIX &&
+                        tokens[i - 1].charAt(tokens[i - 1].length() - 1) == 'x')
+                    result.set(byteIndex - 3, DIRECT_WORD_MODE);
 
-                else if (tokens[tokenIndex].charAt(0) == INDIRECT_MEMORY_PREFIX &&
-                        tokens[tokenIndex].charAt(tokens[tokenIndex].length() - 1) == 'x')
-                    result[i] = INDIRECT_WORD_MODE;
+                else if (tokens[i].charAt(0) == INDIRECT_MEMORY_PREFIX &&
+                        tokens[i].charAt(tokens[i].length() - 1) == 'x')
+                    result.set(byteIndex - 2, INDIRECT_MODE);
 
 
                 // maybe the user wants to manually specify the mode.
-                if (tokens[tokenIndex].equalsIgnoreCase(MEMORY_MODE_PREFIX + "byte")){
+                if (tokens[i - 1].equalsIgnoreCase(MEMORY_MODE_PREFIX + "byte")){
 
-                    switch (tokens[tokenIndex + 1].charAt(0)){
-                        case DIRECT_MEMORY_PREFIX -> result[i] = DIRECT_MODE;
-                        case INDIRECT_MEMORY_PREFIX -> result[i] = INDIRECT_MODE;
-                        case REGISTER_PREFIX -> result[i] = REGISTER_MODE;
-                    }
-                    tokenIndex++;
-                }
-                else if (tokens[tokenIndex].equalsIgnoreCase(MEMORY_MODE_PREFIX + "word")){
-                    switch (tokens[tokenIndex + 1].charAt(0)){
-                        case DIRECT_MEMORY_PREFIX -> result[i] = DIRECT_WORD_MODE;
-                        case INDIRECT_MEMORY_PREFIX -> result[i] = INDIRECT_WORD_MODE;
-                        case REGISTER_PREFIX -> result[i] = REGISTER_WORD_MODE;
-                    }
-                    tokenIndex++;
-                }
-
-
-                if (result[i] == 0x3){ // 16-bit immediate
-                    int imm16 = Integer.parseInt(tokens[tokenIndex].substring(1));
-
-                    int low = imm16 & 0xff;
-                    int high = (imm16 >> 8) & 0xff;
-                    result[i + 1] = high;
-                    result[i + 2] = low;
-                    tokenIndex++;
-                    break;
-                }
-
-                if (result[i] == 0x4) { // 16-bit data section address
-                    Integer dataPointer = dataMap.get(tokens[tokenIndex].substring(1));
-
-                    if (dataPointer == null) {
-                        String err = String.format("The variable '%s' doesn't exist in the data section.\n",
-                                tokens[tokenIndex].substring(1));
-                        status_code = ErrorHandler.ERR_COMP_NULL_DATA_POINTER;
-                        triggerProgramError(
-                                err, status_code);
-                        return new int[]{-1};
-                    }
-                    else {
-                        int low = dataPointer & 0xff;
-                        int high = (dataPointer >> 8) & 0xff;
-                        result[i + 1] = high;
-                        result[i + 2] = low;
-                        tokenIndex++;
-                        break;
+                    switch (tokens[i].charAt(0)){
+                        case DIRECT_MEMORY_PREFIX -> result.set(byteIndex - 3, DIRECT_MODE);
+                        case INDIRECT_MEMORY_PREFIX -> result.set(byteIndex - 2, INDIRECT_MODE);
+                        case REGISTER_PREFIX -> result.set(byteIndex - 2, REGISTER_MODE);
                     }
                 }
+                else if (tokens[i - 1].equalsIgnoreCase(MEMORY_MODE_PREFIX + "word")){
 
-                if (result[i] == 0x6) { // 16-bit rom address
-                    Integer functionPointer = functions.get(tokens[tokenIndex]);
-
-                    if (functionPointer == null) {
-                        String err = String.format("The function '%s' doesn't exist in the ROM.\n",
-                                tokens[tokenIndex]);
-                        status_code = ErrorHandler.ERR_COMP_NULL_FUNCTION_POINTER;
-                        triggerProgramError(
-                                err, status_code);
-                        return new int[]{-1};
-                    } else {
-                        int low = functionPointer & 0xff;
-                        int high = (functionPointer >> 8) & 0xff;
-                        result[i + 1] = high;
-                        result[i + 2] = low;
-                        tokenIndex++;
-                        break;
+                    switch (tokens[i].charAt(0)){
+                        case DIRECT_MEMORY_PREFIX -> result.set(byteIndex - 3, DIRECT_WORD_MODE);
+                        case INDIRECT_MEMORY_PREFIX -> result.set(byteIndex - 2, INDIRECT_WORD_MODE);
+                        case REGISTER_PREFIX -> result.set(byteIndex - 2, REGISTER_WORD_MODE);
                     }
-                }
 
-                if (isNumber(tokens[tokenIndex].substring(1))) {
-                    result[i + 1] = Integer.parseInt(tokens[tokenIndex].substring(1));
-                } else {
-                    int registerCode = getRegisterCode(tokens[tokenIndex].substring(1));
-                    if (registerCode == -1) {
-                        String err = String.format("Unknown register '%s'.\n", tokens[tokenIndex].substring(1));
-                        status_code = ErrorHandler.ERR_COMP_INVALID_CPU_CODE;
-                        triggerProgramError(err, status_code);
-                    } else result[i + 1] = registerCode;
                 }
-                tokenIndex++;
             }
         }
         System.out.print(instruction + " => ");
@@ -463,8 +465,7 @@ public class CPUModule16BIT extends CPU {
 
     @Override
     public int getInstructionLength(String instruction){
-        String[] commentedTokens = instruction.trim().split(COMMENT_PREFIX);
-        String[] tokens = commentedTokens[0].trim().split(" ");
+        String[] tokens = instruction.trim().split(" ");
 
         // Instruction format: opcode (1 byte) optional: operand1 (2 bytes) optional: operand2 (2 bytes)
         // NOTE: if the instruction has an address, then operand size will be 3 bytes (1 byte for mode, 2 bytes for address)
@@ -473,7 +474,7 @@ public class CPUModule16BIT extends CPU {
         for (int i = 1; i < tokens.length; i++) {
             //length += 2; // 2 bytes for all remaining operands
             switch (tokens[i].charAt(0)) {
-                case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX -> length += 2;
+                case REGISTER_PREFIX , INDIRECT_MEMORY_PREFIX -> length += 2;
                 case MEMORY_MODE_PREFIX -> length += 0;
                 default -> length += 3;
             }
@@ -634,9 +635,10 @@ public class CPUModule16BIT extends CPU {
         for (int i = 0; i < fullLines.length; i++) {
 
             currentLine++;
-            int[] translatedLine = toMachineCode(fullLines[i]);
+            List<Integer> translatedLine = toMachineCode16(fullLines[i]);
 
-            String a = Arrays.toString(translatedLine).replace("[", "").replace("]", "");
+            //String a = Arrays.toString(translatedLine).replace("[", "").replace("]", "");
+            String a = Arrays.toString(translatedLine.toArray()).replace("[", "").replace("]", "");
             //eachInstruction.put(i, toMachineCode(fullLines[i]));
             machineCodeString.append(a);
             if (i < fullLines.length - 1) machineCodeString.append(", ");
@@ -824,7 +826,9 @@ public class CPUModule16BIT extends CPU {
         for (int i = 0; i < fullLines.length; i++) {
 
             currentLine++;
-            String a = Arrays.toString(toMachineCode(fullLines[i])).replace("[", "").replace("]", "");
+            List<Integer> translatedLine = toMachineCode16(fullLines[i]);
+            //String a = Arrays.toString(toMachineCode(fullLines[i])).replace("[", "").replace("]", "");
+            String a = Arrays.toString(translatedLine.toArray()).replace("[", "").replace("]", "");
             //eachInstruction.put(i, toMachineCode(fullLines[i]));
             machineCodeString.append(a);
             if (i < fullLines.length - 1) machineCodeString.append(", ");
@@ -1376,14 +1380,14 @@ public class CPUModule16BIT extends CPU {
             for(int i = 0; i < dataPointers.length; i++){
                 dataSectionRebuild.append("\n\t").append(dataAddresses.get(dataPointers[i])).append(" ").append("\"");
                 int start_address = dataPointers[i] + dataOffset + 1; // +1 to skip the previous data terminator
-                String data = "";
+                StringBuilder data = new StringBuilder();
                 for(int j = start_address; machine_code[j] != ARRAY_TERMINATOR && data.length() <= MAX_STRING_LENGTH; j++){
 
                     if (machine_code[j] != '\n'
                             || machine_code[j] != '\t'
-                            || machine_code[j] != '\0') data += (char) machine_code[j];
+                            || machine_code[j] != '\0') data.append((char) machine_code[j]);
 
-                    else data += "\\n";
+                    else data.append("\\").append("n");
                 }
                 dataSectionRebuild.append(data).append("\"");
             }
@@ -1430,9 +1434,15 @@ public class CPUModule16BIT extends CPU {
                             numBytes = 5;
                             if (machine_code[registers[PC] + 1] == CPU.IMMEDIATE_MODE) numBytes += 1;
                             if (machine_code[registers[PC] + 3] == CPU.IMMEDIATE_MODE) numBytes += 1;
+
+                            if (machine_code[registers[PC] + 1] == CPU.DIRECT_MODE ||
+                            machine_code[registers[PC] + 1] == CPU.DIRECT_WORD_MODE) numBytes += 2;
+                            if (machine_code[registers[PC] + 3] == CPU.DIRECT_MODE ||
+                            machine_code[registers[PC] + 3] == CPU.DIRECT_WORD_MODE) numBytes += 2;
+
                             for (int i = 0; i < numBytes; i++)
                                 byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                            code.append(String.format("%-20s", byteStr.toString()));
+                            code.append(String.format("%-25s", byteStr.toString()));
                             code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
                             int[] destination = getNextOperand();
                             code.append(getDisassembledOperand(destination)).append(" ");
@@ -1445,9 +1455,12 @@ public class CPUModule16BIT extends CPU {
                              INS_NOT, INS_PUSH, INS_POP, INS_OUTC -> {
                             numBytes = 3;
                             if (machine_code[registers[PC] + 1] == CPU.IMMEDIATE_MODE) numBytes += 1;
+                            if (machine_code[registers[PC] + 1] == CPU.DIRECT_MODE ||
+                            machine_code[registers[PC] + 1] == CPU.DIRECT_WORD_MODE) numBytes += 1;
+
                             for (int i = 0; i < numBytes; i++)
                                 byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                            code.append(String.format("%-20s", byteStr.toString()));
+                            code.append(String.format("%-25s", byteStr.toString()));
                             code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
                             int[] destination = getNextOperand();
                             code.append(getDisassembledOperand(destination));
@@ -1455,13 +1468,19 @@ public class CPUModule16BIT extends CPU {
 
 
                         case INS_ADD, INS_SUB, INS_MUL, INS_DIV, INS_POW,
-                             INS_RND, INS_AND, INS_OR, INS_XOR, INS_NAND, INS_NOR, INS_SHL, INS_SHR -> {
+                             INS_RND, INS_AND, INS_OR, INS_XOR, INS_NAND, INS_NOR, INS_SHL, INS_SHR, INS_CMP -> {
                             numBytes = 5;
                             if (machine_code[registers[PC] + 1] == CPU.IMMEDIATE_MODE) numBytes += 1;
                             if (machine_code[registers[PC] + 3] == CPU.IMMEDIATE_MODE) numBytes += 1;
+
+                            if (machine_code[registers[PC] + 1] == CPU.DIRECT_MODE ||
+                            machine_code[registers[PC] + 1] == CPU.DIRECT_WORD_MODE) numBytes += 2;
+                            if (machine_code[registers[PC] + 3] == CPU.DIRECT_MODE ||
+                            machine_code[registers[PC] + 3] == CPU.DIRECT_WORD_MODE) numBytes += 2;
+
                             for (int i = 0; i < numBytes; i++)
                                 byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                            code.append(String.format("%-20s", byteStr.toString()));
+                            code.append(String.format("%-25s", byteStr.toString()));
                             code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
                             int[] destination = getNextOperand();
                             code.append(getDisassembledOperand(destination)).append(" ");
@@ -1475,7 +1494,7 @@ public class CPUModule16BIT extends CPU {
                             numBytes = 6;
                             for (int i = 0; i < numBytes; i++)
                                 byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                            code.append(String.format("%-20s", byteStr.toString()));
+                            code.append(String.format("%-25s", byteStr.toString()));
                             code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
                             int[] destination = getNextOperand();
                             code.append(getDisassembledOperand(destination)).append(" ");
@@ -1487,7 +1506,7 @@ public class CPUModule16BIT extends CPU {
                             numBytes = 6;
                             for (int i = 0; i < numBytes; i++)
                                 byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                            code.append(String.format("%-20s", byteStr.toString()));
+                            code.append(String.format("%-25s", byteStr.toString()));
                             code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
                             int[] destination = getNextOperand();
                             code.append(getDisassembledOperand(destination)).append(" ");
@@ -1500,7 +1519,7 @@ public class CPUModule16BIT extends CPU {
                             numBytes = 4;
                             for (int i = 0; i < numBytes; i++)
                                 byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                            code.append(String.format("%-20s", byteStr.toString()));
+                            code.append(String.format("%-25s", byteStr.toString()));
                             code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
                             int source[] = new int[]{machineCode[step()], machineCode[step()], machineCode[step()]};
                             code.append(getDisassembledOperand(source));
@@ -1513,23 +1532,9 @@ public class CPUModule16BIT extends CPU {
                             numBytes = 4;
                             for (int i = 0; i < numBytes; i++)
                                 byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                            code.append(String.format("%-20s", byteStr.toString()));
+                            code.append(String.format("%-25s", byteStr.toString()));
                             code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
                             int[] source = new int[]{machineCode[step()], machineCode[step()], machineCode[step()]};
-                            code.append(getDisassembledOperand(source));
-                        }
-
-                        case INS_CMP -> {
-                            numBytes = 5;
-                            if (machine_code[registers[PC] + 1] == CPU.IMMEDIATE_MODE) numBytes += 1;
-                            if (machine_code[registers[PC] + 3] == CPU.IMMEDIATE_MODE) numBytes += 1;
-                            for (int i = 0; i < numBytes; i++)
-                                byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                            code.append(String.format("%-20s", byteStr.toString()));
-                            code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
-                            int[] destination = getNextOperand();
-                            code.append(getDisassembledOperand(destination)).append(" ");
-                            int[] source = getNextOperand();
                             code.append(getDisassembledOperand(source));
                         }
 
@@ -1537,7 +1542,7 @@ public class CPUModule16BIT extends CPU {
                             numBytes = 4;
                             for (int i = 0; i < numBytes; i++)
                                 byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
-                            code.append(String.format("%-20s", byteStr.toString()));
+                            code.append(String.format("%-25s", byteStr.toString()));
                             code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
                             // if RCX > 0: decrement RC and jump to the label address specified.
                             int[] source = new int[]{machineCode[step()], machineCode[step()], machineCode[step()]};
@@ -1548,7 +1553,7 @@ public class CPUModule16BIT extends CPU {
                              INS_END, INS_NOP -> {
                             numBytes = 1;
                             byteStr.append(String.format("%02X ", machine_code[registers[PC]]));
-                            code.append(String.format("%-20s", byteStr.toString()));
+                            code.append(String.format("%-25s", byteStr.toString()));
                             code.append(instructionSet.get(machine_code[registers[PC]])).append(" ");
                         }
 
@@ -1561,7 +1566,7 @@ public class CPUModule16BIT extends CPU {
                         default -> {
                             numBytes = 1;
                             byteStr.append(String.format("%02X ", machine_code[registers[PC]]));
-                            code.append(String.format("%-20s", byteStr.toString()));
+                            code.append(String.format("%-25s", byteStr.toString()));
                         }
                     }
 
@@ -1626,8 +1631,8 @@ public class CPUModule16BIT extends CPU {
         switch (destination[0]) {
 
             case REGISTER_MODE, REGISTER_WORD_MODE -> setRegister(destination[1], operandValue);
-            case DIRECT_MODE -> setMemory(destination[1], operandValue, DATA_BYTE_MODE);
-            case DIRECT_WORD_MODE -> setMemory(destination[1], operandValue, DATA_WORD_MODE);
+            case DIRECT_MODE ->setMemory((destination[1] << 8) | destination[2], operandValue, DATA_BYTE_MODE);
+            case DIRECT_WORD_MODE -> setMemory((destination[1] << 8) | destination[2], operandValue, DATA_WORD_MODE);
             case INDIRECT_MODE -> setMemory(getRegister(destination[1]), operandValue, DATA_BYTE_MODE);
             case INDIRECT_WORD_MODE -> setMemory(getRegister(destination[1]), operandValue, DATA_WORD_MODE);
             default -> E = true;
@@ -1678,12 +1683,12 @@ public class CPUModule16BIT extends CPU {
                 setRegister(destination[1], newVal);
             }
             case DIRECT_MODE -> {
-                newVal = readByte(destination[1]) << operandValue;
-                setRegister(destination[1], newVal);
+                newVal = readByte((destination[1] << 8) | destination[2]) << operandValue;
+                setMemory((destination[1] << 8) | destination[2], newVal, DATA_BYTE_MODE);
             }
             case DIRECT_WORD_MODE -> {
-                newVal = bytePairToWordLE(readWord(destination[1])) << operandValue;
-                setMemory(destination[1], newVal);
+                newVal = bytePairToWordLE(readWord((destination[1] << 8) | destination[2])) << operandValue;
+                setMemory((destination[1] << 8) | destination[2], newVal, DATA_WORD_MODE);
             }
             case INDIRECT_MODE -> {
                 newVal = readByte(getRegister(destination[1])) << operandValue;
@@ -1708,12 +1713,12 @@ public class CPUModule16BIT extends CPU {
                 setRegister(destination[1], newVal);
             }
             case DIRECT_MODE -> {
-                newVal = readByte(destination[1]) >> operandValue;
-                setRegister(destination[1], newVal);
+                newVal = readByte((destination[1] << 8) | destination[2]) >> operandValue;
+                setMemory((destination[1] << 8) | destination[2], newVal, DATA_BYTE_MODE);
             }
             case DIRECT_WORD_MODE -> {
-                newVal = bytePairToWordLE(readWord(destination[1])) >> operandValue;
-                setMemory(destination[1], newVal);
+                newVal = bytePairToWordLE(readWord((destination[1] << 8) | destination[2])) >> operandValue;
+                setMemory((destination[1] << 8) | destination[2], newVal, DATA_WORD_MODE);
             }
             case INDIRECT_MODE -> {
                 newVal = readByte(getRegister(destination[1])) >> operandValue;
@@ -1743,13 +1748,13 @@ public class CPUModule16BIT extends CPU {
             }
 
             case DIRECT_MODE ->{
-                newVal = readByte( destination[1] ) + operandValue;
-                setMemory( destination[1], newVal);
+                newVal = readByte( (destination[1] << 8) | destination[2] ) + operandValue;
+                setMemory( (destination[1] << 8) | destination[2], newVal, DATA_BYTE_MODE);
             }
 
             case DIRECT_WORD_MODE ->{
-                newVal = bytePairToWordLE( readWord( destination[1] ) ) + operandValue;
-                setMemory( destination[1], newVal);
+                newVal = bytePairToWordLE( readWord( (destination[1] << 8) | destination[2] ) ) + operandValue;
+                setMemory( (destination[1] << 8) | destination[2], newVal, DATA_WORD_MODE);
             }
 
             case INDIRECT_MODE ->{
@@ -1780,13 +1785,13 @@ public class CPUModule16BIT extends CPU {
             }
 
             case DIRECT_MODE ->{
-                newVal = readByte( destination[1] ) - operandValue;
-                setMemory( destination[1], newVal);
+                newVal = readByte( (destination[1] << 8) | destination[2] ) - operandValue;
+                setMemory((destination[1] << 8) | destination[2], newVal, DATA_BYTE_MODE);
             }
 
             case DIRECT_WORD_MODE ->{
-                newVal = bytePairToWordLE( readWord( destination[1] ) ) - operandValue;
-                setMemory( destination[1], newVal);
+                newVal = bytePairToWordLE( readWord( (destination[1] << 8) | destination[2] ) ) - operandValue;
+                setMemory( (destination[1] << 8) | destination[2], newVal, DATA_WORD_MODE);
             }
 
             case INDIRECT_MODE ->{
@@ -1817,13 +1822,13 @@ public class CPUModule16BIT extends CPU {
             }
 
             case DIRECT_MODE ->{
-                newVal = readByte( destination[1] ) * operandValue;
-                setMemory( destination[1], newVal);
+                newVal = readByte( (destination[1] << 8) | destination[2] ) * operandValue;
+                setMemory( (destination[1] << 8) | destination[2], newVal, DATA_BYTE_MODE);
             }
 
             case DIRECT_WORD_MODE ->{
-                newVal = bytePairToWordLE( readWord( destination[1] ) ) * operandValue;
-                setMemory( destination[1], newVal);
+                newVal = bytePairToWordLE( readWord( (destination[1] << 8) | destination[2] ) ) * operandValue;
+                setMemory( (destination[1] << 8) | destination[2], newVal, DATA_WORD_MODE);
             }
 
             case INDIRECT_MODE ->{
@@ -1854,13 +1859,13 @@ public class CPUModule16BIT extends CPU {
             }
 
             case DIRECT_MODE ->{
-                newVal = readByte( destination[1] ) / operandValue;
-                setMemory( destination[1], newVal);
+                newVal = readByte( (destination[1] << 8) | destination[2] ) / operandValue;
+                setMemory( (destination[1] << 8) | destination[2], newVal, DATA_BYTE_MODE);
             }
 
             case DIRECT_WORD_MODE ->{
-                newVal = bytePairToWordLE( readWord( destination[1] ) ) / operandValue;
-                setMemory( destination[1], newVal);
+                newVal = bytePairToWordLE( readWord( (destination[1] << 8) | destination[2] ) ) / operandValue;
+                setMemory( (destination[1] << 8) | destination[2], newVal, DATA_WORD_MODE);
             }
 
             case INDIRECT_MODE ->{
@@ -1890,13 +1895,13 @@ public class CPUModule16BIT extends CPU {
             }
 
             case DIRECT_MODE -> {
-                newVal = ~readByte( source[1] );
-                setMemory( source[1], newVal );
+                newVal = ~readByte( (source[1] << 8) | source[2] );
+                setMemory( (source[1] << 8) | source[2], newVal, DATA_BYTE_MODE);
             }
 
             case DIRECT_WORD_MODE -> {
-                newVal = ~bytePairToWordLE( readWord( source[1] ) );
-                setMemory( source[1], newVal );
+                newVal = ~bytePairToWordLE( readWord( (source[1] << 8) | source[2] ) );
+                setMemory( (source[1] << 8) | source[2], newVal, DATA_WORD_MODE );
             }
 
             case INDIRECT_MODE -> {
@@ -1929,13 +1934,13 @@ public class CPUModule16BIT extends CPU {
             }
 
             case DIRECT_MODE ->{
-                newVal = readByte( destination[1] ) & operandValue;
-                setMemory( destination[1], newVal);
+                newVal = readByte( (destination[1] << 8) | destination[2] ) & operandValue;
+                setMemory( (destination[1] << 8) | destination[2], newVal, DATA_BYTE_MODE);
             }
 
             case DIRECT_WORD_MODE ->{
-                newVal = bytePairToWordLE( readWord( destination[1] ) ) & operandValue;
-                setMemory( destination[1], newVal);
+                newVal = bytePairToWordLE( readWord( (destination[1] << 8) | destination[2] ) ) & operandValue;
+                setMemory( (destination[1] << 8) | destination[2], newVal, DATA_WORD_MODE);
             }
 
             case INDIRECT_MODE ->{
@@ -1966,13 +1971,13 @@ public class CPUModule16BIT extends CPU {
             }
 
             case DIRECT_MODE ->{
-                newVal = readByte( destination[1] ) | operandValue;
-                setMemory( destination[1], newVal);
+                newVal = readByte( (destination[1] << 8) | destination[2] ) | operandValue;
+                setMemory( (destination[1] << 8) | destination[2], newVal);
             }
 
             case DIRECT_WORD_MODE ->{
-                newVal = bytePairToWordLE( readWord( destination[1] ) ) | operandValue;
-                setMemory( destination[1], newVal);
+                newVal = bytePairToWordLE( readWord( (destination[1] << 8) | destination[2] ) ) | operandValue;
+                setMemory( (destination[1] << 8) | destination[2], newVal, DATA_WORD_MODE);
             }
 
             case INDIRECT_MODE ->{
@@ -2003,13 +2008,13 @@ public class CPUModule16BIT extends CPU {
             }
 
             case DIRECT_MODE ->{
-                newVal = readByte( destination[1] ) ^ operandValue;
-                setMemory( destination[1], newVal);
+                newVal = readByte( (destination[1] << 8) | destination[2] ) ^ operandValue;
+                setMemory( (destination[1] << 8) | destination[2], newVal, DATA_BYTE_MODE);
             }
 
             case DIRECT_WORD_MODE ->{
-                newVal = bytePairToWordLE( readWord( destination[1] ) ) ^ operandValue;
-                setMemory( destination[1], newVal);
+                newVal = bytePairToWordLE( readWord( (destination[1] << 8) | destination[2] ) ) ^ operandValue;
+                setMemory( (destination[1] << 8) | destination[2], newVal, DATA_WORD_MODE);
             }
 
             case INDIRECT_MODE ->{
@@ -2040,13 +2045,13 @@ public class CPUModule16BIT extends CPU {
             }
 
             case DIRECT_MODE ->{
-                newVal = ~(readByte( destination[1] ) & operandValue);
-                setMemory( destination[1], newVal);
+                newVal = ~(readByte( (destination[1] << 8) | destination[2] ) & operandValue);
+                setMemory( (destination[1] << 8) | destination[2], newVal, DATA_BYTE_MODE);
             }
 
             case DIRECT_WORD_MODE ->{
-                newVal = ~(bytePairToWordLE( readWord( destination[1] ) ) & operandValue);
-                setMemory( destination[1], newVal);
+                newVal = ~(bytePairToWordLE( readWord( (destination[1] << 8) | destination[2] ) ) & operandValue);
+                setMemory( (destination[1] << 8) | destination[2], newVal, DATA_WORD_MODE);
             }
 
             case INDIRECT_MODE ->{
@@ -2077,13 +2082,13 @@ public class CPUModule16BIT extends CPU {
             }
 
             case DIRECT_MODE ->{
-                newVal = ~(readByte( destination[1] ) | operandValue);
-                setMemory( destination[1], newVal);
+                newVal = ~(readByte( (destination[1] << 8) | destination[2] ) | operandValue);
+                setMemory( (destination[1] << 8) | destination[2], newVal, DATA_BYTE_MODE);
             }
 
             case DIRECT_WORD_MODE ->{
-                newVal = ~(bytePairToWordLE( readWord( destination[1] ) ) | operandValue);
-                setMemory( destination[1], newVal);
+                newVal = ~(bytePairToWordLE( readWord( (destination[1] << 8) | destination[2] ) ) | operandValue);
+                setMemory( (destination[1] << 8) | destination[2], newVal, DATA_WORD_MODE);
             }
 
             case INDIRECT_MODE ->{
@@ -2114,13 +2119,13 @@ public class CPUModule16BIT extends CPU {
             }
 
             case DIRECT_MODE ->{
-                newVal = (int) Math.pow( readByte( destination[1] ) , operandValue);
-                setMemory( destination[1], newVal);
+                newVal = (int) Math.pow( readByte( (destination[1] << 8) | destination[2] ) , operandValue);
+                setMemory( (destination[1] << 8) | destination[2], newVal, DATA_BYTE_MODE);
             }
 
             case DIRECT_WORD_MODE ->{
-                newVal = (int) Math.pow( bytePairToWordLE( readWord( destination[1] ) ), operandValue );
-                setMemory( destination[1], newVal);
+                newVal = (int) Math.pow( bytePairToWordLE( readWord( (destination[1] << 8) | destination[2] ) ), operandValue );
+                setMemory( (destination[1] << 8) | destination[2], newVal, DATA_WORD_MODE);
             }
 
             case INDIRECT_MODE ->{
@@ -2150,13 +2155,13 @@ public class CPUModule16BIT extends CPU {
             }
 
             case DIRECT_MODE -> {
-                newVal = (int) Math.sqrt( readByte( source[1] ) );
-                setMemory( source[1], newVal );
+                newVal = (int) Math.sqrt( readByte( (source[1] << 8) | source[2] ) );
+                setMemory( (source[1] << 8) | source[2], newVal , DATA_BYTE_MODE);
             }
 
             case DIRECT_WORD_MODE -> {
-                newVal = (int) Math.sqrt( bytePairToWordLE( readWord( source[1] ) ) );
-                setMemory( source[1], newVal );
+                newVal = (int) Math.sqrt( bytePairToWordLE( readWord( (source[1] << 8) | source[2] ) ) );
+                setMemory( (source[1] << 8) | source[2], newVal , DATA_WORD_MODE);
             }
 
             case INDIRECT_MODE -> {
@@ -2188,9 +2193,13 @@ public class CPUModule16BIT extends CPU {
                 setRegister( destination[1], newVal);
             }
 
-            case DIRECT_MODE, DIRECT_WORD_MODE ->{
+            case DIRECT_MODE ->{
                 newVal = (int) (Math.random() * operandValue);
-                setMemory( destination[1], newVal);
+                setMemory( (destination[1] << 8) | destination[2], newVal, DATA_BYTE_MODE);
+            }
+            case DIRECT_WORD_MODE -> {
+                newVal = (int) (Math.random() * operandValue);
+                setMemory( (destination[1] << 8) | destination[2], newVal, DATA_WORD_MODE );
             }
 
             case INDIRECT_MODE, INDIRECT_WORD_MODE ->{
@@ -2215,13 +2224,13 @@ public class CPUModule16BIT extends CPU {
             }
 
             case DIRECT_MODE -> {
-                newVal = readByte( source[1] ) + 1;
-                setMemory( source[1], newVal );
+                newVal = readByte( (source[1] << 8) | source[2] ) + 1;
+                setMemory( (source[1] << 8) | source[2], newVal , DATA_BYTE_MODE);
             }
 
             case DIRECT_WORD_MODE -> {
-                newVal = bytePairToWordLE( readWord( source[1] ) ) + 1;
-                setMemory( source[1], newVal );
+                newVal = bytePairToWordLE( readWord( (source[1] << 8) | source[2] ) ) + 1;
+                setMemory( (source[1] << 8) | source[2], newVal, DATA_WORD_MODE );
             }
 
             case INDIRECT_MODE -> {
@@ -2253,13 +2262,13 @@ public class CPUModule16BIT extends CPU {
             }
 
             case DIRECT_MODE -> {
-                newVal = readByte( source[1] ) - 1;
-                setMemory( source[1], newVal );
+                newVal = readByte( (source[1] << 8) | source[2] ) - 1;
+                setMemory( (source[1] << 8) | source[2], newVal, DATA_BYTE_MODE );
             }
 
             case DIRECT_WORD_MODE -> {
-                newVal = bytePairToWordLE( readWord( source[1] ) ) - 1;
-                setMemory( source[1], newVal );
+                newVal = bytePairToWordLE( readWord( (source[1] << 8) | source[2] ) ) - 1;
+                setMemory( (source[1] << 8) | source[2], newVal , DATA_WORD_MODE);
             }
 
             case INDIRECT_MODE -> {
@@ -2308,12 +2317,12 @@ public class CPUModule16BIT extends CPU {
             }
 
             case DIRECT_MODE -> {
-                memory[ registers[SP] ] = (short) readByte( source[1] );
+                memory[ registers[SP] ] = (short) readByte( (source[1] << 8) | source[2] );
                 registers[SP]--;
             }
 
             case DIRECT_WORD_MODE -> {
-                int[] val = readWord( source[1] );
+                int[] val = readWord( (source[1] << 8) | source[2] );
                 for (int j : val) {
                     memory[registers[SP]] = (short) j;
                     registers[SP]--;
@@ -2376,15 +2385,15 @@ public class CPUModule16BIT extends CPU {
 
             case DIRECT_MODE -> {
                 registers[SP]++;
-                memory[source[1]] = memory[registers[SP]];
+                memory[(source[1] << 8) | source[2]] = memory[registers[SP]];
                 memory[registers[SP]] = 0;
             }
 
             case DIRECT_WORD_MODE -> {
                 registers[SP]++;
                 int[] val = new int[] {memory[registers[SP]], memory[registers[SP] + 1]};
-                memory[ source[1] ] = (short) val[0];
-                memory[source[1] + 1] = (short) val[1];
+                memory[ (source[1] << 8) | source[2] ] = (short) val[0];
+                memory[((source[1] << 8) | source[2]) + 1] = (short) val[1];
 
                 memory[registers[SP] - 1] = 0;
                 memory[registers[SP]] = 0;

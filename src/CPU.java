@@ -193,8 +193,8 @@ public abstract class CPU {
     /// ////////////////////////////////////////////
     ///
     static String signature = "Made by T.K.Y";
-    static String lastUpdateDate = " 9/30/2025";
-    static String compilerVersion = " V1.2";
+    static String lastUpdateDate = " 10/4/2025";
+    static String compilerVersion = " V1.3";
 
 
     public CPU() {
@@ -279,7 +279,7 @@ public abstract class CPU {
         return translationMap;
     }
 
-   public abstract int[] toMachineCode(String instruction);
+    public abstract int[] toMachineCode(String instruction);
     public abstract int getInstructionLength(String instruction);
     public abstract int[] compileCode(String code);
     public abstract int[] compileToFileBinary(String code);

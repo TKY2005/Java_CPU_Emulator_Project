@@ -66,7 +66,6 @@ public class VirtualMachine {
 
             result.append(newLine.toString().trim()).append("\n");
         }
-        System.out.println(result);
 
         try {
             if (compileDirection == 0) cpuModule.machineCode = cpuModule.compileCode(result.toString());
