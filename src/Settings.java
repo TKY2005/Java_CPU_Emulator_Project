@@ -26,9 +26,11 @@ public class Settings extends JFrame {
     private JCheckBox allowDirectManipulationOfCheckBox;
     private JSlider UIintervalSlider;
     private JLabel UIintervalLabel;
+    private JSlider ROMPercentageSlider;
+    private JLabel ROMSizeLabel;
 
     private boolean adjustingSliders = false;
-    private int dataValue, stackValue;
+    private int romValue, dataValue, stackValue;
 
     public Settings(String title){
         super(title);
@@ -69,13 +71,22 @@ public class Settings extends JFrame {
         // Ensure initial values sum to 100
         dataValue = Integer.parseInt(settings.get("DataPercentage"));
         stackValue = Integer.parseInt(settings.get("StackPercentage"));
+        romValue = Integer.parseInt(settings.get("ROMPercentage"));
+
         //System.out.println(dataValue);
         //System.out.println(stackValue);
-        if (dataValue + stackValue != 100) {
-            System.out.println("detected faulty DATA and STACK sizes. readjusting");
-            stackValue = 100 - dataValue;
+        if (romValue + dataValue + stackValue != 100) {
+            System.out.println("Detected faulty ROM, DATA and STACK sizes. Readjusting...");
+            // Distribute the remaining percentage equally
+            int remaining = 100 - romValue;
+            dataValue = remaining / 2;
+            stackValue = remaining - dataValue;
+
+            ROMPercentageSlider.setValue(romValue);
+            DataPercentageSlider.setValue(dataValue);
             StackPercentageSlider.setValue(stackValue);
         }
+        ROMSizeLabel.setText(romValue + "%");
         OffsetSizeLabel.setText(dataValue + "%");
         StackSizeLabel.setText(stackValue + "%");
 
@@ -102,17 +113,37 @@ public class Settings extends JFrame {
             }
         });
 
+        ROMPercentageSlider.addChangeListener(e -> {
+                if (adjustingSliders) return;
+            adjustingSliders = true;
+
+            int newRomValue = ROMPercentageSlider.getValue();
+            adjustOtherSliders(newRomValue, 0); // 0 means ROM changed
+
+            adjustingSliders = false;
+        });
+
 
         DataPercentageSlider.addChangeListener(e -> {
             if (adjustingSliders) return;
             adjustingSliders = true;
-            dataValue = DataPercentageSlider.getValue();
-            stackValue = 100 - dataValue;
-            StackPercentageSlider.setValue(stackValue);
-            OffsetSizeLabel.setText(dataValue + "%");
-            StackSizeLabel.setText(StackPercentageSlider.getValue() + "%");
+
+            int newDataValue = DataPercentageSlider.getValue();
+            adjustOtherSliders(newDataValue, 1); // 1 means Data changed
+
             adjustingSliders = false;
         });
+
+        StackPercentageSlider.addChangeListener(e -> {
+            if (adjustingSliders) return;
+            adjustingSliders = true;
+
+            int newStackValue = StackPercentageSlider.getValue();
+            adjustOtherSliders(newStackValue, 2); // 2 means Stack changed
+
+            adjustingSliders = false;
+        });
+
 
 
         CycleSpeedSlider.addChangeListener(new ChangeListener() {
@@ -131,17 +162,6 @@ public class Settings extends JFrame {
         });
 
 
-        StackPercentageSlider.addChangeListener(e -> {
-            if (adjustingSliders) return;
-            adjustingSliders = true;
-            stackValue = StackPercentageSlider.getValue();
-            dataValue = 100 - stackValue;
-            DataPercentageSlider.setValue(dataValue);
-            StackSizeLabel.setText(stackValue + "%");
-            OffsetSizeLabel.setText(DataPercentageSlider.getValue() + "%");
-            adjustingSliders = false;
-        });
-
         UIintervalSlider.addChangeListener(new ChangeListener() {
             @Override
             public void stateChanged(ChangeEvent changeEvent) {
@@ -151,6 +171,84 @@ public class Settings extends JFrame {
     }
 
 
+    private void adjustOtherSliders(int changedValue, int changedSlider) {
+        int remaining = 100 - changedValue;
+
+        // Get current values of the other two sliders
+        int other1, other2;
+        if (changedSlider == 0) { // ROM changed
+            other1 = dataValue;
+            other2 = stackValue;
+        } else if (changedSlider == 1) { // Data changed
+            other1 = romValue;
+            other2 = stackValue;
+        } else { // Stack changed
+            other1 = romValue;
+            other2 = dataValue;
+        }
+
+        int totalOther = other1 + other2;
+
+        if (totalOther == 0) {
+            // If both others are 0, split remaining equally
+            other1 = remaining / 2;
+            other2 = remaining - other1;
+        } else {
+            // Distribute remaining proportionally
+            other1 = (other1 * remaining) / totalOther;
+            other2 = remaining - other1;
+
+            // Ensure no negative values and handle rounding errors
+            if (other1 < 0) other1 = 0;
+            if (other2 < 0) other2 = 0;
+
+            // Re-adjust if there's still remaining due to rounding
+            int actualTotal = other1 + other2;
+            if (actualTotal != remaining) {
+                if (changedSlider == 0) {
+                    other1 += (remaining - actualTotal);
+                } else if (changedSlider == 1) {
+                    other2 += (remaining - actualTotal);
+                } else {
+                    other1 += (remaining - actualTotal);
+                }
+            }
+        }
+
+        // Update the appropriate variables and sliders
+        if (changedSlider == 0) { // ROM changed
+            romValue = changedValue;
+            dataValue = other1;
+            stackValue = other2;
+
+            DataPercentageSlider.setValue(dataValue);
+            StackPercentageSlider.setValue(stackValue);
+            OffsetSizeLabel.setText(dataValue + "%");
+            StackSizeLabel.setText(stackValue + "%");
+        } else if (changedSlider == 1) { // Data changed
+            dataValue = changedValue;
+            romValue = other1;
+            stackValue = other2;
+
+            ROMPercentageSlider.setValue(romValue);
+            StackPercentageSlider.setValue(stackValue);
+            ROMSizeLabel.setText(romValue + "%");
+            StackSizeLabel.setText(stackValue + "%");
+        } else { // Stack changed
+            stackValue = changedValue;
+            romValue = other1;
+            dataValue = other2;
+
+            ROMPercentageSlider.setValue(romValue);
+            DataPercentageSlider.setValue(dataValue);
+            ROMSizeLabel.setText(romValue + "%");
+            OffsetSizeLabel.setText(dataValue + "%");
+        }
+
+        ROMSizeLabel.setText(romValue + "%");
+        OffsetSizeLabel.setText(dataValue + "%");
+        StackSizeLabel.setText(stackValue + "%");
+    }
 
     public static HashMap<String, String> loadSettings(){
         HashMap<String, String> settings = new HashMap<>();
@@ -179,8 +277,10 @@ public class Settings extends JFrame {
 
             printer.println("Version=" + Launcher.version);
             printer.println("MemSize=" + MemorySlider.getValue());
+            //System.out.println(romValue);
             //System.out.println(dataValue);
             //System.out.println(stackValue);
+            printer.println("ROMPercentage=" + romValue);
             printer.println("DataPercentage=" + dataValue);
             printer.println("StackPercentage=" + stackValue);
 

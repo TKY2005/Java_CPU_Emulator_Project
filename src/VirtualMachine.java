@@ -13,9 +13,12 @@ public class VirtualMachine {
     public String err_msg = "";
 
     private static HardDiskDriver diskDriver;
+    private int[] memImage;
+
+    static String logDevice = "VIRTUAL_MACHINE";
 
     public VirtualMachine(CPU cpuModule){
-        System.out.println("Starting the virtual machine with the selected CPU module.");
+        Logger.addLog("Starting the virtual machine with the selected CPU module.", logDevice, true);
         this.cpuModule = cpuModule;
         //diskDriver = new HardDiskDriver("./disk0.img");
         System.out.println("Welcome");
@@ -68,13 +71,10 @@ public class VirtualMachine {
         }
 
         try {
-            if (compileDirection == 0) cpuModule.machineCode = cpuModule.compileCode(result.toString());
-            else if (compileDirection == 1) cpuModule.machineCode = cpuModule.compileToFileBinary(result.toString());
+            //if (compileDirection == 0) cpuModule.machineCode = cpuModule.compileCode(result.toString());
+            //else if (compileDirection == 1) cpuModule.machineCode = cpuModule.compileToFileBinary(result.toString());
+            loadImageToMemory(result);
 
-            /*for(Map.Entry<Integer, Integer> entry : cpuModule.lineMap.entrySet()){
-                System.out.printf("Line %d is mapped to address 0x%X decoded as : %s\n",
-                        entry.getValue(), entry.getKey(), cpuModule.instructionSet.get(cpuModule.machineCode[entry.getKey()]));
-            }*/
             ui = UIMode;
         }catch (RuntimeException e) {
             try {
@@ -96,10 +96,21 @@ public class VirtualMachine {
         readyToExecute = true;
     }
 
+    private void loadImageToMemory(StringBuilder result) {
+        memImage = cpuModule.compileToMemoryImage(result.toString());
+        for(int i = 0; i < MemoryModule.memory.length; i++) MemoryModule.memory[i] = (short) (memImage[i] & 0xff);
+    }
+    public void loadImageToMemory(int[] memImage){
+        for(int i = 0; i < MemoryModule.memory.length; i++) MemoryModule.memory[i] = (short) (memImage[i] & 0xff);
+    }
+    public void setMemImage(int[] machineCode){
+        memImage = machineCode;
+    }
+
     public void executeCode(){
         try {
             diskDriver = new HardDiskDriver("./disk0.img");
-            cpuModule.executeCompiledCode(cpuModule.machineCode);
+            cpuModule.executeCompiledCode(memImage);
             System.out.println(cpuModule.output);
             diskDriver.closeDrive();
         } catch (Exception e){
@@ -135,12 +146,12 @@ public class VirtualMachine {
 
             case CPU.INT_INPUT_STR -> {
 
-                Logger.addLog("Calling interrupt for input string");
+                Logger.addLog("Calling interrupt for input string", logDevice);
                 String input_message = getInputMessage(registers, memory);
                 //System.out.println("Message is : " + input_message);
                 String input = "";
-                if (ui){ // temporary
-                  //  System.out.println("Showing message for ui input");
+                if (ui){
+                    Logger.addLog("Showing message for ui input", logDevice);
                     input = JOptionPane.showInputDialog(null, input_message,
                             "Input", JOptionPane.INFORMATION_MESSAGE);
 
@@ -158,7 +169,7 @@ public class VirtualMachine {
                 }
 
 
-                int write_address = registers[11]; // write_pointer_register : DI
+                int write_address = MemoryModule.data_start - MemoryModule.file_offset + registers[11]; // write_pointer_register : DI
 
                 int index = 0;
 
@@ -173,13 +184,13 @@ public class VirtualMachine {
             }
 
             case CPU.INT_INPUT_NUM -> {
-                Logger.addLog("Calling interrupt for numeric input");
+                Logger.addLog("Calling interrupt for numeric input", logDevice);
                 String input_message = getInputMessage(registers, memory);
 
                 short input;
 
                 if (ui){
-                    Logger.addLog("Showing ui input prompt");
+                    Logger.addLog("Showing ui input prompt", logDevice);
                     input = Short.parseShort(JOptionPane.showInputDialog(null, input_message, "Numeric input : ",
                             JOptionPane.INFORMATION_MESSAGE));
                 }else{
@@ -199,7 +210,7 @@ public class VirtualMachine {
             }
 
             case CPU.INT_DEBUG -> {
-                Logger.addLog("Calling debug interrupt.");
+                Logger.addLog("Calling debug interrupt.", logDevice);
                 System.out.println(cpuModule.dumpRegisters());
                 Scanner s = new Scanner(System.in);
 
@@ -218,7 +229,7 @@ public class VirtualMachine {
                                     x[1].substring(0, x[1].length() - 1), 16
                             );
                             else address = Integer.parseInt(x[1]);
-                            System.out.println(cpuModule.dumpMemoryDebug(address));
+                            System.out.println(cpuModule.memoryController.dumpMemoryDebug(address));
                         }
                         else if (x[0].equals("ds")){
 
@@ -238,9 +249,9 @@ public class VirtualMachine {
             }
 
             case CPU.INT_STRING_CONCAT -> {
-                int string1_address = registers[11]; // first string address: DI
-                int string2_address = registers[10]; // second string address: DP
-                int copy_address = registers[8]; // result will be copied to address: SS
+                int string1_address = MemoryModule.data_start - MemoryModule.file_offset + registers[11]; // first string address: DI
+                int string2_address = MemoryModule.data_start - MemoryModule.file_offset + registers[10]; // second string address: DP
+                int copy_address = MemoryModule.data_start - MemoryModule.file_offset + registers[8]; // result will be copied to address: SS
                 String concat = "";
                 for(int i = string1_address; memory[i] != CPU.ARRAY_TERMINATOR; i++){
                     //System.out.println("Concatenating: 0x" + Integer.toHexString(i) + " => " + (char) memory[i]);
@@ -259,8 +270,8 @@ public class VirtualMachine {
             }
 
             case CPU.INT_STR_CPY -> {
-                int strAddr = registers[8]; // original string address at : SS
-                int strDest = registers[9]; // copy destination address at : SE
+                int strAddr = MemoryModule.data_start - MemoryModule.file_offset + registers[8]; // original string address at : SS
+                int strDest = MemoryModule.data_start - MemoryModule.file_offset + registers[9]; // copy destination address at : SE
 
                 for(int i = strAddr; memory[i] != CPU.ARRAY_TERMINATOR; i++){
                     int destination = strDest + (i - strAddr);
@@ -270,8 +281,8 @@ public class VirtualMachine {
             }
 
             case CPU.INT_MEM_CPY -> {
-                int startAddress = registers[11]; // start address at: DI
-                int destinationAddress = registers[10]; // destination address at: DP
+                int startAddress = MemoryModule.data_start - MemoryModule.file_offset + registers[11]; // start address at: DI
+                int destinationAddress = MemoryModule.data_start - MemoryModule.file_offset + registers[10]; // destination address at: DP
                 int numBytes = registers[3]; // number of bytes to copy at: RD
 
                 for(int i = startAddress; i < startAddress + numBytes; i++){
@@ -281,8 +292,8 @@ public class VirtualMachine {
 
             case CPU.INT_FILE -> {
 
-                int read_write_addr = registers[11]; // the address where the file will be loaded / fetched : DI
-                int file_path_addr = registers[8]; // the address of the file path : SS
+                int read_write_addr = MemoryModule.data_start - MemoryModule.file_offset + registers[11]; // the address where the file will be loaded / fetched : DI
+                int file_path_addr = MemoryModule.data_start - MemoryModule.file_offset + registers[8]; // the address of the file path : SS
 
                 int operation = registers[1]; // the operation to perform : RB
 
@@ -351,7 +362,7 @@ public class VirtualMachine {
 
             default -> validInterrupt = false;
         }
-        Logger.addLog("done. returning to original program.");
+        Logger.addLog("done. returning to original program.", logDevice);
         return validInterrupt;
     }
 
@@ -366,12 +377,12 @@ public class VirtualMachine {
                 int mode = registers[0]; // store mode register: AL
                 if (mode != CPU.DATA_BYTE_MODE && mode != CPU.DATA_WORD_MODE) mode = CPU.DATA_BYTE_MODE;
 
-                Logger.addLog("Calling interrupt for input string");
+                Logger.addLog("Calling interrupt for input string", logDevice);
                 String input_message = getInputMessage(registers, memory);
 
                 String input = "";
                 if (ui){
-                    Logger.addLog("Showing message for ui input");
+                    Logger.addLog("Showing message for ui input", logDevice);
                     input = JOptionPane.showInputDialog(null, input_message,
                             "Input", JOptionPane.INFORMATION_MESSAGE);
 
@@ -389,7 +400,7 @@ public class VirtualMachine {
                 }
 
 
-                int write_address = registers[22]; // write position register: DI
+                int write_address = registers[22] + MemoryModule.data_start - MemoryModule.file_offset; // write position register: data_start:DI
 
                 int index = 0;
 
@@ -403,7 +414,7 @@ public class VirtualMachine {
                     for(int i = write_address; i < write_address + input.length() * 2; i += 2){
                         short low = (short) (input.charAt(index) & 0xff);
                         short high = (short) ((input.charAt(index) >> 8) & 0xff);
-                        //System.out.printf("processing word char %c -> low: 0x%X, high 0x%X\n", input.charAt(index), low, high);
+
                         memory[i + 1] = high;
                         memory[i] = low;
                         index++;
@@ -421,13 +432,13 @@ public class VirtualMachine {
             }
 
             case CPU.INT_INPUT_NUM -> {
-                Logger.addLog("Calling interrupt for numeric input");
+                Logger.addLog("Calling interrupt for numeric input", logDevice);
                 String input_message = getInputMessage(registers, memory);
 
                 int input;
 
                 if (ui){
-                    Logger.addLog("Showing ui input prompt");
+                    Logger.addLog("Showing ui input prompt", logDevice);
                     input = Short.parseShort(JOptionPane.showInputDialog(null, input_message, "Numeric input : ",
                             JOptionPane.INFORMATION_MESSAGE));
                 }else{
@@ -450,7 +461,7 @@ public class VirtualMachine {
             }
 
             case CPU.INT_DEBUG -> {
-                Logger.addLog("Calling debug interrupt.");
+                Logger.addLog("Calling debug interrupt.", logDevice);
                 System.out.println(cpuModule.dumpRegisters());
                 Scanner s = new Scanner(System.in);
 
@@ -469,7 +480,7 @@ public class VirtualMachine {
                                     x[1].substring(0, x[1].length() - 1), 16
                             );
                             else address = Integer.parseInt(x[1]);
-                            System.out.println(cpuModule.dumpMemoryDebug(address));
+                            System.out.println(cpuModule.memoryController.dumpMemoryDebug(address));
 
                         } else if (x[0].equals("g")) debugPause = false;
 
@@ -490,9 +501,9 @@ public class VirtualMachine {
             }
 
             case CPU.INT_STRING_CONCAT -> {
-                int string1_address = registers[22]; // first string address: DI
-                int string2_address = registers[23]; // second string address: DP
-                int copy_address = registers[20]; // result will be copied to address: SS
+                int string1_address = registers[22] + MemoryModule.data_start - MemoryModule.file_offset; // first string address: DI
+                int string2_address = registers[23] + MemoryModule.data_start - MemoryModule.file_offset; // second string address: DP
+                int copy_address = registers[20] + MemoryModule.data_start - MemoryModule.file_offset; // result will be copied to address: SS
                 String concat = "";
                 for(int i = string1_address; memory[i] != CPU.ARRAY_TERMINATOR; i++){
                     //System.out.println("Concatenating: 0x" + Integer.toHexString(i) + " => " + (char) memory[i]);
@@ -511,8 +522,8 @@ public class VirtualMachine {
             }
 
             case CPU.INT_STR_CPY -> {
-                int strAddr = registers[20]; // original string address at : SS
-                int strDest = registers[21]; // copy destination address at : SE
+                int strAddr = registers[20] + MemoryModule.data_start - MemoryModule.file_offset; // original string address at : SS
+                int strDest = registers[21] + MemoryModule.data_start - MemoryModule.file_offset; // copy destination address at : SE
 
                 for(int i = strAddr; memory[i] != CPU.ARRAY_TERMINATOR; i++){
                     int destination = strDest + (i - strAddr);
@@ -522,8 +533,8 @@ public class VirtualMachine {
             }
 
             case CPU.INT_MEM_CPY -> {
-                int startAddress = registers[22]; // start address at: DI
-                int destinationAddress = registers[23]; // destination address at: DP
+                int startAddress = registers[22] + MemoryModule.data_start - MemoryModule.file_offset; // start address at: DI
+                int destinationAddress = registers[23] + MemoryModule.data_start - MemoryModule.file_offset; // destination address at: DP
                 int numBytes = registers[15]; // number of bytes to copy at: DX
 
                 for(int i = startAddress; i < startAddress + numBytes; i++){
@@ -533,8 +544,8 @@ public class VirtualMachine {
 
             case CPU.INT_FILE -> {
 
-                int read_write_addr = registers[22]; // the address where the file will be loaded / fetched : DI
-                int file_path_addr = registers[20]; // the address of the file path : SS
+                int read_write_addr = registers[22] + MemoryModule.data_start - MemoryModule.file_offset; // the address where the file will be loaded / fetched : DI
+                int file_path_addr = registers[20] + MemoryModule.data_start - MemoryModule.file_offset; // the address of the file path : SS
 
                 int operation = registers[0]; // the operation to perform : AL
 
@@ -603,7 +614,7 @@ public class VirtualMachine {
 
             default -> validInterrupt = false;
         }
-        Logger.addLog("done. returning to original program.");
+        Logger.addLog("done. returning to original program.", logDevice);
         return validInterrupt;
     }
 
@@ -615,7 +626,7 @@ public class VirtualMachine {
 
     // Get string prompt for 8-bit module
     private static String getInputMessage(short[] registers, short[] memory) {
-        int input_message_pointer = registers[8]; // string message stored at : SS
+        int input_message_pointer = registers[8] + MemoryModule.data_start; // string message stored at : SS
         String input_message = "";
         if (memory[input_message_pointer] != CPU.ARRAY_TERMINATOR) {
 
@@ -630,7 +641,7 @@ public class VirtualMachine {
 
     // Get string prompt for 16-bit module
     private static String getInputMessage(int[] registers, short[] memory) {
-        int input_message_pointer = registers[20]; // string message stored at : SS
+        int input_message_pointer = registers[20] + MemoryModule.data_start; // string message stored at : SS
         String input_message = "";
         if (memory[input_message_pointer] != CPU.ARRAY_TERMINATOR) {
             //System.out.println("Message stored at : 0x" + Integer.toHexString(input_message_pointer));

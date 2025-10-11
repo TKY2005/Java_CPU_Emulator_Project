@@ -7,18 +7,19 @@ import java.util.HashMap;
 /*
     Java simple CPU emulator
     T.K.Y
-    last updated: October 3 2025
+    last updated: October 11 2025
  */
 
 public class Launcher{
     static String configFilePath = "./myEmulator.conf";
-    static String version = "3.4";
+    static String version = "3.6";
     static HashMap<String, String> appConfig;
     static String configDefaultTemplate = String.format("""
             Version=%s
             MemSize=8
-            DataPercentage=65
-            StackPercentage=35
+            ROMPercentage=35
+            DataPercentage=55
+            StackPercentage=10
             Architecture=16
             WriteDump=false
             Cycles=200

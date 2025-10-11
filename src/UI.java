@@ -199,7 +199,7 @@ public class UI extends JFrame implements onStepListener {
         SwingUtilities.invokeLater( () -> {
 
             RegisterDumpArea.setText(cpuModule.dumpRegisters() + "\n\n" + cpuModule.dumpFlags());
-            MemoryDumpArea.setText(cpuModule.dumpMemory());
+            MemoryDumpArea.setText(cpuModule.memoryController.dumpMemory());
             OutputDumpArea.setText(cpuModule.outputString.toString());
             if (cpuModule.getPC() != null && cpuModule.lineMap.get(cpuModule.getPC()) != null)
                 lineNumbers.moveCaretToLine(cpuModule.lineMap.get(cpuModule.getPC()));

@@ -37,33 +37,30 @@ public class CPUModule8BIT extends CPU {
 
     public CPUModule8BIT() {
         super();
-        Logger.source = debugSource;
+        logDevice = debugSource;
 
         bit_length = 8;
 
         System.out.println("Starting 8 bit cpu module.");
 
-        calculateMemorySegments();
+        memoryController = new MemoryModule(memoryController.memorySizeKB, this);
 
-        memory = new short[mem_size_B];
-
-        if (stack_start < 0){
-            String errMsg = "Invalid memory layout (stack). " + stack_start;
+        if (memoryController.stack_start < 0){
+            String errMsg = "Invalid memoryController.memory layout (stack). " + memoryController.stack_start;
             triggerProgramError(
                     errMsg, ErrorHandler.ERR_CODE_INVALID_MEMORY_LAYOUT);
 
         }
-        if (data_start < 0){
-            String errMsg = "Invalid memory layout (data). " + data_start;
+        if (memoryController.data_start < 0){
+            String errMsg = "Invalid memoryController.memory layout (data). " + memoryController.data_start;
             triggerProgramError(
                     errMsg, ErrorHandler.ERR_CODE_INVALID_MEMORY_LAYOUT);
         }
 
-        System.out.println(memInitMsg);
-        Logger.addLog(memInitMsg);
+        Logger.addLog(memInitMsg, logDevice, true);
 
-        System.out.printf("CPU speed set to %s Cycles per second. With a step delay of %sMS\n",
-                Launcher.appConfig.get("Cycles"), delayAmountMilliseconds);
+        Logger.addLog(String.format("CPU speed set to %s Cycles per second. With a step delay of %sMS\n",
+                Launcher.appConfig.get("Cycles"), delayAmountMilliseconds), logDevice, true);
 
         reset();
     }
@@ -115,7 +112,7 @@ public class CPUModule8BIT extends CPU {
         if (machineCode[i] >= INS_CALL && machineCode[i] <= INS_JB || machineCode[i] == INS_LOOP) {
             if (machineCode[i + 1] == FUNCTION_MODE) {
                 int high = machineCode[i + 2], low = machineCode[i + 3];
-                int address = bytePairToWordLE(low, high);
+                int address = memoryController.bytePairToWordLE(low, high);
                 functionCollector.add(address);
             }
         }
@@ -123,7 +120,7 @@ public class CPUModule8BIT extends CPU {
         if (machineCode[i] == INS_LA || machineCode[i] == INS_LLEN || machineCode[i] == INS_LENW){
                 if (machineCode[i + 3] == DATA_MODE) {
                     int high = machineCode[i + 4], low = machineCode[i + 5];
-                    int address = bytePairToWordLE(low, high);
+                    int address = memoryController.bytePairToWordLE(low, high);
                     dataCollector.add(address);
                 }
         }
@@ -349,7 +346,7 @@ public class CPUModule8BIT extends CPU {
 
     outputString.append("Program terminated with code : ").append(status_code);
     output = "Program terminated with code : " + status_code;
-    Logger.addLog("Program terminated with code : " + status_code);
+    Logger.addLog("Program terminated with code : " + status_code, logDevice);
 
     Logger.addLog(String.format("""
                 ==============================================
@@ -358,7 +355,7 @@ public class CPUModule8BIT extends CPU {
                 ==============================================
                 %s
                 ==============================================
-                """, dumpRegisters(), dumpFlags(), dumpMemory()));
+                """, dumpRegisters(), dumpFlags(), memoryController.dumpMemory()), logDevice);
 
 
     if (Launcher.appConfig.get("WriteDump").equals("true")) {
@@ -372,14 +369,14 @@ public class CPUModule8BIT extends CPU {
     }
 
     @Override
-    public int[] compileToFileBinary(String code){
+    public int[] compileToMemoryImage(String code){
         String[] lines = code.split("\n");
         List<Integer> machineCodeList = new ArrayList<>();
 
         StringBuilder machineCodeString = new StringBuilder();
 
-        if (mem_size_B > 0xffff) {
-            String err = "This Maximum amount of addressable memory for this architecture is 64KB";
+        if (memoryController.mem_size_B > 0xffff) {
+            String err = "This Maximum amount of addressable memoryController.memory for this architecture is 64KB";
             triggerProgramError(err, ErrorHandler.ERR_CODE_INVALID_MEMORY_LAYOUT);
         }
 
@@ -397,8 +394,8 @@ public class CPUModule8BIT extends CPU {
              while (!lines[i].equalsIgnoreCase("end")) {
 
                  String[] x = lines[i].trim().split(" ");
-                 int dataStart = dataOffset;
-                 if (x[0].equals("org")) dataOffset = Integer.parseInt(x[1].substring(1)) - offset;
+                 int dataStart = memoryController.dataOffset;
+                 if (x[0].equals("org")) memoryController.dataOffset = Integer.parseInt(x[1].substring(1)) - offset;
 
                  else {
                      dataMap.put(x[0], dataStart + offset);
@@ -419,23 +416,23 @@ public class CPUModule8BIT extends CPU {
                             }
 
                          for (int j = 0; j < fullString.length(); j++) {
-                             System.out.printf("Setting memory location 0x%X(%d) to char %c\n",
+                             System.out.printf("Setting memoryController.memory location 0x%X(%d) to char %c\n",
                                      dataStart + offset, dataStart + offset, fullString.charAt(j));
-                             setMemory(dataStart + offset, (short) fullString.charAt(j));
+                             memoryController.setMemory(dataStart + offset, (short) fullString.charAt(j));
                              offset++;
                          }
-                         setMemory(dataStart + offset, ARRAY_TERMINATOR);
+                         memoryController.setMemory(dataStart + offset, ARRAY_TERMINATOR);
                          offset++;
                      } else {
                          for (int j = 1; j < x.length; j++) {
-                             System.out.printf("Setting memory location 0x%X(%d) to value 0x%X(%d)\n",
+                             System.out.printf("Setting memoryController.memory location 0x%X(%d) to value 0x%X(%d)\n",
                                      dataStart + offset, dataStart + offset,
                                      Integer.parseInt(x[j].substring(1)), Integer.parseInt(x[j].substring(1)));
 
-                             setMemory(dataStart + offset, (short) Integer.parseInt(x[j].substring(1)));
+                             memoryController.setMemory(dataStart + offset, (short) Integer.parseInt(x[j].substring(1)));
                              offset++;
                          }
-                         setMemory(dataStart + offset, ARRAY_TERMINATOR);
+                         memoryController.setMemory(dataStart + offset, ARRAY_TERMINATOR);
                          offset++;
                      }
                  }
@@ -485,8 +482,8 @@ public class CPUModule8BIT extends CPU {
 
         machineCodeList.add( (int) TEXT_SECTION_END );
 
-        for(int i = 0; i < memory.length; i++){ // The DATA and STACK sections
-            machineCodeList.add((int) memory[i]);
+        for(int i = 0; i < memoryController.memory.length; i++){ // The DATA and STACK sections
+            machineCodeList.add((int) memoryController.memory[i]);
         }
         machineCodeList.add((int) MEMORY_SECTION_END);
 
@@ -500,7 +497,7 @@ public class CPUModule8BIT extends CPU {
         for(int i = 0; i < compilerVersion.length(); i++)
             machineCodeList.add((int) compilerVersion.charAt(i));
 
-        machineCodeList.add( (int)  (memorySizeKB + 1) ); // The memory size in KB
+        machineCodeList.add( (int)  (memoryController.memorySizeKB + 1) ); // The memoryController.memory size in KB
         machineCodeList.add( bit_length ); // the CPU architecture flag
 
         // Add the program's entry point.
@@ -527,9 +524,10 @@ public class CPUModule8BIT extends CPU {
         registers = new short[REGISTER_COUNT + 6];
         registerNames = new String[registers.length];
         bit_length = 8;
-        memory = new short[mem_size_B];
 
-        dataOffset = dataOrigin;
+        memoryController.resetMemory();
+
+        memoryController.dataOffset = memoryController.dataOrigin;
         currentLine = 1;
         currentByte = 0;
         status_code = 0;
@@ -560,8 +558,8 @@ public class CPUModule8BIT extends CPU {
             System.out.printf("%s => 0x%X\n", registerNames[i], i);
         }*/
 
-        registers[SP] = (short) stack_end;
-        registers[DP] = (short) dataOrigin;
+        registers[SP] = (short) memoryController.stack_start;
+        registers[DP] = (short) memoryController.dataOrigin;
         registers[PC] = 0;
 
         Z = false;
@@ -586,8 +584,8 @@ public class CPUModule8BIT extends CPU {
         registers[PC] = (short) (int) mainEntryPoint;
         I = true;
 
-        if (mem_size_B > 0xffff) {
-            String err = "This Maximum amount of addressable memory for this architecture is 64KB";
+        if (memoryController.mem_size_B > 0xffff) {
+            String err = "This Maximum amount of addressable memoryController.memory for this architecture is 64KB";
             triggerProgramError(err, ErrorHandler.ERR_CODE_INVALID_MEMORY_LAYOUT);
         }
 
@@ -736,27 +734,27 @@ public class CPUModule8BIT extends CPU {
                         int high = machineCode[step()];
                         int start = (low << 8) | high;
                         short len = 0;
-                        while (getMemory(start) != ARRAY_TERMINATOR) {
+                        while (memoryController.getMemory((short) start) != ARRAY_TERMINATOR) {
                             start++;
                             len++;
                         }
 
                         switch (destination[0]) {
                             case REGISTER_MODE -> setRegister(destination[1], len);
-                            case DIRECT_MODE -> setMemory(destination[1], len);
-                            case INDIRECT_MODE -> setMemory(getRegister(destination[1]), len);
+                            case DIRECT_MODE -> memoryController.setMemory(destination[1], len);
+                            case INDIRECT_MODE -> memoryController.setMemory(getRegister(destination[1]), len);
                             default -> E = true;
                         }
                     }
 
                     case INS_OUTS -> {
                         int start = registers[SS];
-                        while (getMemory(start) != ARRAY_TERMINATOR) {
-                            outputString.append((char) getMemory(start));
-                            output += (char) getMemory(start);
+                        while (memoryController.getMemory((short) start) != ARRAY_TERMINATOR) {
+                            outputString.append((char) memoryController.getMemory((short) start));
+                            output += (char) memoryController.getMemory((short) start);
                             try {
                                 Thread.sleep(delayAmountMilliseconds);
-                                System.out.print((char)getMemory( start ));
+                                System.out.print((char)memoryController.getMemory((short) start));
                             } catch (InterruptedException e) {
                                 throw new RuntimeException(e);
                             }
@@ -890,7 +888,7 @@ public class CPUModule8BIT extends CPU {
 
                     case INS_INT -> {
                         if (I) {
-                            boolean x = VirtualMachine.interruptHandler(registers, memory);
+                            boolean x = VirtualMachine.interruptHandler(registers, memoryController.memory);
                             if (!x) E = true;
                         } else System.out.println("Interrupt flag not set. skipping.");
                     }
@@ -959,8 +957,8 @@ public class CPUModule8BIT extends CPU {
         short operandValue;
         operandValue = switch (value[0]){
             case REGISTER_MODE -> getRegister( value[1] );
-            case DIRECT_MODE -> getMemory( value[1] );
-            case INDIRECT_MODE -> getMemory( getRegister( value[1] ) );
+            case DIRECT_MODE -> memoryController.getMemory( value[1] );
+            case INDIRECT_MODE -> memoryController.getMemory( getRegister( value[1] ) );
             case IMMEDIATE_MODE -> value[1];
 
             default -> 256;
@@ -970,8 +968,8 @@ public class CPUModule8BIT extends CPU {
 
         switch (destination[0]){
             case REGISTER_MODE -> setRegister( destination[1], operandValue );
-            case DIRECT_MODE -> setMemory( destination[1], operandValue );
-            case INDIRECT_MODE -> setMemory( getRegister( destination[1] ), operandValue );
+            case DIRECT_MODE -> memoryController.setMemory( destination[1], operandValue );
+            case INDIRECT_MODE -> memoryController.setMemory( getRegister( destination[1] ), operandValue );
 
             default -> triggerProgramError(
                     "Invalid instruction prefix", ErrorHandler.ERR_CODE_INVALID_PREFIX);
@@ -987,10 +985,10 @@ public class CPUModule8BIT extends CPU {
                 output = String.valueOf(registers[destination[1]]);
             }
             case DIRECT_MODE ->{
-                output = String.valueOf(memory[destination[1]]);
+                output = String.valueOf(memoryController.memory[destination[1]]);
             }
             case INDIRECT_MODE ->{
-                output = String.valueOf(memory[registers[destination[1]]]);
+                output = String.valueOf(memoryController.memory[registers[destination[1]]]);
             }
             case IMMEDIATE_MODE ->{
                 output = String.valueOf(destination[1]);
@@ -1015,8 +1013,8 @@ public class CPUModule8BIT extends CPU {
     public void outc(short[] source){
         switch(source[0]) {
             case REGISTER_MODE -> output = String.valueOf((char) registers[source[1]]);
-            case DIRECT_MODE -> output = String.valueOf((char) memory[source[1]]);
-            case INDIRECT_MODE -> output = String.valueOf((char) memory[registers[source[1]]]);
+            case DIRECT_MODE -> output = String.valueOf((char) memoryController.memory[source[1]]);
+            case INDIRECT_MODE -> output = String.valueOf((char) memoryController.memory[registers[source[1]]]);
             case IMMEDIATE_MODE -> output = String.valueOf((char) source[1]);
         }
 
@@ -1037,8 +1035,8 @@ public class CPUModule8BIT extends CPU {
         short value = 0;
         short operandValue = switch (source[0]){
             case REGISTER_MODE -> getRegister(source[1]);
-            case DIRECT_MODE -> getMemory(source[1]);
-            case INDIRECT_MODE -> getMemory(getRegister(source[1]));
+            case DIRECT_MODE -> memoryController.getMemory(source[1]);
+            case INDIRECT_MODE -> memoryController.getMemory(getRegister(source[1]));
             case IMMEDIATE_MODE -> source[1];
 
             default -> 256;
@@ -1052,13 +1050,13 @@ public class CPUModule8BIT extends CPU {
             }
 
             case DIRECT_MODE -> {
-                value = (short) (getMemory( destination[1] ) << operandValue);
-                setMemory( destination[1], value );
+                value = (short) (memoryController.getMemory( destination[1] ) << operandValue);
+                memoryController.setMemory( destination[1], value );
             }
 
             case INDIRECT_MODE -> {
-                value = (short) (getMemory( getRegister( destination[1]) ) << operandValue);
-                setMemory( getRegister( destination[1] ), value );
+                value = (short) (memoryController.getMemory( getRegister( destination[1]) ) << operandValue);
+                memoryController.setMemory( getRegister( destination[1] ), value );
             }
             default -> E = true;
         }
@@ -1069,8 +1067,8 @@ public class CPUModule8BIT extends CPU {
         short value = 0;
         short operandValue = switch (source[0]){
             case REGISTER_MODE -> getRegister(source[1]);
-            case DIRECT_MODE -> getMemory(source[1]);
-            case INDIRECT_MODE -> getMemory(getRegister(source[1]));
+            case DIRECT_MODE -> memoryController.getMemory(source[1]);
+            case INDIRECT_MODE -> memoryController.getMemory(getRegister(source[1]));
             case IMMEDIATE_MODE -> source[1];
 
             default -> 256;
@@ -1084,13 +1082,13 @@ public class CPUModule8BIT extends CPU {
             }
 
             case DIRECT_MODE -> {
-                value = (short) (getMemory( destination[1] ) >> operandValue);
-                setMemory( destination[1], value );
+                value = (short) (memoryController.getMemory( destination[1] ) >> operandValue);
+                memoryController.setMemory( destination[1], value );
             }
 
             case INDIRECT_MODE -> {
-                value = (short) (getMemory( getRegister( destination[1]) ) >> operandValue);
-                setMemory( getRegister( destination[1] ), value );
+                value = (short) (memoryController.getMemory( getRegister( destination[1]) ) >> operandValue);
+                memoryController.setMemory( getRegister( destination[1] ), value );
             }
 
             default -> E = true;
@@ -1104,8 +1102,8 @@ public class CPUModule8BIT extends CPU {
         short operandValue = switch ( source[0] ){
 
             case REGISTER_MODE -> getRegister( source[1] );
-            case DIRECT_MODE -> getMemory( source[1] );
-            case INDIRECT_MODE -> getMemory( getRegister( source[1] ) );
+            case DIRECT_MODE -> memoryController.getMemory( source[1] );
+            case INDIRECT_MODE -> memoryController.getMemory( getRegister( source[1] ) );
             case IMMEDIATE_MODE -> source[1];
 
             default -> 256;
@@ -1120,12 +1118,12 @@ public class CPUModule8BIT extends CPU {
                 setRegister( destination[1] , newVal);
             }
             case DIRECT_MODE -> {
-                newVal = (short) ( operandValue + getMemory( destination[1] ) );
-                setMemory( destination[1], newVal );
+                newVal = (short) ( operandValue + memoryController.getMemory( destination[1] ) );
+                memoryController.setMemory( destination[1], newVal );
             }
             case INDIRECT_MODE -> {
-                newVal = (short) ( operandValue + getMemory( getRegister( destination[1] ) ) );
-                setMemory( getRegister( destination[1] ), newVal );
+                newVal = (short) ( operandValue + memoryController.getMemory( getRegister( destination[1] ) ) );
+                memoryController.setMemory( getRegister( destination[1] ), newVal );
             }
         }
         updateFlags(newVal);
@@ -1138,8 +1136,8 @@ public class CPUModule8BIT extends CPU {
         short operandValue = switch ( source[0] ){
 
             case REGISTER_MODE -> getRegister( source[1] );
-            case DIRECT_MODE -> getMemory( source[1] );
-            case INDIRECT_MODE -> getMemory( getRegister( source[1] ) );
+            case DIRECT_MODE -> memoryController.getMemory( source[1] );
+            case INDIRECT_MODE -> memoryController.getMemory( getRegister( source[1] ) );
             case IMMEDIATE_MODE -> source[1];
 
             default -> 256;
@@ -1154,12 +1152,12 @@ public class CPUModule8BIT extends CPU {
                 setRegister( destination[1] , newVal);
             }
             case DIRECT_MODE -> {
-                newVal = (short) ( getMemory( destination[1] ) - operandValue);
-                setMemory( destination[1], newVal );
+                newVal = (short) ( memoryController.getMemory( destination[1] ) - operandValue);
+                memoryController.setMemory( destination[1], newVal );
             }
             case INDIRECT_MODE -> {
-                newVal = (short) ( getMemory( getRegister( destination[1] ) ) - operandValue );
-                setMemory( getRegister( destination[1] ), newVal );
+                newVal = (short) ( memoryController.getMemory( getRegister( destination[1] ) ) - operandValue );
+                memoryController.setMemory( getRegister( destination[1] ), newVal );
             }
         }
         byte flagSetter = (byte) newVal;
@@ -1174,8 +1172,8 @@ public class CPUModule8BIT extends CPU {
         short operandValue = switch ( source[0] ){
 
             case REGISTER_MODE -> getRegister( source[1] );
-            case DIRECT_MODE -> getMemory( source[1] );
-            case INDIRECT_MODE -> getMemory( getRegister( source[1] ) );
+            case DIRECT_MODE -> memoryController.getMemory( source[1] );
+            case INDIRECT_MODE -> memoryController.getMemory( getRegister( source[1] ) );
             case IMMEDIATE_MODE -> source[1];
 
             default -> 256;
@@ -1190,12 +1188,12 @@ public class CPUModule8BIT extends CPU {
                 setRegister( destination[1] , newVal);
             }
             case DIRECT_MODE -> {
-                newVal = (short) ( operandValue * getMemory( destination[1] ) );
-                setMemory( destination[1], newVal );
+                newVal = (short) ( operandValue * memoryController.getMemory( destination[1] ) );
+                memoryController.setMemory( destination[1], newVal );
             }
             case INDIRECT_MODE -> {
-                newVal = (short) ( operandValue * getMemory( getRegister( destination[1] ) ) );
-                setMemory( getRegister( destination[1] ), newVal );
+                newVal = (short) ( operandValue * memoryController.getMemory( getRegister( destination[1] ) ) );
+                memoryController.setMemory( getRegister( destination[1] ), newVal );
             }
         }
         byte flagSetter = (byte) newVal;
@@ -1210,8 +1208,8 @@ public class CPUModule8BIT extends CPU {
         short operandValue = switch ( source[0] ){
 
             case REGISTER_MODE -> getRegister( source[1] );
-            case DIRECT_MODE -> getMemory( source[1] );
-            case INDIRECT_MODE -> getMemory( getRegister( source[1] ) );
+            case DIRECT_MODE -> memoryController.getMemory( source[1] );
+            case INDIRECT_MODE -> memoryController.getMemory( getRegister( source[1] ) );
             case IMMEDIATE_MODE -> source[1];
 
             default -> 256;
@@ -1226,12 +1224,12 @@ public class CPUModule8BIT extends CPU {
                 setRegister( destination[1] , newVal);
             }
             case DIRECT_MODE -> {
-                newVal = (short) ( operandValue / getMemory( destination[1] ) );
-                setMemory( destination[1], newVal );
+                newVal = (short) ( operandValue / memoryController.getMemory( destination[1] ) );
+                memoryController.setMemory( destination[1], newVal );
             }
             case INDIRECT_MODE -> {
-                newVal = (short) ( operandValue / getMemory( getRegister( destination[1] ) ) );
-                setMemory( getRegister( destination[1] ), newVal );
+                newVal = (short) ( operandValue / memoryController.getMemory( getRegister( destination[1] ) ) );
+                memoryController.setMemory( getRegister( destination[1] ), newVal );
             }
         }
         byte flagSetter = (byte) newVal;
@@ -1248,11 +1246,11 @@ public class CPUModule8BIT extends CPU {
                 setRegister(source[1], (short) ~getRegister(source[1])); newVal = getRegister(source[1]);
             }
             case DIRECT_MODE -> {
-                setMemory(source[1], (short) ~getMemory(source[1])); newVal = getMemory(source[1]);
+                memoryController.setMemory(source[1], (short) ~memoryController.getMemory(source[1])); newVal = memoryController.getMemory(source[1]);
             }
             case INDIRECT_MODE ->{
-                setMemory( getMemory(getRegister( source[1] )), (short) ~getMemory( getRegister( source[1] )));
-                newVal = getMemory( getRegister(source[1]) );
+                memoryController.setMemory( memoryController.getMemory(getRegister( source[1] )), (short) ~memoryController.getMemory( getRegister( source[1] )));
+                newVal = memoryController.getMemory( getRegister(source[1]) );
             }
             default -> E = true;
         }
@@ -1267,8 +1265,8 @@ public class CPUModule8BIT extends CPU {
 
         short operandValue = switch (source[0]){
             case REGISTER_MODE -> getRegister(source[1]);
-            case DIRECT_MODE -> getMemory(source[1]);
-            case INDIRECT_MODE -> getMemory(getRegister(source[1]));
+            case DIRECT_MODE -> memoryController.getMemory(source[1]);
+            case INDIRECT_MODE -> memoryController.getMemory(getRegister(source[1]));
             case IMMEDIATE_MODE -> source[1];
             default -> 256;
         };
@@ -1281,12 +1279,12 @@ public class CPUModule8BIT extends CPU {
                 setRegister(destination[1], newVal);
             }
             case DIRECT_MODE -> {
-                newVal = (short) (operandValue & getMemory(destination[1]));
-                setMemory(destination[1], newVal);
+                newVal = (short) (operandValue & memoryController.getMemory(destination[1]));
+                memoryController.setMemory(destination[1], newVal);
             }
             case INDIRECT_MODE -> {
-                newVal = (short) (operandValue & getMemory( getRegister(destination[1]) ));
-                setMemory( getRegister(destination[1]), newVal );
+                newVal = (short) (operandValue & memoryController.getMemory( getRegister(destination[1]) ));
+                memoryController.setMemory( getRegister(destination[1]), newVal );
             }
             default -> E = true;
         }
@@ -1300,8 +1298,8 @@ public class CPUModule8BIT extends CPU {
 
         short operandValue = switch (source[0]){
             case REGISTER_MODE -> getRegister(source[1]);
-            case DIRECT_MODE -> getMemory(source[1]);
-            case INDIRECT_MODE -> getMemory(getRegister(source[1]));
+            case DIRECT_MODE -> memoryController.getMemory(source[1]);
+            case INDIRECT_MODE -> memoryController.getMemory(getRegister(source[1]));
             case IMMEDIATE_MODE -> source[1];
             default -> 256;
         };
@@ -1314,12 +1312,12 @@ public class CPUModule8BIT extends CPU {
                 setRegister(destination[1], newVal);
             }
             case DIRECT_MODE -> {
-                newVal = (short) (operandValue | getMemory(destination[1]));
-                setMemory(destination[1], newVal);
+                newVal = (short) (operandValue | memoryController.getMemory(destination[1]));
+                memoryController.setMemory(destination[1], newVal);
             }
             case INDIRECT_MODE -> {
-                newVal = (short) (operandValue | getMemory( getRegister(destination[1]) ));
-                setMemory( getRegister(destination[1]), newVal );
+                newVal = (short) (operandValue | memoryController.getMemory( getRegister(destination[1]) ));
+                memoryController.setMemory( getRegister(destination[1]), newVal );
             }
             default -> E = true;
         }
@@ -1333,8 +1331,8 @@ public class CPUModule8BIT extends CPU {
 
         short operandValue = switch (source[0]){
             case REGISTER_MODE -> getRegister(source[1]);
-            case DIRECT_MODE -> getMemory(source[1]);
-            case INDIRECT_MODE -> getMemory(getRegister(source[1]));
+            case DIRECT_MODE -> memoryController.getMemory(source[1]);
+            case INDIRECT_MODE -> memoryController.getMemory(getRegister(source[1]));
             case IMMEDIATE_MODE -> source[1];
             default -> 256;
         };
@@ -1347,12 +1345,12 @@ public class CPUModule8BIT extends CPU {
                 setRegister(destination[1], newVal);
             }
             case DIRECT_MODE -> {
-                newVal = (short) (operandValue ^ getMemory(destination[1]));
-                setMemory(destination[1], newVal);
+                newVal = (short) (operandValue ^ memoryController.getMemory(destination[1]));
+                memoryController.setMemory(destination[1], newVal);
             }
             case INDIRECT_MODE -> {
-                newVal = (short) (operandValue ^ getMemory( getRegister(destination[1]) ));
-                setMemory( getRegister(destination[1]), newVal );
+                newVal = (short) (operandValue ^ memoryController.getMemory( getRegister(destination[1]) ));
+                memoryController.setMemory( getRegister(destination[1]), newVal );
             }
             default -> E = true;
         }
@@ -1366,8 +1364,8 @@ public class CPUModule8BIT extends CPU {
 
         short operandValue = switch (source[0]){
             case REGISTER_MODE -> getRegister(source[1]);
-            case DIRECT_MODE -> getMemory(source[1]);
-            case INDIRECT_MODE -> getMemory(getRegister(source[1]));
+            case DIRECT_MODE -> memoryController.getMemory(source[1]);
+            case INDIRECT_MODE -> memoryController.getMemory(getRegister(source[1]));
             case IMMEDIATE_MODE -> source[1];
             default -> 256;
         };
@@ -1380,12 +1378,12 @@ public class CPUModule8BIT extends CPU {
                 setRegister(destination[1], newVal);
             }
             case DIRECT_MODE -> {
-                newVal = (short) ~(operandValue & getMemory(destination[1]));
-                setMemory(destination[1], newVal);
+                newVal = (short) ~(operandValue & memoryController.getMemory(destination[1]));
+                memoryController.setMemory(destination[1], newVal);
             }
             case INDIRECT_MODE -> {
-                newVal = (short) ~(operandValue & getMemory( getRegister(destination[1]) ));
-                setMemory( getRegister(destination[1]), newVal );
+                newVal = (short) ~(operandValue & memoryController.getMemory( getRegister(destination[1]) ));
+                memoryController.setMemory( getRegister(destination[1]), newVal );
             }
             default -> E = true;
         }
@@ -1399,8 +1397,8 @@ public class CPUModule8BIT extends CPU {
 
         short operandValue = switch (source[0]){
             case REGISTER_MODE -> getRegister(source[1]);
-            case DIRECT_MODE -> getMemory(source[1]);
-            case INDIRECT_MODE -> getMemory(getRegister(source[1]));
+            case DIRECT_MODE -> memoryController.getMemory(source[1]);
+            case INDIRECT_MODE -> memoryController.getMemory(getRegister(source[1]));
             case IMMEDIATE_MODE -> source[1];
             default -> 256;
         };
@@ -1413,12 +1411,12 @@ public class CPUModule8BIT extends CPU {
                 setRegister(destination[1], newVal);
             }
             case DIRECT_MODE -> {
-                newVal = (short) ~(operandValue | getMemory(destination[1]));
-                setMemory(destination[1], newVal);
+                newVal = (short) ~(operandValue | memoryController.getMemory(destination[1]));
+                memoryController.setMemory(destination[1], newVal);
             }
             case INDIRECT_MODE -> {
-                newVal = (short) ~(operandValue | getMemory( getRegister(destination[1]) ));
-                setMemory( getRegister(destination[1]), newVal );
+                newVal = (short) ~(operandValue | memoryController.getMemory( getRegister(destination[1]) ));
+                memoryController.setMemory( getRegister(destination[1]), newVal );
             }
             default -> E = true;
         }
@@ -1431,8 +1429,8 @@ public class CPUModule8BIT extends CPU {
     public void pow(short[] destination, short[] source){
         short power = switch(source[0]){
             case REGISTER_MODE -> getRegister( source[1] );
-            case DIRECT_MODE -> getMemory( source[1] );
-            case INDIRECT_MODE ->  getMemory( getRegister( source[1] ) );
+            case DIRECT_MODE -> memoryController.getMemory( source[1] );
+            case INDIRECT_MODE ->  memoryController.getMemory( getRegister( source[1] ) );
             case IMMEDIATE_MODE -> source[1];
 
             default -> 256;
@@ -1447,12 +1445,12 @@ public class CPUModule8BIT extends CPU {
                 setRegister( destination[1], newValue );
             }
             case DIRECT_MODE ->{
-                newValue = (short) Math.pow( getMemory( destination[1] ), power );
-                setMemory( destination[1], newValue );
+                newValue = (short) Math.pow( memoryController.getMemory( destination[1] ), power );
+                memoryController.setMemory( destination[1], newValue );
             }
             case INDIRECT_MODE ->{
-                newValue = (short) Math.pow( getMemory( getRegister(destination[1]) ), power );
-                setMemory( getRegister( destination[1] ), newValue );
+                newValue = (short) Math.pow( memoryController.getMemory( getRegister(destination[1]) ), power );
+                memoryController.setMemory( getRegister( destination[1] ), newValue );
             }
         }
         byte flagSetter = (byte) newValue;
@@ -1470,12 +1468,12 @@ public class CPUModule8BIT extends CPU {
                 setRegister( destination[1], newValue );
             }
             case DIRECT_MODE ->{
-                newValue = (short) Math.sqrt( getMemory(destination[1]) );
-                setMemory( destination[1], newValue );
+                newValue = (short) Math.sqrt( memoryController.getMemory(destination[1]) );
+                memoryController.setMemory( destination[1], newValue );
             }
             case INDIRECT_MODE ->{
-                newValue = (short) Math.sqrt( getMemory( getRegister( destination[1] ) ) );
-                setMemory( getRegister( destination[1] ), newValue );
+                newValue = (short) Math.sqrt( memoryController.getMemory( getRegister( destination[1] ) ) );
+                memoryController.setMemory( getRegister( destination[1] ), newValue );
             }
             default ->{
                 String err = "Invalid instruction error.";
@@ -1493,8 +1491,8 @@ public class CPUModule8BIT extends CPU {
     public void rnd(short[] destination, short[] source){
         short bound = switch (source[0]){
             case REGISTER_MODE -> getRegister(source[1]);
-            case DIRECT_MODE -> getMemory(source[1]);
-            case INDIRECT_MODE -> getMemory( getRegister(source[1]) );
+            case DIRECT_MODE -> memoryController.getMemory(source[1]);
+            case INDIRECT_MODE -> memoryController.getMemory( getRegister(source[1]) );
             case IMMEDIATE_MODE -> source[1];
             default -> 256;
         };
@@ -1505,8 +1503,8 @@ public class CPUModule8BIT extends CPU {
         short newVal = (short) ( Math.random() * bound );
         switch (destination[0]){
             case REGISTER_MODE -> setRegister( destination[1],  newVal);
-            case DIRECT_MODE -> setMemory(destination[1], newVal);
-            case INDIRECT_MODE -> setMemory( getRegister(destination[1]), newVal );
+            case DIRECT_MODE -> memoryController.setMemory(destination[1], newVal);
+            case INDIRECT_MODE -> memoryController.setMemory( getRegister(destination[1]), newVal );
 
             default -> triggerProgramError(
                     "Invalid instruction prefix", ErrorHandler.ERR_CODE_INVALID_PREFIX);
@@ -1518,9 +1516,9 @@ public class CPUModule8BIT extends CPU {
 
         switch (destination[0]){
             case REGISTER_MODE -> setRegister(destination[1], (short) (getRegister(destination[1]) + 1));
-            case DIRECT_MODE -> setMemory(destination[1], (short) (getMemory(destination[1]) + 1));
-            case INDIRECT_MODE -> setMemory(getMemory( getRegister(destination[1]) ),
-                    (short) ( getMemory( getRegister(destination[1]) ) + 1));
+            case DIRECT_MODE -> memoryController.setMemory(destination[1], (short) (memoryController.getMemory(destination[1]) + 1));
+            case INDIRECT_MODE -> memoryController.setMemory(memoryController.getMemory( getRegister(destination[1]) ),
+                    (short) ( memoryController.getMemory( getRegister(destination[1]) ) + 1));
         }
         byte flagSetter = (byte) destination[1];
         if (flagSetter == 0) Z = true;
@@ -1531,9 +1529,9 @@ public class CPUModule8BIT extends CPU {
     public void dec(short[] destination){
         switch (destination[0]){
             case REGISTER_MODE -> setRegister(destination[1], (short) (getRegister(destination[1]) - 1));
-            case DIRECT_MODE -> setMemory(destination[1], (short) (getMemory(destination[1]) - 1));
-            case INDIRECT_MODE -> setMemory(getMemory( getRegister(destination[1]) ),
-                    (short) ( getMemory( getRegister(destination[1]) ) - 1));
+            case DIRECT_MODE -> memoryController.setMemory(destination[1], (short) (memoryController.getMemory(destination[1]) - 1));
+            case INDIRECT_MODE -> memoryController.setMemory(memoryController.getMemory( getRegister(destination[1]) ),
+                    (short) ( memoryController.getMemory( getRegister(destination[1]) ) - 1));
         }
         byte flagSetter = (byte) destination[1];
         if (flagSetter == 0) Z = true;
@@ -1547,18 +1545,18 @@ public class CPUModule8BIT extends CPU {
         short address = (short) ((low << 8) | high);
         switch (source[0]){
             case REGISTER_MODE -> setRegister( source[1], address);
-            case DIRECT_MODE -> setMemory( source[1], address );
-            case INDIRECT_MODE -> setMemory( getRegister(source[1]) , address );
+            case DIRECT_MODE -> memoryController.setMemory( source[1], address );
+            case INDIRECT_MODE -> memoryController.setMemory( getRegister(source[1]) , address );
         }
     }
 
 
     public void push(short[] source){
         switch (source[0]){
-            case REGISTER_MODE -> memory[ registers[SP] ] = getRegister(source[1]);
-            case DIRECT_MODE -> memory[registers[SP]] = getMemory(source[1]);
-            case INDIRECT_MODE -> memory[registers[SP]] = getMemory( getMemory( getRegister( source[1] ) ) );
-            case IMMEDIATE_MODE -> memory[registers[SP]] = source[1];
+            case REGISTER_MODE -> memoryController.memory[ registers[SP] ] = getRegister(source[1]);
+            case DIRECT_MODE -> memoryController.memory[registers[SP]] = memoryController.getMemory(source[1]);
+            case INDIRECT_MODE -> memoryController.memory[registers[SP]] = memoryController.getMemory( memoryController.getMemory( getRegister( source[1] ) ) );
+            case IMMEDIATE_MODE -> memoryController.memory[registers[SP]] = source[1];
         }
         registers[SP]--;
     }
@@ -1567,12 +1565,12 @@ public class CPUModule8BIT extends CPU {
     public void pop(short[] source){
         registers[SP]++;
         switch (source[0]){
-            case REGISTER_MODE -> setRegister( source[1], memory[ registers[SP] ] );
-            case DIRECT_MODE -> setMemory( source[1], memory[registers[SP]] );
-            case INDIRECT_MODE -> setMemory( getRegister(source[1]), memory[registers[SP]] );
+            case REGISTER_MODE -> setRegister( source[1], memoryController.memory[ registers[SP] ] );
+            case DIRECT_MODE -> memoryController.setMemory( source[1], memoryController.memory[registers[SP]] );
+            case INDIRECT_MODE -> memoryController.setMemory( getRegister(source[1]), memoryController.memory[registers[SP]] );
             default -> E = true;
         }
-        memory[ registers[SP] ] = 0;
+        memoryController.memory[ registers[SP] ] = 0;
     }
 
 
@@ -1596,15 +1594,15 @@ public class CPUModule8BIT extends CPU {
     public void cmp(short[] destination, short[] source){
         short val1 = switch (destination[0]){
             case REGISTER_MODE -> getRegister(destination[1]);
-            case DIRECT_MODE -> getMemory( destination[1] );
-            case INDIRECT_MODE -> getMemory( getRegister(destination[1]) );
+            case DIRECT_MODE -> memoryController.getMemory( destination[1] );
+            case INDIRECT_MODE -> memoryController.getMemory( getRegister(destination[1]) );
             case IMMEDIATE_MODE -> destination[1];
             default -> 256;
         };
         short val2 = switch (source[0]){
             case REGISTER_MODE -> getRegister(source[1]);
-            case DIRECT_MODE -> getMemory( source[1] );
-            case INDIRECT_MODE -> getMemory( getRegister(source[1]) );
+            case DIRECT_MODE -> memoryController.getMemory( source[1] );
+            case INDIRECT_MODE -> memoryController.getMemory( getRegister(source[1]) );
             case IMMEDIATE_MODE -> source[1];
             default -> 256;
         };
@@ -1739,140 +1737,6 @@ public class CPUModule8BIT extends CPU {
         return length;
     }
 
-    @Override
-    public int[] compileCode(String code){
-        String[] lines = code.split("\n");
-        List<Integer> machineCodeList = new ArrayList<>();
-
-        StringBuilder machineCodeString = new StringBuilder();
-        List<Integer> instructionStartAddresses = new ArrayList<>();
-        List<Integer> codeLines = new ArrayList<>();
-        instructionStartAddresses.add(0);
-
-        if (mem_size_B > 0xffff) {
-            String err = "This Maximum amount of addressable memory for this architecture is 64KB";
-            triggerProgramError(err, ErrorHandler.ERR_CODE_INVALID_MEMORY_LAYOUT);
-        }
-
-        // Step 1- Calculate the function offset addresses, add .DATA variables to the data section, and build a raw code string
-        String fullCode = "";
-        currentLine = 0;
-        for(int i = 0; i < lines.length; i++){
-            currentLine++;
-            // Which section are we in? (is it a line of code? is it a function. and if it starts with '.' is it the data section?)
-            if (lines[i].equals(".DATA")){
-                System.out.println("Data section detected.");
-                int offset = 0;
-                i++; // skip .DATA line
-
-             while (!lines[i].equals("end")) {
-
-                 currentLine++;
-
-                 String[] x = lines[i].trim().split(" ");
-                 int dataStart = dataOffset;
-                 if (x[0].equals("org")) dataOffset = Integer.parseInt(x[1].substring(1)) - offset;
-
-                 else {
-                     dataMap.put(x[0], dataStart + offset);
-                     if (x[1].startsWith(String.valueOf(STRING_PREFIX))) { // 34 in decimal 0x22 in hex
-                         String fullString = String.join(" ", x);
-
-                         int startIndex = fullString.indexOf(34) + 1;
-                         int endIndex = fullString.length() - 1;
-                         fullString = fullString.substring(startIndex, endIndex);
-
-                            // Handle escape characters //
-
-                            List<Integer> string_bytes = toByteString(fullString);
-
-                            fullString = "";
-                            for(int j = 0; j < string_bytes.size(); j++){
-                                fullString += (char) (int) string_bytes.get(j);
-                            }
-
-                         for (int j = 0; j < fullString.length(); j++) {
-                             System.out.printf("Setting memory location 0x%X(%d) to char %c\n",
-                                     dataStart + offset, dataStart + offset, fullString.charAt(j));
-                             setMemory(dataStart + offset, (short) fullString.charAt(j));
-                             offset++;
-                         }
-                         setMemory(dataStart + offset, ARRAY_TERMINATOR);
-                         offset++;
-                     } else {
-                         for (int j = 1; j < x.length; j++) {
-                             System.out.printf("Setting memory location 0x%X(%d) to value 0x%X(%d)\n",
-                                     dataStart + offset, dataStart + offset,
-                                     Integer.parseInt(x[j].substring(1)), Integer.parseInt(x[j].substring(1)));
-
-                             setMemory(dataStart + offset, Short.parseShort(x[j].substring(1)));
-                             offset++;
-                         }
-                         setMemory(dataStart + offset, ARRAY_TERMINATOR);
-                         offset++;
-                     }
-                 }
-                 i++;
-             }
-             currentLine++;
-            }
-            else if (lines[i].startsWith(".")){ // regular function. add the function along with the calculated offset
-                functions.put(lines[i].substring(1), currentByte);
-                System.out.println("Mapped function '" + lines[i].substring(1) + "' to address: 0x" +
-                        Integer.toHexString(currentByte));
-            }
-            else{ // code line. append the offset based on the string length.
-                // in this architecture there's only 3 possible cases
-                // no-operand instruction = 1 byte
-                // single-operand instruction = 3 bytes
-                // 2 operand instruction = 5 bytes
-                if (lines[i].isEmpty() || lines[i].startsWith(COMMENT_PREFIX)) continue;
-
-                currentByte += getInstructionLength(lines[i]);
-                instructionStartAddresses.add(currentByte);
-                codeLines.add(currentLine);
-
-                fullCode += lines[i] + "\n";
-            }
-        }
-        //System.out.println(functions);
-        //System.out.println(dataMap);
-
-        // Step 2- convert the raw code to machine code array.
-        String[] fullLines = fullCode.split("\n");
-
-        currentLine = 1;
-        for(int i = 0; i < fullLines.length; i++){
-
-            currentLine++;
-            String a = Arrays.toString(toMachineCode(fullLines[i])).replace("[", "").replace("]", "");
-
-            machineCodeString.append(a);
-            if (i < fullLines.length - 1) machineCodeString.append(", ");
-        }
-
-        String[] eachNum = machineCodeString.toString().split(", ");
-        for(int i = 0; i < eachNum.length; i++){
-            if (isNumber(eachNum[i])){
-                machineCodeList.add(Integer.parseInt(eachNum[i]));
-            }
-        }
-
-        for(int i = 0; i < signature.length(); i++){
-            machineCodeList.add((int) signature.charAt(i));
-        }
-        machineCodeList.add( bit_length );
-        machineCode = machineCodeList.stream().mapToInt(Integer::intValue).toArray();
-        instructionStartAddresses.removeLast();
-
-        for(int i = 0; i < instructionStartAddresses.size(); i++){
-            lineMap.put(instructionStartAddresses.get(i), codeLines.get(i));
-        }
-
-        stepListener.updateUI();
-        return machineCode;
-    }
-
     public short getRegister(int registerID){
         return registers[registerID];
     }
@@ -1883,28 +1747,6 @@ public class CPUModule8BIT extends CPU {
         return -1;
     }
 
-    public short getMemory(int address){
-        if (isValidAddress(address)){
-            return memory[address];
-        }else return 256;
-    }
-
-
-    public void setMemory(int address, short value){
-        if (!isValidAddress(address)){
-            String err = String.format("Invalid memory access at location %X(%d)\n", address, address);
-            triggerProgramError(
-                    err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
-
-        }else{
-            if (value > max_value || value < min_value){
-                String err = String.format("Value %X(%d) exceeds the %d-bit limit for this CPU module.\n",
-                value, value, bit_length);
-                triggerProgramError(
-                        err, ErrorHandler.ERR_CODE_CPU_SIZE_VIOLATION);
-            }else memory[address] = value;
-        }
-    }
 
 
 
@@ -1927,43 +1769,6 @@ public class CPUModule8BIT extends CPU {
         }
     }
 
-    public boolean isValidAddress(int address){
-        return address <= last_addressable_location && address >= 0;
-    }
-
-    @Override
-    public int[] readWord(int startAddress){
-        if ( isValidAddress(startAddress) && isValidAddress(startAddress + 1))
-            return new int[] {memory[startAddress], memory[startAddress + 1]};
-        else
-            return new int [] {-1};
-    }
-
-    @Override
-    public int readByte(int address){
-        if (isValidAddress(address)) return memory[address];
-        else return -256;
-    }
-
-    @Override
-    public String dumpMemory(){
-        int chunkSize = 10;
-        StringBuilder result = new StringBuilder();
-        StringBuilder charSet = new StringBuilder();
-        for(int i = 0; i < memory.length; i++){
-
-            if (i % chunkSize == 0) result.append(String.format("%05X :\t", i));
-
-            result.append(String.format("0x%02X\t", memory[i] & 0xff));
-            charSet.append( (Character.isLetterOrDigit(memory[i])) ? (char) memory[i] : "." );
-
-            if ((i + 1) % chunkSize == 0){
-                result.append("\t\t").append("|").append(charSet).append("|").append("\n");
-                charSet.setLength(0);
-            }
-        }
-        return result.toString();
-    }
 
     @Override
     public String dumpRegisters(){

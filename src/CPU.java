@@ -100,10 +100,10 @@ public abstract class CPU {
     protected int currentByte = 0;
     public int bit_length = 0;
     protected boolean canExecute = true;
-    protected boolean programEnd = false;
+    protected static boolean programEnd = false;
     protected boolean noStep = false;
     protected boolean UIMode = false;
-    protected int currentLine = 1;
+    protected static int currentLine = 1;
 
     protected int MAX_STRING_LENGTH = 250;
 
@@ -116,25 +116,19 @@ public abstract class CPU {
     protected int delayAmountMilliseconds = (int) ( (1.0 / Integer.parseInt(Launcher.appConfig.get("Cycles"))) * 1000 );
 
 
-    protected StringBuilder outputString = new StringBuilder();
+    protected static StringBuilder outputString = new StringBuilder();
     protected String output = "";
 
-    protected int status_code = 0;
+    protected static int status_code = 0;
 
-    protected short[] memory;
+    protected MemoryModule memoryController;
 
     //protected float ROMpercentage = (35.0f / 100);
     protected float DATApercentage = (Float.parseFloat(Launcher.appConfig.get("DataPercentage")) / 100);
     protected float STACKpercentage = (Float.parseFloat(Launcher.appConfig.get("StackPercentage")) / 100);
 
-    protected int dataOffset;
-    protected int dataOrigin;
 
-    protected float memorySizeKB;
-    protected float ROMsizeKB, DATAsizeKB, STACKsizeKB;
-    protected int ROMsizeB, DATAsizeB, STACKsizeB, mem_size_B;
-    protected int rom_start, data_start, stack_start;
-    protected int rom_end, data_end, stack_end;
+    protected float memorySizeKB = Float.parseFloat(Launcher.appConfig.get("MemSize"));
 
     String memInitMsg;
 
@@ -193,16 +187,14 @@ public abstract class CPU {
     /// ////////////////////////////////////////////
     ///
     static String signature = "Made by T.K.Y";
-    static String lastUpdateDate = " 10/4/2025";
-    static String compilerVersion = " V1.3";
+    static String lastUpdateDate = " 10/11/2025";
+    static String compilerVersion = " V1.4";
 
+    protected static String logDevice = "CPU_GENERIC";
 
     public CPU() {
 
-        Logger.source = "CPU_GENERIC";
-
-        System.out.println("Setting up CPU.");
-        Logger.addLog("Setting up CPU.");
+        Logger.addLog("Setting up CPU.", logDevice, true);
 
         instructionSet.put(INS_EXT, "ext");
         instructionSet.put(INS_NOP, "nop");
@@ -281,31 +273,16 @@ public abstract class CPU {
 
     public abstract int[] toMachineCode(String instruction);
     public abstract int getInstructionLength(String instruction);
-    public abstract int[] compileCode(String code);
-    public abstract int[] compileToFileBinary(String code);
+    public abstract int[] compileToMemoryImage(String code);
     public abstract String disassembleMachineCode(int[] machine_code);
     public abstract void executeCompiledCode(int[] machine_code);
 
-    public String dumpROM(){
-        StringBuilder hexDump = new StringBuilder();
 
-        for(int i = 0; i < machineCode.length; i++){
-            if (i % 5 == 0){
-                hexDump.append("\n");
-                hexDump.append(String.format("%04X : \t", i));
-            }
-
-            hexDump.append(String.format("0x%02X" ,machineCode[i])).append(" ");
-        }
-        return hexDump.toString();
-    }
-
-    public abstract String dumpMemory();
     public abstract String dumpFlags();
     public abstract String dumpRegisters();
 
 
-   public static boolean isNumber(String str) {
+    public static boolean isNumber(String str) {
         if (str == null || str.trim().isEmpty()) return false;
 
         try {
@@ -354,170 +331,17 @@ public abstract class CPU {
         outputString.append("line " + currentLine + " : " + errMsg);
         programEnd = true;
         RuntimeException exceptionType = new RuntimeException("line " + currentLine + " : " + errMsg);
-        Logger.addLog("line : " + currentLine + " : " + errMsg);
-        Logger.addLog("Program terminated with code : " + status_code);
-        Logger.addLog("=============Program ROM=================");
-        Logger.addLog(dumpROM());
-        Logger.addLog("=============Program registers=================");
-        Logger.addLog(dumpRegisters());
-        Logger.addLog(dumpFlags());
-        Logger.addLog("=============Program memory===================");
-        Logger.addLog(dumpMemory());
+        Logger.addLog("line : " + currentLine + " : " + errMsg, logDevice);
+        Logger.addLog("Program terminated with code : " + status_code, logDevice);
+        Logger.addLog("=============Program ROM=================", logDevice);
+        Logger.addLog(memoryController.dumpROM(), logDevice);
+        Logger.addLog("=============Program registers=================", logDevice);
+        Logger.addLog(dumpRegisters(), logDevice);
+        Logger.addLog(dumpFlags(), logDevice);
+        Logger.addLog("=============Program memory===================", logDevice);
+        Logger.addLog(memoryController.dumpMemory(), logDevice);
         Logger.writeLogFile("./ErrLog.log");
         System.out.println("Program terminated with code : " + status_code);
         throw exceptionType;
-    }
-
-    public int readByte(int address){
-        if (!isValidMemoryAddress(address)){
-            String err = String.format("0x%X(%d) is an invalid memory address.");
-            triggerProgramError(
-                    err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
-        }
-        return memory[address];
-    }
-
-    public int[] readWord(int startAddress){
-        if (!isValidMemoryAddress(startAddress)){
-            String err = String.format("0x%X(%d) is an invalid memory address.");
-            triggerProgramError(
-                    err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
-        }
-        if (!isValidMemoryAddress(startAddress + 1)){
-            String err = String.format("0x%X(%d) is an invalid memory address.");
-            triggerProgramError(
-                    err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
-        }
-
-        return new int[] {memory[startAddress], memory[startAddress + 1]};
-    }
-
-    // read in little-endian format
-    public int bytePairToWordLE(int lowByte, int highByte){
-        return (highByte << 8) | lowByte;
-    }
-    public int bytePairToWordLE(int[] pair){
-        return (pair[1] << 8) | pair[0];
-    }
-
-    // read in big-endian format
-    public int bytePairToWordBE(int lowByte, int highByte){
-        return (lowByte << 8) | highByte;
-    }
-    public int bytePairToWordBE(int[] pair){
-        return (pair[0] << 8) | pair[1];
-    }
-
-    public void setMemory(int address, int value, int mode){
-
-        if (isValidMemoryAddress(address)){
-
-            if (mode == DATA_BYTE_MODE) memory[address] = (short) value;
-            else if (mode == DATA_WORD_MODE){
-                if (!isValidMemoryAddress(address + 1)){
-                    String err = String.format("0x%X(%d) is an invalid memory address.", address, address);
-                    triggerProgramError(
-                            err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
-                }
-                else{
-                    int low = value & 0xff;
-                    int high = (value >> 8) & 0xff;
-                    memory[address] = (short) low;
-                    memory[address + 1] = (short) high;
-                }
-            }
-
-        }else{
-            String err = String.format("0x%X(%d) is an invalid memory address.", address, address);
-            triggerProgramError(
-                    err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
-        }
-    }
-
-    public void setMemory(int address, int value){
-
-        if (isValidMemoryAddress(address)){
-
-            if (value <= max_byte_value) memory[address] = (short) value;
-            else {
-                if (!isValidMemoryAddress(address + 1)){
-                    String err = String.format("0x%X(%d) is an invalid memory address.", address, address);
-                    triggerProgramError(
-                            err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
-                }
-                else{
-                    int low = value & 0xff;
-                    int high = (value >> 8) & 0xff;
-                    memory[address] = (short) low;
-                    memory[address + 1] = (short) high;
-                }
-            }
-
-        }else{
-            String err = String.format("0x%X(%d) is an invalid memory address.", address, address);
-            triggerProgramError(
-                    err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
-        }
-    }
-
-
-
-    public boolean isValidMemoryAddress(int address){
-        return address <= last_addressable_location && address >= 0;
-    }
-
-    public String dumpMemoryDebug(int startAddress){
-        int chunkSize = 10;
-        StringBuilder result = new StringBuilder();
-        StringBuilder charSet = new StringBuilder();
-        for(int i = startAddress; i <= startAddress + 30; i++){
-
-            if (i % chunkSize == 0) result.append(String.format("%05X :\t", i));
-
-            result.append(String.format("0x%02X\t", memory[i] & 0xff));
-            charSet.append( (Character.isLetterOrDigit(memory[i])) ? (char) memory[i] : "." );
-
-            if ((i + 1) % chunkSize == 0){
-                result.append("\t\t").append("|").append(charSet).append("|").append("\n");
-                charSet.setLength(0);
-            }
-        }
-        return result.toString();
-    }
-
-    public void calculateMemorySegments(){
-        memorySizeKB = Float.parseFloat(Launcher.appConfig.get("MemSize"));
-
-        mem_size_B = (int) (memorySizeKB * 1024);
-
-        DATAsizeKB = (DATApercentage * memorySizeKB);
-        STACKsizeKB = (STACKpercentage * memorySizeKB);
-
-        DATAsizeB = (int) (DATAsizeKB * 1024);
-        STACKsizeB = (int) (STACKsizeKB * 1024);
-
-        data_start = 0;
-        stack_start = data_start + DATAsizeB;
-
-        data_end = stack_start - 1;
-        stack_end = stack_start + STACKsizeB;
-
-        last_addressable_location = data_end;
-        dataOrigin = (int) (0.25 * DATAsizeB);
-        dataOffset = dataOrigin;
-
-        memInitMsg = String.format("""
-                Starting with %sKB of memory. Total of %d locations
-                DATA section size: %.3fKB(%dB), start address: 0x%X(%d) -> end address: 0x%X(%d)
-                STACK section size: %.3fKB(%dB), start address: 0x%X(%d) -> end address: 0x%X(%d)
-                last addressable location: 0x%X(%d)
-                data offset location: 0x%X(%d)
-                """,
-                memorySizeKB, mem_size_B,
-                DATAsizeKB, DATAsizeB, data_start, data_start, data_end, data_end,
-                STACKsizeKB, STACKsizeB, stack_start, stack_start, stack_end, stack_end,
-                last_addressable_location, last_addressable_location,
-                dataOffset, dataOffset
-                );
     }
 }

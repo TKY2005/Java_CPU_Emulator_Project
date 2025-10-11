@@ -82,41 +82,94 @@ public class CLI {
     public void loadBinaryFile(){
 
         try {
-            System.out.println("Reading file content.");
-            byte[] machineCode = Files.readAllBytes(binFile.toPath());
+            System.out.println("READING FILE CONTENT.\n");
+
+            byte[] fileBin = Files.readAllBytes(binFile.toPath());
+
+            System.out.println("CHECKING MEMORY.");
+
+            if (fileBin.length > cpuModule.memoryController.mem_size_B) {
+                String err = String.format("""
+                        THE CURRENT MEMORY CONFIGURATION USES %.3fKB OF MEMORY.
+                        THE COMPILED BINARY FILE USES %.3fKB OF MEMORY.
+                        PLEASE INCREASE MEMORY SIZE.
+                        """, cpuModule.memoryController.mem_size_B / 1024f, fileBin.length / 1024f);
+
+                cpuModule.triggerProgramError(err, ErrorHandler.ERR_CODE_INSUFFICIENT_MEMORY);
+            }
+            System.out.printf("BINARY FILE SIZE: %.3fKB, MEMORY SIZE: %.3fKB. MEMORY OK\n",
+                    fileBin.length / 1024f, cpuModule.memoryController.mem_size_B / 1024f);
+
+            int index_file = 0, index_memory = 0;
+            int file_rom_size = 0, file_data_size = 0;
+
+            for(file_rom_size = 0; fileBin[file_rom_size] != CPU.TEXT_SECTION_END; file_rom_size++);
+            for(int i = file_rom_size + 1; fileBin[i] != CPU.MEMORY_SECTION_END; i++) file_data_size++;
+
+            int mem_rom_size = MemoryModule.rom_end - MemoryModule.rom_start;
+            int mem_data_size = MemoryModule.stack_end - MemoryModule.data_start;
+
+            if (file_rom_size > mem_rom_size) {
+                String err = String.format("""
+                        THE ROM SIZE OF THE COMPILED BINARY EXCEEDS THE ROM SIZE IN THE CURRENT MEMORY CONFIGURATION.
+                        PLEASE INCREASE ROM SIZE.
+                        BINARY FILE ROM SIZE: %dB, CURRENT ROM SIZE: %dB
+                        """, file_rom_size, MemoryModule.rom_end);
+
+                cpuModule.triggerProgramError(err, ErrorHandler.ERR_CODE_INSUFFICIENT_MEMORY);
+            }
+            System.out.printf("BINARY FILE ROM SIZE: %dB, CURRENT ROM SIZE: %dB. ROM OK.\n", file_rom_size, mem_rom_size);
+
+            if (file_data_size > mem_data_size) {
+                String err = String.format("""
+                        THE DATA SECTION SIZE OF THE BINARY FILE EXCEEDS THE DATA SECTION SIZE OF THE CURRENT MEMORY CONFIGURATION.
+                        PLEASE INCREASE DATA AND STACK SIZE
+                        BINARY FILE DATA SECTION SIZE: %dB, CURRENT DATA SECTION SIZE: %dB
+                        """, file_data_size, mem_data_size);
+            }
+            System.out.printf("BINARY FILE DATA SIZE: %dB, CURRENT DATA SIZE: %dB. DATA OK.\n", file_data_size, mem_data_size);
+
+            System.out.println("ADDING AND ALIGNING THE BINARY DATA TO MEMORY\n");
+
+            List<Integer> machineCode = new ArrayList<>();
+            for(int i = 0; i < cpuModule.memoryController.mem_size_B; i++) machineCode.add(0x00);
 
 
-            System.out.println("Loading the TEXT section of the file into CPU ROM");
-            int ROMsize = 0, MEMsize = 0;
-            for(int i = 0; machineCode[i] != CPU.TEXT_SECTION_END; i++) ROMsize++;
+            System.out.println("COPYING ROM DATA TO MEMORY IMAGE.");
+            for(int i = 0; i < file_rom_size; i++){
+                machineCode.set(index_file, fileBin[index_file] & 0xff);
+                index_file++;
+            }
+            machineCode.set(mem_rom_size + 1, CPU.TEXT_SECTION_END & 0xff);
 
-            for(int i = ROMsize + 1; machineCode[i] != CPU.MEMORY_SECTION_END; i++) MEMsize++;
+            System.out.println("COPYING DATA SECTION TO MEMORY IMAGE.");
+
+            // we have to align the contents of the file to the memory.
+            index_memory = MemoryModule.data_start - 1;
+            for(int i = 0; i < file_data_size; i++){
+                machineCode.set(index_memory, fileBin[index_file] & 0xff);
+                index_file++;
+                index_memory++;
+            }
+            machineCode.set(mem_rom_size + mem_data_size, CPU.MEMORY_SECTION_END & 0xff);
 
 
-            if (MEMsize > cpuModule.memory.length){
-                System.out.printf("The selected binary file is compiled with %dKB of memory." +
-                    "The current configuration uses %dKB. make sure current CPU uses the same or bigger memory size.\n",
-                        MEMsize / 1024, cpuModule.memory.length / 1024);
+            System.out.println("COPYING METADATA TO MEMORY IMAGE.");
 
-                System.exit(-1);
+            int copyIndex = fileBin.length - 1;
+            for(int i = 0; i <= 33; i++){
+                machineCode.set( machineCode.size() - i - 1, (int) fileBin[copyIndex]);
+                copyIndex--;
             }
 
-            List<Integer> machineCodeList = new ArrayList<>();
-            for(int i = 0; i <= ROMsize; i++) machineCodeList.add(machineCode[i] & 0xff);
-            System.out.println("Adding the file metadata");
-            for(int i = ROMsize + MEMsize + 2; i < machineCode.length; i++) machineCodeList.add(machineCode[i] & 0xff);
+            System.out.println("ASSEMBLING THE MEMORY.");
+            int[] image = machineCode.stream().mapToInt(Integer::intValue).toArray();
+            cpuModule.machineCode = image;
+            vm.setMemImage(image);
 
-            cpuModule.machineCode = machineCodeList.stream().mapToInt(Integer::intValue).toArray();
+            for(int i = 0; i < cpuModule.memoryController.mem_size_B; i++) MemoryModule.memory[i] = (short) image[i];
 
-
-            System.out.println("Loading the DATA and STACK sections into memory.");
-            int index = 0;
-            for(int i = ROMsize + 1; machineCode[i] != CPU.MEMORY_SECTION_END; i++) {
-                cpuModule.memory[index] = (short) (machineCode[i] & 0xff);
-                index++;
-            }
-            System.out.println("Done. Starting execution.\n");
-
+            System.out.println("DONE. STARTING EXECUTION.\n");
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
