@@ -86,6 +86,26 @@ public class CLI {
 
             byte[] fileBin = Files.readAllBytes(binFile.toPath());
 
+            String fileVersion = new StringBuilder()
+                    .append( (char) fileBin[fileBin.length - 9] )
+                    .append( (char) fileBin[fileBin.length - 8] )
+                    .append( (char) fileBin[fileBin.length - 7] )
+                    .append( (char) fileBin[fileBin.length - 6] ).toString();
+
+            int Cver = (int) CPU.compilerVersion.charAt(2) + (int) CPU.compilerVersion.charAt(3) + (int) CPU.compilerVersion.charAt(4);
+            int Fver = fileBin[fileBin.length - 8] + fileBin[fileBin.length - 7] + fileBin[fileBin.length - 6];
+
+            if (Cver != Fver){
+                String err = String.format("""
+                        THE COMPILED BINARY FILE VERSION DOESN'T MATCH WITH THE CURRENT COMPILER VERSION.
+                        RUNNING THE FILE WITH NON-MATCHING VERSIONS CAN CAUSE UNDEFINED BEHAVIOUR AND CRASHES.
+                        PLEASE RECOMPILE THE SOURCE CODE FILE TO UPDATE IT TO THE LATEST VERSION.
+                        CURRENT COMPILER VERSION: %s(%d), FILE VERSION: %s(%d)
+                        """, CPU.compilerVersion, Cver, fileVersion, Fver);
+
+                cpuModule.triggerProgramError(err, ErrorHandler.ERR_CODE_INCOMPATIBLE_ARCHITECTURE);
+            }
+
             System.out.println("CHECKING MEMORY.");
 
             if (fileBin.length > cpuModule.memoryController.mem_size_B) {
