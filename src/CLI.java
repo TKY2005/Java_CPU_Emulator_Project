@@ -86,14 +86,20 @@ public class CLI {
 
             byte[] fileBin = Files.readAllBytes(binFile.toPath());
 
-            String fileVersion = new StringBuilder()
-                    .append( (char) fileBin[fileBin.length - 9] )
-                    .append( (char) fileBin[fileBin.length - 8] )
-                    .append( (char) fileBin[fileBin.length - 7] )
-                    .append( (char) fileBin[fileBin.length - 6] ).toString();
+            byte[] metadata = new byte[33];
+            for(int i = 0; i < metadata.length; i++){
+                metadata[i] = fileBin[ fileBin.length - metadata.length + i ];
+            }
+            int Fver = metadata[ metadata.length - 5] + metadata[ metadata.length - 6 ] + metadata[ metadata.length - 7 ];
 
-            int Cver = (int) CPU.compilerVersion.charAt(2) + (int) CPU.compilerVersion.charAt(3) + (int) CPU.compilerVersion.charAt(4);
-            int Fver = fileBin[fileBin.length - 8] + fileBin[fileBin.length - 7] + fileBin[fileBin.length - 6];
+            String fileVersion = String.valueOf((char) metadata[metadata.length - 8]) +
+                    (char) metadata[metadata.length - 7] +
+                    (char) metadata[metadata.length - 6] +
+                    (char) metadata[metadata.length - 5];
+
+            int Cver = (int) CPU.compilerVersion.charAt(2) +
+                    (int) CPU.compilerVersion.charAt(3) +
+                    (int) CPU.compilerVersion.charAt(4);
 
             if (Cver != Fver){
                 String err = String.format("""
