@@ -200,8 +200,7 @@ public class MemoryModule {
     public void setMemory(int address, int value){
 
 
-        int actualAddress = data_start - file_offset + address;
-        System.out.printf("Calculated address : 0x%X\n", actualAddress);
+        int actualAddress = data_start + address;
         if (isValidMemoryAddress(actualAddress)){
 
             if (value <= max_byte_value) memory[actualAddress] = (short) value;
