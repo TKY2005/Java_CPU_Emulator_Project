@@ -73,7 +73,7 @@ public class VirtualMachine {
         try {
             //if (compileDirection == 0) cpuModule.machineCode = cpuModule.compileCode(result.toString());
             //else if (compileDirection == 1) cpuModule.machineCode = cpuModule.compileToFileBinary(result.toString());
-            loadImageToMemory(result);
+            loadImageToMemory(result, cpuModule.memoryController);
 
             ui = UIMode;
         }catch (RuntimeException e) {
@@ -96,12 +96,15 @@ public class VirtualMachine {
         readyToExecute = true;
     }
 
-    private void loadImageToMemory(StringBuilder result) {
+    private void loadImageToMemory(StringBuilder result, MemoryModule memory) {
         memImage = cpuModule.compileToMemoryImage(result.toString());
-        for(int i = 0; i < MemoryModule.memory.length; i++) MemoryModule.memory[i] = (short) (memImage[i] & 0xff);
+        for(int i = 0; i < memory.getMemorySize(); i++)
+            memory.setMemoryAbsolute(i, (short) (memImage[i] & 0xff), CPU.DATA_BYTE_MODE);
     }
-    public void loadImageToMemory(int[] memImage){
-        for(int i = 0; i < MemoryModule.memory.length; i++) MemoryModule.memory[i] = (short) (memImage[i] & 0xff);
+
+    public void loadImageToMemory(int[] memImage, MemoryModule memory){
+        for(int i = 0; i < memory.getMemorySize(); i++)
+            memory.setMemoryAbsolute(i, (short) (memImage[i] & 0xff), CPU.DATA_BYTE_MODE);
     }
     public void setMemImage(int[] machineCode){
         memImage = machineCode;
@@ -140,7 +143,7 @@ public class VirtualMachine {
     }
 
     // 8-BIT INTERRUPT HANDLER
-    public static boolean interruptHandler(short[] registers, short[] memory){
+    public static boolean interruptHandler(short[] registers, MemoryModule memory){
         boolean validInterrupt = true;
         switch (registers[0]){ // interrupt register : RA
 
@@ -169,16 +172,18 @@ public class VirtualMachine {
                 }
 
 
-                int write_address = MemoryModule.data_start - MemoryModule.file_offset + registers[11]; // write_pointer_register : DI
+                int write_address = registers[11]; // write_pointer_register : DI
 
                 int index = 0;
 
                 for(int i = write_address; i < write_address + input.length(); i++){
 
-                    memory[i] = (short) input.charAt(index);
+                    //memory[i] = (short) input.charAt(index);
+                    memory.setMemory(i, input.charAt(index), CPU.DATA_BYTE_MODE);
                     index++;
                 }
-                memory[write_address + input.length()] = CPU.ARRAY_TERMINATOR;
+                //memory[write_address + input.length()] = CPU.ARRAY_TERMINATOR;
+                memory.setMemory(write_address + input.length(), CPU.ARRAY_TERMINATOR, CPU.DATA_BYTE_MODE);
                 registers[9] = (short) (write_address + input.length()); // string end position stored in SE
 
             }
@@ -249,51 +254,56 @@ public class VirtualMachine {
             }
 
             case CPU.INT_STRING_CONCAT -> {
-                int string1_address = MemoryModule.data_start - MemoryModule.file_offset + registers[11]; // first string address: DI
-                int string2_address = MemoryModule.data_start - MemoryModule.file_offset + registers[10]; // second string address: DP
-                int copy_address = MemoryModule.data_start - MemoryModule.file_offset + registers[8]; // result will be copied to address: SS
+                int string1_address = registers[11]; // first string address: DI
+                int string2_address = registers[10]; // second string address: DP
+                int copy_address = registers[8]; // result will be copied to address: SS
                 String concat = "";
-                for(int i = string1_address; memory[i] != CPU.ARRAY_TERMINATOR; i++){
+                for(int i = string1_address; memory.readByte(i) != CPU.ARRAY_TERMINATOR; i++){
                     //System.out.println("Concatenating: 0x" + Integer.toHexString(i) + " => " + (char) memory[i]);
-                    concat += (char) memory[i];
+                    concat += (char) memory.readByte(i);
                 }
-                for(int i = string2_address; memory[i] != CPU.ARRAY_TERMINATOR; i++){
+                for(int i = string2_address; memory.readByte(i) != CPU.ARRAY_TERMINATOR; i++){
                     //System.out.println("Concatenating: 0x" + Integer.toHexString(i) + " => " + (char) memory[i]);
-                    concat += (char) memory[i];
+                    concat += (char) memory.readByte(i);
                 }
 
                 int index = 0;
                 for(int i = copy_address; i < copy_address + concat.length(); i++){
-                    memory[i] = (short) concat.charAt(index); index++;
-                    memory[i + 1] = CPU.ARRAY_TERMINATOR;
+                    //memory[i] = (short) concat.charAt(index); index++;
+                    //memory[i + 1] = CPU.ARRAY_TERMINATOR;
+                    memory.setMemory(i, concat.charAt(index), CPU.DATA_BYTE_MODE); index++;
+                    memory.setMemory(i + 1, CPU.ARRAY_TERMINATOR, CPU.DATA_BYTE_MODE);
                 }
             }
 
             case CPU.INT_STR_CPY -> {
-                int strAddr = MemoryModule.data_start - MemoryModule.file_offset + registers[8]; // original string address at : SS
-                int strDest = MemoryModule.data_start - MemoryModule.file_offset + registers[9]; // copy destination address at : SE
+                int strAddr = registers[8]; // original string address at : SS
+                int strDest = registers[9]; // copy destination address at : SE
 
-                for(int i = strAddr; memory[i] != CPU.ARRAY_TERMINATOR; i++){
+                for(int i = strAddr; memory.readByte(i) != CPU.ARRAY_TERMINATOR; i++){
                     int destination = strDest + (i - strAddr);
-                    memory[destination] = memory[i];
-                    memory[destination + 1] = CPU.ARRAY_TERMINATOR;
+                    //memory[destination] = memory[i];
+                    //memory[destination + 1] = CPU.ARRAY_TERMINATOR;
+                    memory.setMemory(destination, memory.readByte(i));
+                    memory.setMemory(destination + 1, CPU.ARRAY_TERMINATOR, CPU.DATA_BYTE_MODE);
                 }
             }
 
             case CPU.INT_MEM_CPY -> {
-                int startAddress = MemoryModule.data_start - MemoryModule.file_offset + registers[11]; // start address at: DI
-                int destinationAddress = MemoryModule.data_start - MemoryModule.file_offset + registers[10]; // destination address at: DP
+                int startAddress = registers[11]; // start address at: DI
+                int destinationAddress = registers[10]; // destination address at: DP
                 int numBytes = registers[3]; // number of bytes to copy at: RD
 
                 for(int i = startAddress; i < startAddress + numBytes; i++){
-                    memory[destinationAddress + (i - startAddress)] = memory[i];
+                    //memory[destinationAddress + (i - startAddress)] = memory[i];
+                    memory.setMemory( destinationAddress + (i - startAddress), memory.readByte(i), CPU.DATA_BYTE_MODE );
                 }
             }
 
             case CPU.INT_FILE -> {
 
-                int read_write_addr = MemoryModule.data_start - MemoryModule.file_offset + registers[11]; // the address where the file will be loaded / fetched : DI
-                int file_path_addr = MemoryModule.data_start - MemoryModule.file_offset + registers[8]; // the address of the file path : SS
+                int read_write_addr = registers[11]; // the address where the file will be loaded / fetched : DI
+                int file_path_addr = registers[8]; // the address of the file path : SS
 
                 int operation = registers[1]; // the operation to perform : RB
 
@@ -321,13 +331,15 @@ public class VirtualMachine {
                 // SS : file path
 
                 String fileName = "";
-                for(int i = file_path_addr; memory[i] != CPU.ARRAY_TERMINATOR; i++) {
-                    fileName += (char) memory[i];
+                for(int i = file_path_addr; memory.readByte(i) != CPU.ARRAY_TERMINATOR; i++) {
+                    fileName += (char) memory.readByte(i);
                 }
 
                 if (operation == CPU.FILE_READ) {
                     byte[] file_data = diskDriver.readFile(fileName);
-                    for(int i = 0; i < file_data.length; i++) memory[read_write_addr + i] = file_data[i];
+                    for(int i = 0; i < file_data.length; i++)
+                        memory.setMemory(read_write_addr + i, file_data[i], CPU.DATA_BYTE_MODE);
+
                     registers[10] = (short) file_data.length; // the total number of bytes that are read from the disk
                 }
 
@@ -336,7 +348,7 @@ public class VirtualMachine {
                     byte[] file_data = new byte[file_length];
 
                     for(int i = 0; i < file_data.length; i++) {
-                        file_data[i] = (byte) memory[read_write_addr + i];
+                        file_data[i] = (byte) memory.readByte( read_write_addr + i );
                     }
                     diskDriver.saveFile(fileName, file_data);
                 }
@@ -345,7 +357,7 @@ public class VirtualMachine {
                     int file_length = registers[10];
                     byte[] file_data = new byte[file_length];
                     for(int i = 0; i < file_data.length; i++){
-                        file_data[i] = (byte) memory[read_write_addr + i];
+                        file_data[i] = (byte) memory.readByte( read_write_addr + i );
                     }
                     diskDriver.appendFile(fileName, file_data);
                 }
@@ -368,7 +380,7 @@ public class VirtualMachine {
 
 
     // 16-BIT INTERRUPT HANDLER
-    public static boolean interruptHandler(int[] registers, short[] memory){
+    public static boolean interruptHandler(int[] registers, MemoryModule memory){
          boolean validInterrupt = true;
         switch (registers[1]){ // interrupt register: AH
 
@@ -400,13 +412,13 @@ public class VirtualMachine {
                 }
 
 
-                int write_address = registers[22] + MemoryModule.data_start - MemoryModule.file_offset; // write position register: data_start:DI
+                int write_address = registers[22]; // write position register: data_start:DI
 
                 int index = 0;
 
                 if (mode == CPU.DATA_BYTE_MODE) {
                     for (int i = write_address; i < write_address + input.length(); i++) {
-                        memory[i] = (short) input.charAt(index);
+                        memory.setMemory(i, input.charAt(index), CPU.DATA_BYTE_MODE);
                         index++;
                     }
                 }
@@ -415,8 +427,8 @@ public class VirtualMachine {
                         short low = (short) (input.charAt(index) & 0xff);
                         short high = (short) ((input.charAt(index) >> 8) & 0xff);
 
-                        memory[i + 1] = high;
-                        memory[i] = low;
+                        memory.setMemory(i + 1, high, CPU.DATA_BYTE_MODE);
+                        memory.setMemory(i, low, CPU.DATA_BYTE_MODE);
                         index++;
                     }
                 }
@@ -425,7 +437,7 @@ public class VirtualMachine {
                 if (mode == CPU.DATA_BYTE_MODE) endPosition = write_address + input.length();
                 else if (mode == CPU.DATA_WORD_MODE ) endPosition = write_address + input.length() * 2;
 
-                memory[endPosition] = CPU.ARRAY_TERMINATOR;
+                memory.setMemory(endPosition, CPU.ARRAY_TERMINATOR, CPU.DATA_BYTE_MODE);
 
                 registers[21] = endPosition; // string end position stored in SE
 
@@ -501,51 +513,51 @@ public class VirtualMachine {
             }
 
             case CPU.INT_STRING_CONCAT -> {
-                int string1_address = registers[22] + MemoryModule.data_start - MemoryModule.file_offset; // first string address: DI
-                int string2_address = registers[23] + MemoryModule.data_start - MemoryModule.file_offset; // second string address: DP
-                int copy_address = registers[20] + MemoryModule.data_start - MemoryModule.file_offset; // result will be copied to address: SS
+                int string1_address = registers[22]; // first string address: DI
+                int string2_address = registers[23]; // second string address: DP
+                int copy_address = registers[20]; // result will be copied to address: SS
                 String concat = "";
-                for(int i = string1_address; memory[i] != CPU.ARRAY_TERMINATOR; i++){
+                for(int i = string1_address; memory.readByte(i) != CPU.ARRAY_TERMINATOR; i++){
                     //System.out.println("Concatenating: 0x" + Integer.toHexString(i) + " => " + (char) memory[i]);
-                    concat += (char) memory[i];
+                    concat += (char) memory.readByte(i);
                 }
-                for(int i = string2_address; memory[i] != CPU.ARRAY_TERMINATOR; i++){
+                for(int i = string2_address; memory.readByte(i) != CPU.ARRAY_TERMINATOR; i++){
                     //System.out.println("Concatenating: 0x" + Integer.toHexString(i) + " => " + (char) memory[i]);
-                    concat += (char) memory[i];
+                    concat += (char) memory.readByte(i);
                 }
 
                 int index = 0;
                 for(int i = copy_address; i < copy_address + concat.length(); i++){
-                    memory[i] = (short) concat.charAt(index); index++;
-                    memory[i + 1] = CPU.ARRAY_TERMINATOR;
+                    memory.setMemory(i, concat.charAt(index), CPU.DATA_BYTE_MODE); index++;
+                    memory.setMemory(i + 1, CPU.ARRAY_TERMINATOR, CPU.DATA_BYTE_MODE);
                 }
             }
 
             case CPU.INT_STR_CPY -> {
-                int strAddr = registers[20] + MemoryModule.data_start - MemoryModule.file_offset; // original string address at : SS
-                int strDest = registers[21] + MemoryModule.data_start - MemoryModule.file_offset; // copy destination address at : SE
+                int strAddr = registers[20]; // original string address at : SS
+                int strDest = registers[21]; // copy destination address at : SE
 
-                for(int i = strAddr; memory[i] != CPU.ARRAY_TERMINATOR; i++){
+                for(int i = strAddr; memory.readByte(i) != CPU.ARRAY_TERMINATOR; i++){
                     int destination = strDest + (i - strAddr);
-                    memory[destination] = memory[i];
-                    memory[destination + 1] = CPU.ARRAY_TERMINATOR;
+                    memory.setMemory(destination, memory.readByte(i), CPU.DATA_BYTE_MODE);
+                    memory.setMemory(destination + 1, CPU.ARRAY_TERMINATOR, CPU.DATA_BYTE_MODE);
                 }
             }
 
             case CPU.INT_MEM_CPY -> {
-                int startAddress = registers[22] + MemoryModule.data_start - MemoryModule.file_offset; // start address at: DI
-                int destinationAddress = registers[23] + MemoryModule.data_start - MemoryModule.file_offset; // destination address at: DP
+                int startAddress = registers[22]; // start address at: DI
+                int destinationAddress = registers[23]; // destination address at: DP
                 int numBytes = registers[15]; // number of bytes to copy at: DX
 
                 for(int i = startAddress; i < startAddress + numBytes; i++){
-                    memory[destinationAddress + (i - startAddress)] = memory[i];
+                    memory.setMemory(destinationAddress + (i - startAddress), memory.readByte(i), CPU.DATA_BYTE_MODE);
                 }
             }
 
             case CPU.INT_FILE -> {
 
-                int read_write_addr = registers[22] + MemoryModule.data_start - MemoryModule.file_offset; // the address where the file will be loaded / fetched : DI
-                int file_path_addr = registers[20] + MemoryModule.data_start - MemoryModule.file_offset; // the address of the file path : SS
+                int read_write_addr = registers[22]; // the address where the file will be loaded / fetched : DI
+                int file_path_addr = registers[20]; // the address of the file path : SS
 
                 int operation = registers[0]; // the operation to perform : AL
 
@@ -573,13 +585,16 @@ public class VirtualMachine {
                 // SS : file path
 
                 String fileName = "";
-                for(int i = file_path_addr; memory[i] != CPU.ARRAY_TERMINATOR; i++) {
-                    fileName += (char) memory[i];
+                for(int i = file_path_addr; memory.readByte(i) != CPU.ARRAY_TERMINATOR; i++) {
+                    fileName += (char) memory.readByte(i);
                 }
 
                 if (operation == CPU.FILE_READ) {
                     byte[] file_data = diskDriver.readFile(fileName);
-                    for(int i = 0; i < file_data.length; i++) memory[read_write_addr + i] = file_data[i];
+
+                    for(int i = 0; i < file_data.length; i++)
+                        memory.setMemory(read_write_addr + i, file_data[i], CPU.DATA_BYTE_MODE);
+
                     registers[15] = file_data.length;
                 }
 
@@ -588,7 +603,7 @@ public class VirtualMachine {
                     byte[] file_data = new byte[file_length];
 
                     for(int i = 0; i < file_data.length; i++) {
-                        file_data[i] = (byte) memory[read_write_addr + i];
+                        file_data[i] = (byte) memory.readByte(read_write_addr + i);
                     }
                     diskDriver.saveFile(fileName, file_data);
                 }
@@ -597,7 +612,7 @@ public class VirtualMachine {
                     int file_length = registers[15];
                     byte[] file_data = new byte[file_length];
                     for(int i = 0; i < file_data.length; i++){
-                        file_data[i] = (byte) memory[read_write_addr + i];
+                        file_data[i] = (byte) memory.readByte(read_write_addr + i);
                     }
                     diskDriver.appendFile(fileName, file_data);
                 }
@@ -625,31 +640,31 @@ public class VirtualMachine {
 
 
     // Get string prompt for 8-bit module
-    private static String getInputMessage(short[] registers, short[] memory) {
-        int input_message_pointer = registers[8] + MemoryModule.data_start; // string message stored at : SS
+    private static String getInputMessage(short[] registers, MemoryModule memory) {
+        int input_message_pointer = registers[8]; // string message stored at : SS
         String input_message = "";
-        if (memory[input_message_pointer] != CPU.ARRAY_TERMINATOR) {
+        if (memory.readByte( input_message_pointer ) != CPU.ARRAY_TERMINATOR) {
 
             for (int i = input_message_pointer;
-                 memory[i] != CPU.ARRAY_TERMINATOR || i - input_message_pointer >= cpuModule.MAX_STRING_LENGTH;
+                 memory.readByte(i) != CPU.ARRAY_TERMINATOR || i - input_message_pointer >= cpuModule.MAX_STRING_LENGTH;
                  i++) {
-                input_message += (char) memory[i];
+                input_message += (char) memory.readByte(i);
             }
         } else input_message = "Input : "; // no message provided
         return input_message;
     }
 
     // Get string prompt for 16-bit module
-    private static String getInputMessage(int[] registers, short[] memory) {
-        int input_message_pointer = registers[20] + MemoryModule.data_start; // string message stored at : SS
+    private static String getInputMessage(int[] registers, MemoryModule memory) {
+        int input_message_pointer = registers[20]; // string message stored at : SS
         String input_message = "";
-        if (memory[input_message_pointer] != CPU.ARRAY_TERMINATOR) {
+        if (memory.readByte(input_message_pointer) != CPU.ARRAY_TERMINATOR) {
             //System.out.println("Message stored at : 0x" + Integer.toHexString(input_message_pointer));
             for (int i = input_message_pointer;
-                 memory[i] != CPU.ARRAY_TERMINATOR || i - input_message_pointer >= cpuModule.MAX_STRING_LENGTH;
+                 memory.readByte(i) != CPU.ARRAY_TERMINATOR || i - input_message_pointer >= cpuModule.MAX_STRING_LENGTH;
                  i++) {
                 //  System.out.println("adding char : " + (char) memory[i]);
-                input_message += (char) memory[i];
+                input_message += (char) memory.readByte(i);
             }
         } else input_message = "Input : "; // no message provided
         return input_message;

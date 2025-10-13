@@ -193,7 +193,8 @@ public class CLI {
             cpuModule.machineCode = image;
             vm.setMemImage(image);
 
-            for(int i = 0; i < cpuModule.memoryController.mem_size_B; i++) MemoryModule.memory[i] = (short) image[i];
+            for(int i = 0; i < cpuModule.memoryController.mem_size_B; i++)
+                cpuModule.memoryController.setMemoryAbsolute(i, (short) image[i], CPU.DATA_BYTE_MODE);
 
             System.out.println("DONE. STARTING EXECUTION.\n");
         } catch (IOException e) {

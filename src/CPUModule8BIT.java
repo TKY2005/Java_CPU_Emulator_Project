@@ -371,19 +371,22 @@ public class CPUModule8BIT extends CPU {
     @Override
     public int[] compileToMemoryImage(String code){
         String[] lines = code.split("\n");
-        List<Integer> machineCodeList = new ArrayList<>();
+        List<Integer> memImageList = new ArrayList<>();
+
+        // preset the list size
+        for(int i = 0; i < memoryController.mem_size_B; i++) memImageList.add(0x00);
 
         StringBuilder machineCodeString = new StringBuilder();
 
         if (memoryController.mem_size_B > 0xffff) {
-            String err = "This Maximum amount of addressable memoryController.memory for this architecture is 64KB";
+            String err = "This Maximum amount of addressable memory for this architecture is 64KB";
             triggerProgramError(err, ErrorHandler.ERR_CODE_INVALID_MEMORY_LAYOUT);
         }
 
 
         // Step 1- Calculate the function offset addresses, add .DATA variables to the data section, and build a raw code string
         String fullCode = "";
-        for(int i = 0; i < lines.length; i++){
+        for (int i = 0; i < lines.length; i++) {
             currentLine++;
             // Which section are we in? (is it a line of code? is it a function. and if it starts with '.' is it the data section?)
             if (lines[i].equals(".DATA")){
@@ -438,24 +441,21 @@ public class CPUModule8BIT extends CPU {
                  }
                  i++;
              }
-            }
-            else if (lines[i].startsWith(".")){ // regular function. add the function along with the calculated offset
+            } else if (lines[i].startsWith(".")) { // regular function. add the function along with the calculated offset
                 functions.put(lines[i].substring(1), currentByte);
                 System.out.println("Mapped function '" + lines[i].substring(1) + "' to address: 0x" +
                         Integer.toHexString(currentByte));
-            }
-            else{ // code line. append the offset based on the string length.
+            } else { // code line. append the offset based on the string length.
                 // in this architecture there's only 3 possible cases
                 // no-operand instruction = 1 byte
                 // single-operand instruction = 3 bytes
                 // 2 operand instruction = 5 bytes
                 if (lines[i].isEmpty() || lines[i].startsWith(COMMENT_PREFIX)) continue;
                 currentByte += getInstructionLength(lines[i]);
-
                 fullCode += lines[i] + "\n";
             }
         }
-        //System.out.println(functions);
+        //System.out.println(functionPointers);
         //System.out.println(dataMap);
 
         // Step 2- convert the raw code to machine code array.
@@ -463,10 +463,12 @@ public class CPUModule8BIT extends CPU {
 
         currentLine = 1;
         eachInstruction = new HashMap<>();
-        for(int i = 0; i < fullLines.length; i++){
+        for (int i = 0; i < fullLines.length; i++) {
 
             currentLine++;
-            String a = Arrays.toString(toMachineCode(fullLines[i])).replace("[", "").replace("]", "");
+            int[] translatedLine = toMachineCode(fullLines[i]);
+            //String a = Arrays.toString(toMachineCode(fullLines[i])).replace("[", "").replace("]", "");
+            String a = Arrays.toString(translatedLine).replace("[", "").replace("]", "");
             //eachInstruction.put(i, toMachineCode(fullLines[i]));
             machineCodeString.append(a);
             if (i < fullLines.length - 1) machineCodeString.append(", ");
@@ -474,31 +476,49 @@ public class CPUModule8BIT extends CPU {
 
         String[] eachNum = machineCodeString.toString().split(", ");
 
-        for(int i = 0; i < eachNum.length; i++){ // The TEXT section
-            if (isNumber(eachNum[i])){
-                machineCodeList.add(Integer.parseInt(eachNum[i]));
+        for (int i = 0; i < eachNum.length; i++) { // The TEXT section (ROM/CODE)
+
+            if (i >= MemoryModule.rom_end) {
+                String err = String.format("""
+                        The compiled machine code is too big to fit in the ROM section of memory.
+                        Please optimize your code to occupy less space or increase ROM size.
+                        current ROM size : 0x%X, compiled machine code size: 0x%X
+                        """, MemoryModule.rom_end, eachNum.length);
+                triggerProgramError(err, ErrorHandler.ERR_CODE_INSUFFICIENT_MEMORY);
+                }
+            if (isNumber(eachNum[i])) {
+
+                memImageList.set(i, Integer.parseInt(eachNum[i]));
             }
         }
 
-        machineCodeList.add( (int) TEXT_SECTION_END );
+        memImageList.set(MemoryModule.rom_end ,(int) TEXT_SECTION_END & 0xff);
 
-        for(int i = 0; i < memoryController.memory.length; i++){ // The DATA and STACK sections
-            machineCodeList.add((int) memoryController.memory[i]);
+        for (int i = MemoryModule.data_start; i < memoryController.getMemorySize(); i++) { // The DATA and STACK sections
+            memImageList.set(i, memoryController.readByteAbsolute(i) & 0xff);
         }
-        machineCodeList.add((int) MEMORY_SECTION_END);
+        memImageList.set(MemoryModule.stack_end, (int) MEMORY_SECTION_END & 0xff);
 
+        int write_addr = MemoryModule.stack_end + 1;
+        for (int i = 0; i < signature.length(); i++){
+            // My signature, last release date and compiler version
+            memImageList.set(write_addr ,(int) signature.charAt(i));
+            write_addr++;
+        }
 
-        for(int i = 0; i < signature.length(); i++) // My signature, last release date and compiler version
-            machineCodeList.add((int) signature.charAt(i));
+        for (int i = 0; i < lastUpdateDate.length(); i++) {
+            memImageList.set(write_addr, (int) lastUpdateDate.charAt(i));
+            write_addr++;
+        }
 
-        for(int i = 0; i < lastUpdateDate.length(); i++)
-            machineCodeList.add((int) lastUpdateDate.charAt(i));
+        for (int i = 0; i < compilerVersion.length(); i++) {
+            memImageList.set(write_addr, (int) compilerVersion.charAt(i));
+            write_addr++;
+        }
 
-        for(int i = 0; i < compilerVersion.length(); i++)
-            machineCodeList.add((int) compilerVersion.charAt(i));
-
-        machineCodeList.add( (int)  (memoryController.memorySizeKB + 1) ); // The memoryController.memory size in KB
-        machineCodeList.add( bit_length ); // the CPU architecture flag
+        write_addr = memoryController.getMemorySize() - 1;
+        memImageList.set(write_addr - 3, (int) (memorySizeKB + 1)); // The memory size in KB
+        memImageList.set(write_addr - 2, bit_length); // the CPU architecture flag
 
         // Add the program's entry point.
         int entryPoint = functions.get("MAIN");
@@ -506,11 +526,11 @@ public class CPUModule8BIT extends CPU {
         int entryPointLow = entryPoint & 0xff;
         int entryPointHigh = (entryPoint >> 8) & 0xff;
 
-        machineCodeList.add(entryPointHigh);
-        machineCodeList.add(entryPointLow);
+        memImageList.set(write_addr - 1, entryPointHigh);
+        memImageList.set(write_addr, entryPointLow);
 
-        machineCode = machineCodeList.stream().mapToInt(Integer::intValue).toArray();
-
+        machineCode = memImageList.stream().mapToInt(Integer::intValue).toArray();
+        if (stepListener != null) stepListener.updateUI();
         return machineCode;
     }
 
@@ -591,18 +611,7 @@ public class CPUModule8BIT extends CPU {
 
         while (!programEnd && registers[PC] < machine_code.length){
 
-            // if the CPU hasn't progressed in the last 10 seconds. terminate the program.
-//            TimerTask timeout = new TimerTask() {
-//              @Override
-//              public void run(){
-//                  String err = "Program timed out.";
-//                  triggerProgramError(err, ErrorHandler.ERR_PROG_TIMEOUT);
-//              }
-//            };
-//            timeoutTimer.schedule(timeout, timeoutDuration);
             if (canExecute) {
-                // System.out.printf("Executing machine code : 0x%X -> 0x%X -> %s.\n",
-                //       registers[PC], machine_code[registers[PC]], instructionSet.get( machine_code[registers[PC]] ));
                 switch (machine_code[registers[PC]]) {
                     case INS_EXT -> {
                         programEnd = true;
@@ -888,7 +897,7 @@ public class CPUModule8BIT extends CPU {
 
                     case INS_INT -> {
                         if (I) {
-                            boolean x = VirtualMachine.interruptHandler(registers, memoryController.memory);
+                            boolean x = VirtualMachine.interruptHandler(registers, memoryController);
                             if (!x) E = true;
                         } else System.out.println("Interrupt flag not set. skipping.");
                     }
@@ -985,10 +994,10 @@ public class CPUModule8BIT extends CPU {
                 output = String.valueOf(registers[destination[1]]);
             }
             case DIRECT_MODE ->{
-                output = String.valueOf(memoryController.memory[destination[1]]);
+                output = String.valueOf(memoryController.readByte(destination[1]));
             }
             case INDIRECT_MODE ->{
-                output = String.valueOf(memoryController.memory[registers[destination[1]]]);
+                output = String.valueOf(memoryController.readByte( registers[ destination[1] ] ));
             }
             case IMMEDIATE_MODE ->{
                 output = String.valueOf(destination[1]);
@@ -1013,8 +1022,8 @@ public class CPUModule8BIT extends CPU {
     public void outc(short[] source){
         switch(source[0]) {
             case REGISTER_MODE -> output = String.valueOf((char) registers[source[1]]);
-            case DIRECT_MODE -> output = String.valueOf((char) memoryController.memory[source[1]]);
-            case INDIRECT_MODE -> output = String.valueOf((char) memoryController.memory[registers[source[1]]]);
+            case DIRECT_MODE -> output = String.valueOf((char) memoryController.readByte(source[1]));
+            case INDIRECT_MODE -> output = String.valueOf((char) memoryController.readByte(registers[source[1]]));
             case IMMEDIATE_MODE -> output = String.valueOf((char) source[1]);
         }
 
@@ -1553,10 +1562,10 @@ public class CPUModule8BIT extends CPU {
 
     public void push(short[] source){
         switch (source[0]){
-            case REGISTER_MODE -> memoryController.memory[ registers[SP] ] = getRegister(source[1]);
-            case DIRECT_MODE -> memoryController.memory[registers[SP]] = memoryController.getMemory(source[1]);
-            case INDIRECT_MODE -> memoryController.memory[registers[SP]] = memoryController.getMemory( memoryController.getMemory( getRegister( source[1] ) ) );
-            case IMMEDIATE_MODE -> memoryController.memory[registers[SP]] = source[1];
+            case REGISTER_MODE -> memoryController.setMemoryAbsolute(registers[SP], getRegister(source[1]), DATA_BYTE_MODE);
+            case DIRECT_MODE -> memoryController.setMemoryAbsolute(registers[SP], memoryController.readByte(source[1]), DATA_BYTE_MODE);
+            case INDIRECT_MODE -> memoryController.setMemoryAbsolute(registers[SP], memoryController.readByte( getRegister(source[1]) ), DATA_BYTE_MODE);
+            case IMMEDIATE_MODE -> memoryController.setMemoryAbsolute(registers[SP], source[1], DATA_BYTE_MODE);
         }
         registers[SP]--;
     }
@@ -1565,12 +1574,11 @@ public class CPUModule8BIT extends CPU {
     public void pop(short[] source){
         registers[SP]++;
         switch (source[0]){
-            case REGISTER_MODE -> setRegister( source[1], memoryController.memory[ registers[SP] ] );
-            case DIRECT_MODE -> memoryController.setMemory( source[1], memoryController.memory[registers[SP]] );
-            case INDIRECT_MODE -> memoryController.setMemory( getRegister(source[1]), memoryController.memory[registers[SP]] );
+            case REGISTER_MODE -> setRegister( source[1], (short) memoryController.readByteAbsolute(registers[SP]) );
+            case DIRECT_MODE -> memoryController.setMemory( source[1], memoryController.readByteAbsolute(registers[SP]) );
+            case INDIRECT_MODE -> memoryController.setMemory( getRegister(source[1]), memoryController.readByteAbsolute(registers[SP]) );
             default -> E = true;
         }
-        memoryController.memory[ registers[SP] ] = 0;
     }
 
 

@@ -7,12 +7,12 @@ import java.util.HashMap;
 /*
     Java simple CPU emulator
     T.K.Y
-    last updated: October 11 2025
+    last updated: October 13 2025
  */
 
 public class Launcher{
     static String configFilePath = "./myEmulator.conf";
-    static String version = "3.6";
+    static String version = "3.7";
     static HashMap<String, String> appConfig;
     static String configDefaultTemplate = String.format("""
             Version=%s

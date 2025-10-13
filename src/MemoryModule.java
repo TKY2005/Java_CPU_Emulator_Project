@@ -19,7 +19,7 @@ public class MemoryModule {
 
     float ROMsizeKB, DATAsizeKB, STACKsizeKB;
 
-    static short[] memory;
+    private short[] memory;
     static int file_offset = 0;
 
     static final int max_byte_value = 0xff;
@@ -89,6 +89,10 @@ public class MemoryModule {
     public void resetMemory(){
         memory = new short[mem_size_B];
         dataOffset = dataOrigin;
+    }
+
+    public int getMemorySize(){
+        return memory.length;
     }
 
     public short getMemory(short address){
@@ -232,6 +236,67 @@ public class MemoryModule {
     }
 
 
+    public void setMemoryAbsolute(int address, int value, int mode){
+
+        if (isValidAbsoluteAddress(address)) {
+
+            if (mode == CPU.DATA_BYTE_MODE) memory[address] = (short) value;
+            else if (mode == CPU.DATA_WORD_MODE) {
+                int low = value & 0xff;
+                int high = (value >> 8) & 0xff;
+                memory[address] = (short) low;
+                if (address + 1 < memory.length) memory[address + 1] = (short) high;
+                else{
+                    String err = String.format("0x%04X(%d) is not a valid memory address.", address + 1, address + 1);
+                    cpu.triggerProgramError(err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
+                }
+            }
+
+        } else{
+            String err = String.format("0x%04X(%d) is not a valid memory address.", address, address);
+            cpu.triggerProgramError(err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
+        }
+    }
+    
+    public int readByteAbsolute(int address){
+        
+        if (!isValidAbsoluteAddress(address)){
+            String err = String.format("0x%X(%d) is an invalid memory address.",
+                    address, address);
+            cpu.triggerProgramError(
+                    err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
+        }
+        Logger.addLog(String.format("Reading a byte from address : 0x%04X -> 0x%02X",
+                        address, memory[address]),
+                logDevice);
+        return memory[address];
+    }
+    
+    public int[] readWordAbsolute(int startAddress){
+        
+        if (!isValidAbsoluteAddress(startAddress)){
+            String err = String.format("0x%X(%d) is an invalid memory address."
+                            ,startAddress, startAddress);
+            cpu.triggerProgramError(
+                    err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
+        }
+        if (!isValidAbsoluteAddress(startAddress + 1)){
+            String err = String.format("0x%X(%d) is an invalid memory address.",
+                            startAddress + 1, startAddress + 1);
+            cpu.triggerProgramError(
+                    err, ErrorHandler.ERR_CODE_INVALID_MEMORY_ADDRESS);
+        }
+
+        Logger.addLog(String.format("Reading a word from address : 0x%04X -> 0x%02X, 0x%02X",
+                        startAddress, memory[startAddress], memory[startAddress + 1]),
+                logDevice);
+        return new int[] {memory[startAddress], memory[startAddress + 1]};
+    }
+
+    private boolean isValidAbsoluteAddress(int startAddress) {
+        return startAddress >= 0 && startAddress < memory.length;
+    }
+
     public boolean isValidMemoryAddress(int address){
         return address <= last_addressable_location && address > rom_end;
     }
@@ -264,7 +329,7 @@ public class MemoryModule {
                 hexDump.append(String.format("%04X : \t", i));
             }
 
-            hexDump.append(String.format("0x%02X" ,memory[i])).append(" ");
+            hexDump.append(String.format("0x%02X" , memory[i])).append(" ");
         }
         return hexDump.toString();
     }

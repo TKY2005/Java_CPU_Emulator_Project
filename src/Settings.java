@@ -28,6 +28,7 @@ public class Settings extends JFrame {
     private JLabel UIintervalLabel;
     private JSlider ROMPercentageSlider;
     private JLabel ROMSizeLabel;
+    private JPanel panel;
 
     private boolean adjustingSliders = false;
     private int romValue, dataValue, stackValue;

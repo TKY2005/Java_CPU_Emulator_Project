@@ -22,6 +22,7 @@ public class UI extends JFrame implements onStepListener {
     private JButton resetMemoryButton;
     private JScrollPane MemoryScrollPane;
     private JScrollPane CodeAreaScrollPane;
+    private JPanel panel;
     private DefaultCaret caret;
 
     public LineNumberComponent lineNumbers;

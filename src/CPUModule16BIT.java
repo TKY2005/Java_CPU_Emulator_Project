@@ -621,8 +621,8 @@ public class CPUModule16BIT extends CPU {
 
         memImageList.set(MemoryModule.rom_end ,(int) TEXT_SECTION_END & 0xff);
 
-        for (int i = MemoryModule.data_start; i < MemoryModule.memory.length; i++) { // The DATA and STACK sections
-            memImageList.set(i, (int) MemoryModule.memory[i] & 0xff);
+        for (int i = MemoryModule.data_start; i < memoryController.getMemorySize(); i++) { // The DATA and STACK sections
+            memImageList.set(i, memoryController.readByteAbsolute(i) & 0xff);
         }
         memImageList.set(MemoryModule.stack_end, (int) MEMORY_SECTION_END & 0xff);
 
@@ -643,7 +643,7 @@ public class CPUModule16BIT extends CPU {
             write_addr++;
         }
 
-        write_addr = MemoryModule.memory.length - 1;
+        write_addr = memoryController.getMemorySize() - 1;
         memImageList.set(write_addr - 3, (int) (memorySizeKB + 1)); // The memory size in KB
         memImageList.set(write_addr - 2, bit_length); // the CPU architecture flag
 
@@ -1054,7 +1054,7 @@ public class CPUModule16BIT extends CPU {
 
                     case INS_INT -> {
                         if (I) {
-                            boolean x = VirtualMachine.interruptHandler(registers, MemoryModule.memory);
+                            boolean x = VirtualMachine.interruptHandler(registers, memoryController);
                             if (!x) E = true;
                         } else Logger.addLog("Interrupt flag not set. skipping.", logDevice, true);
                     }
@@ -2097,34 +2097,34 @@ public class CPUModule16BIT extends CPU {
         switch (source[0]){
 
             case REGISTER_MODE ->{
-                MemoryModule.memory[ registers[SP] ] = (short) getRegisterByte( source[1] );
+                memoryController.setMemoryAbsolute( registers[SP], getRegisterByte( source[1] ), CPU.DATA_BYTE_MODE );
                 registers[SP]--;
             }
 
             case REGISTER_WORD_MODE -> {
                 int[] val = getRegisterWord( source[1] );
                 for (int j : val) {
-                    MemoryModule.memory[registers[SP]] = (short) j;
+                    memoryController.setMemoryAbsolute(registers[SP], j, CPU.DATA_BYTE_MODE );
                     registers[SP]--;
                 }
 
             }
 
             case DIRECT_MODE -> {
-                MemoryModule.memory[ registers[SP] ] = (short) memoryController.readByte( (source[1] << 8) | source[2] );
+                memoryController.setMemoryAbsolute( registers[SP], memoryController.readByte( source[1] << 8 | source[2] ), CPU.DATA_BYTE_MODE );
                 registers[SP]--;
             }
 
             case DIRECT_WORD_MODE -> {
                 int[] val = memoryController.readWord( (source[1] << 8) | source[2] );
                 for (int j : val) {
-                    MemoryModule.memory[registers[SP]] = (short) j;
+                    memoryController.setMemoryAbsolute(registers[SP], j, CPU.DATA_BYTE_MODE);
                     registers[SP]--;
                 }
             }
 
             case INDIRECT_MODE -> {
-                MemoryModule.memory[ registers[ SP ]] = (short) memoryController.readByte( getRegister( source[1] ) );
+                memoryController.setMemoryAbsolute( registers[SP], memoryController.readByte( getRegister(source[1]) ), DATA_BYTE_MODE);
                 registers[SP]--;
             }
 
@@ -2132,7 +2132,7 @@ public class CPUModule16BIT extends CPU {
                 int[] val = memoryController.readWord( getRegister(source[1]) );
 
                 for(int j : val){
-                    MemoryModule.memory[ registers[SP] ] = (short) j;
+                    memoryController.setMemoryAbsolute( registers[SP], j, DATA_BYTE_MODE );
                     registers[SP]--;
                 }
             }
@@ -2140,15 +2140,15 @@ public class CPUModule16BIT extends CPU {
             case IMMEDIATE_MODE -> {
                 int val = source[1];
                 if (val <= max_byte_value) {
-                    MemoryModule.memory[registers[SP]] = (short) val;
+                    memoryController.setMemoryAbsolute( registers[SP], val, DATA_BYTE_MODE );
                     registers[SP]--;
                 }
                 else{
                     int low = val & 0xff;
                     int high = (val >> 8) & 0xff;
-                    MemoryModule.memory[registers[SP]] = (short) low;
+                    memoryController.setMemoryAbsolute(registers[SP], low, DATA_BYTE_MODE);
                     registers[SP]--;
-                    MemoryModule.memory[registers[SP]] = (short) high;
+                    memoryController.setMemoryAbsolute(registers[SP], high, DATA_BYTE_MODE);
                     registers[SP]--;
                 }
             }
@@ -2162,16 +2162,12 @@ public class CPUModule16BIT extends CPU {
         switch (source[0]){
             case REGISTER_MODE -> {
                 registers[SP]++;
-                setRegister( source[1], MemoryModule.memory[registers[SP]] );
-                MemoryModule.memory[registers[SP]] = 0;
+                setRegister( source[1], memoryController.readByteAbsolute(registers[SP]) );
             }
 
             case REGISTER_WORD_MODE -> {
                 registers[SP]++;
-                int val = memoryController.bytePairToWordBE( new int[] {MemoryModule.memory[registers[SP]], MemoryModule.memory[registers[SP] + 1]} );
-                MemoryModule.memory[registers[SP] - 1] = 0;
-                MemoryModule.memory[registers[SP]] = 0;
-                MemoryModule.memory[registers[SP] + 1] = 0;
+                int val = memoryController.bytePairToWordBE(memoryController.readWordAbsolute(registers[SP]));
                 registers[SP]++;
 
                 setRegister( source[1], val );
@@ -2179,35 +2175,26 @@ public class CPUModule16BIT extends CPU {
 
             case DIRECT_MODE -> {
                 registers[SP]++;
-                MemoryModule.memory[(source[1] << 8) | source[2]] = MemoryModule.memory[registers[SP]];
-                MemoryModule.memory[registers[SP]] = 0;
+                memoryController.setMemory( (source[1] << 8) | source[2], memoryController.readByteAbsolute(registers[SP]), DATA_BYTE_MODE );
             }
 
             case DIRECT_WORD_MODE -> {
                 registers[SP]++;
-                int[] val = new int[] {MemoryModule.memory[registers[SP]], MemoryModule.memory[registers[SP] + 1]};
-                MemoryModule.memory[ (source[1] << 8) | source[2] ] = (short) val[0];
-                MemoryModule.memory[((source[1] << 8) | source[2]) + 1] = (short) val[1];
-
-                MemoryModule.memory[registers[SP] - 1] = 0;
-                MemoryModule.memory[registers[SP]] = 0;
-                MemoryModule.memory[registers[SP] + 1] = 0;
+                int[] val = memoryController.readWordAbsolute( registers[SP] );
+                memoryController.setMemory( (source[1] << 8) | source[2] , val[0], DATA_BYTE_MODE);
+                memoryController.setMemory(((source[1] << 8) | source[2]) + 1, val[1], DATA_BYTE_MODE);
                 registers[SP]++;
             }
 
             case INDIRECT_MODE -> {
                 registers[SP]++;
-                memoryController.setMemory( getRegisterByte( source[1] ), MemoryModule.memory[registers[SP]] );
+                memoryController.setMemory( getRegisterByte( source[1] ), memoryController.readByteAbsolute(registers[SP]) );
             }
 
             case INDIRECT_WORD_MODE -> {
                 registers[SP]++;
                 memoryController.setMemory( getRegister( source[1] ),
-                        memoryController.bytePairToWordBE( new int[] {MemoryModule.memory[registers[SP]], MemoryModule.memory[registers[SP] + 1]} ) );
-
-                MemoryModule.memory[registers[SP] - 1] = 0;
-                MemoryModule.memory[registers[SP]] = 0;
-                MemoryModule.memory[registers[SP] + 1] = 0;
+                        memoryController.bytePairToWordBE( memoryController.readWordAbsolute(registers[SP]) ) );
                 registers[SP]++;
             }
         }
