@@ -163,7 +163,7 @@ public class Launcher{
             String outputPath = args[2];
             if (args.length >= 4) {
                 String architecture = args[3];
-                appConfig.put("Architecture", architecture);
+                appConfig.replace("Architecture", architecture);
                 System.out.println("Compiling for " + architecture + "-bit module");
             }
 
@@ -171,6 +171,32 @@ public class Launcher{
                 String memSize = args[4];
                 appConfig.put("MemSize", memSize);
                 System.out.println("Compiling with " + memSize + "KB of memory.");
+            }
+            if (args.length >= 6) {
+                    // custom rom size definitions
+                    String romSize = args[5];
+                    String romPercentage = "";
+                    if (romSize.endsWith("%")) romPercentage = romSize.replace("%", "");
+                    else {
+                        int rom = Integer.parseInt(romSize);
+                        int memsizeB = (int) (Float.parseFloat(appConfig.get("MemSize")) * 1024 + 33);
+                        romPercentage = Float.toString( ( (float) rom / memsizeB ) * 100 );
+                    }
+                    System.out.println("Compiling with a custom ROM size of " + romSize);
+                    appConfig.replace("ROMPercentage", romPercentage);
+            }
+
+            if (args.length >= 7) { // custom data size definitions
+                    String dataSize = args[6];
+                    String dataPercentage = "";
+                    if (dataSize.endsWith("%")) dataPercentage = dataSize.replace("%", "");
+                    else{
+                        int data = Integer.parseInt(dataSize);
+                        int memsizeB = (int) (Float.parseFloat( appConfig.get("MemSize")) * 1024 + 33);
+                        dataPercentage = Float.toString( ((float) data / memsizeB) * 100 );
+                    }
+                    System.out.println("Compiling with a custom DATA size of " + dataSize);
+                    appConfig.replace("DataPercentage", dataPercentage);
             }
 
             else if (args.length == 3){

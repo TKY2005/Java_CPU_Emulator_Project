@@ -897,7 +897,7 @@ public class CPUModule8BIT extends CPU {
 
                     case INS_INT -> {
                         if (I) {
-                            boolean x = VirtualMachine.interruptHandler(registers, memoryController);
+                            boolean x = InterruptHandler.triggerSoftwareInterrupt(this, registers, memoryController);
                             if (!x) E = true;
                         } else System.out.println("Interrupt flag not set. skipping.");
                     }

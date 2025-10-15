@@ -1054,7 +1054,7 @@ public class CPUModule16BIT extends CPU {
 
                     case INS_INT -> {
                         if (I) {
-                            boolean x = VirtualMachine.interruptHandler(registers, memoryController);
+                            boolean x = InterruptHandler.triggerSoftwareInterrupt(this, registers, memoryController);
                             if (!x) E = true;
                         } else Logger.addLog("Interrupt flag not set. skipping.", logDevice, true);
                     }
@@ -1065,7 +1065,9 @@ public class CPUModule16BIT extends CPU {
 
 
                     default -> {
-                        String err = "Undefined instruction. please check the instruction codes : " + machine_code[registers[PC]];
+                        String err = String.format(
+                                "Undefined instruction at address 0x%04X(%d). please check the instruction codes : 0x%04X(%d)",
+                                registers[PC], registers[PC], machine_code[registers[PC]], machine_code[registers[PC]]);
                         status_code = ErrorHandler.ERR_CODE_INVALID_INSTRUCTION_FORMAT;
                         triggerProgramError(
                                 err, status_code);
