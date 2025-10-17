@@ -1,19 +1,54 @@
 import javax.swing.*;
 import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.HashMap;
+import org.apache.commons.cli.*;
 
 /*
     Java simple CPU emulator
     T.K.Y
-    last updated: October 13 2025
+    last updated: October 17 2025
  */
 
 public class Launcher{
     static String configFilePath = "./myEmulator.conf";
     static String version = "3.7";
     static HashMap<String, String> appConfig;
+
+    static Option architectureOption =
+                    Option.builder("a")
+                            .longOpt("architecture")
+                            .hasArg(true)
+                            .argName("ARCHITECTURE")
+                            .required(false)
+                            .desc("Decide which CPU architecture to run the current process.").get();
+
+    static Option memOption =
+            Option.builder("m")
+                    .longOpt("memory")
+                    .argName("MEMORYKB")
+                    .hasArg(true)
+                    .required(false)
+                    .desc("Specify the running memory size in Kilobytes.")
+                    .get();
+
+    static Option memByteOption =
+            Option.builder("b")
+                    .longOpt("bytes")
+                    .argName("MEMORYBYTES")
+                    .hasArg(true)
+                    .required(false)
+                    .desc("Specify the running memory size in bytes")
+                    .get();
+
+    static Option helpOption =
+            Option.builder("h")
+                    .longOpt("help")
+                    .desc("Display this help message.")
+                    .get();
+
     static String configDefaultTemplate = String.format("""
             Version=%s
             MemSize=8
@@ -101,7 +136,32 @@ public class Launcher{
         System.exit(-1);
     }
 
-    public static void main(String[] args) {
+    static void checkFlags(Options options, CommandLine cmd, HelpFormatter formatter) throws IOException {
+        if (cmd.hasOption("m"))
+        {
+            System.out.println();
+            appConfig.replace("MemSize", cmd.getOptionValue("m"));
+            System.out.println("Starting with custom size in KB: " + appConfig.get("MemSize"));
+        }
+        if (cmd.hasOption("h"))
+        {
+            formatter.printHelp("cli-example", "TKY CPU EMULATOR", options, null, false);
+        }
+        if (cmd.hasOption("b"))
+        {
+            int sizeB = Integer.parseInt(cmd.getOptionValue("b"));
+            float sizeKB = (sizeB / 1024f);
+            appConfig.replace("MemSize", Float.toString(sizeKB));
+            System.out.println("Starting with custom size in bytes: " + sizeB);
+        }
+        if (cmd.hasOption("a"))
+        {
+            appConfig.replace("Architecture", cmd.getOptionValue("a"));
+            System.out.println("Starting with defined architecture: " + appConfig.get("Architecture"));
+        }
+    }
+
+    public static void main(String[] args) throws IOException {
         appConfig = new HashMap<>();
         try{
             File file = new File(configFilePath);
@@ -126,6 +186,23 @@ public class Launcher{
             e.printStackTrace();
         }
 
+        Options options = new Options();
+        options.addOption(architectureOption);
+        options.addOption(memOption);
+        options.addOption(memByteOption);
+        options.addOption(helpOption);
+
+        CommandLineParser parser = new DefaultParser();
+        HelpFormatter formatter = HelpFormatter.builder().get();
+        CommandLine cmd = null;
+
+        try {
+            cmd = parser.parse(options, args);
+        } catch (ParseException e) {
+            e.printStackTrace();
+            formatter.printHelp("cli-example", "TKY CPU EMULATOR", options, null, false);
+        }
+
         if (args.length == 0 ){
             System.out.println("No arguments. Going into UI mode.");
             new UI("T.K.Y CPU Emulator V" + Launcher.version);
@@ -139,12 +216,7 @@ public class Launcher{
                 System.exit(-1);
             }
             String filePath = args[1];
-            if (args.length >= 3){
-                appConfig.put("Architecture", args[2]);
-            }
-            if (args.length >= 4){
-                appConfig.put("MemSize", args[3]);
-            }
+            checkFlags(options, cmd, formatter);
             validateSettings();
             new CLI(filePath);
             System.exit(0);
@@ -157,53 +229,11 @@ public class Launcher{
                 System.exit(1);
             }
 
-
-
             String sourceCodeFilePath = args[1];
             String outputPath = args[2];
-            if (args.length >= 4) {
-                String architecture = args[3];
-                appConfig.replace("Architecture", architecture);
-                System.out.println("Compiling for " + architecture + "-bit module");
-            }
-
-            if (args.length >= 5){
-                String memSize = args[4];
-                appConfig.put("MemSize", memSize);
-                System.out.println("Compiling with " + memSize + "KB of memory.");
-            }
-            if (args.length >= 6) {
-                    // custom rom size definitions
-                    String romSize = args[5];
-                    String romPercentage = "";
-                    if (romSize.endsWith("%")) romPercentage = romSize.replace("%", "");
-                    else {
-                        int rom = Integer.parseInt(romSize);
-                        int memsizeB = (int) (Float.parseFloat(appConfig.get("MemSize")) * 1024 + 33);
-                        romPercentage = Float.toString( ( (float) rom / memsizeB ) * 100 );
-                    }
-                    System.out.println("Compiling with a custom ROM size of " + romSize);
-                    appConfig.replace("ROMPercentage", romPercentage);
-            }
-
-            if (args.length >= 7) { // custom data size definitions
-                    String dataSize = args[6];
-                    String dataPercentage = "";
-                    if (dataSize.endsWith("%")) dataPercentage = dataSize.replace("%", "");
-                    else{
-                        int data = Integer.parseInt(dataSize);
-                        int memsizeB = (int) (Float.parseFloat( appConfig.get("MemSize")) * 1024 + 33);
-                        dataPercentage = Float.toString( ((float) data / memsizeB) * 100 );
-                    }
-                    System.out.println("Compiling with a custom DATA size of " + dataSize);
-                    appConfig.replace("DataPercentage", dataPercentage);
-            }
-
-            else if (args.length == 3){
-                System.out.println("Compiling for architecture present in config file.");
-            }
-
+            checkFlags(options, cmd, formatter);
             validateSettings();
+
             new CLICompiler(sourceCodeFilePath, outputPath);
             System.exit(0);
         }
@@ -224,10 +254,11 @@ public class Launcher{
             System.out.println("""
                     Available commands:
                     None -> go into UI
-                    CLI path/to/binary_file.tky architecture(optional) memsize(optional) -> execute a binary file with the CPU config in the config file.
-                    COMPILE -> /path/to/source_code_file.ast /path/to/output_file.tky architecture(optional) memsize(optional) -> compile source code to binary file.
+                    CLI path/to/binary_file.tky
+                    COMPILE -> /path/to/source_code_file.ast /path/to/output_file.tky
                     DECOMPILE /path/to/binary_file.tky /path/to/output_file.ast -> disassemble the given binary file.
                     """);
+            formatter.printHelp("cli-example", "TKY CPU EMULATOR", options, null, false);
         }
     }
 }

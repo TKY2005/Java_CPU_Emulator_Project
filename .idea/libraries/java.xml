@@ -1,9 +1,13 @@
 <component name="libraryTable">
   <library name="java">
-    <CLASSES />
+    <CLASSES>
+      <root url="file://$PROJECT_DIR$/.idea/libraries/commons-cli-1.10.0" />
+    </CLASSES>
     <JAVADOC />
     <SOURCES>
-      <root url="file://$PROJECT_DIR$/jOOU/jOOU/src/main/java" />
+      <root url="file://$PROJECT_DIR$/.idea/libraries/commons-cli-1.10.0" />
     </SOURCES>
+    <jarDirectory url="file://$PROJECT_DIR$/.idea/libraries/commons-cli-1.10.0" recursive="false" />
+    <jarDirectory url="file://$PROJECT_DIR$/.idea/libraries/commons-cli-1.10.0" recursive="false" type="SOURCES" />
   </library>
 </component>

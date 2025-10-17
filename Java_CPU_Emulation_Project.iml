@@ -7,5 +7,18 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="module-library" exported="">
+      <library>
+        <CLASSES>
+          <root url="file://$MODULE_DIR$/.idea/libraries/commons-cli-1.10.0" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES>
+          <root url="file://$MODULE_DIR$/.idea/libraries/commons-cli-1.10.0" />
+        </SOURCES>
+        <jarDirectory url="file://$MODULE_DIR$/.idea/libraries/commons-cli-1.10.0" recursive="false" />
+        <jarDirectory url="file://$MODULE_DIR$/.idea/libraries/commons-cli-1.10.0" recursive="false" type="SOURCES" />
+      </library>
+    </orderEntry>
   </component>
 </module>

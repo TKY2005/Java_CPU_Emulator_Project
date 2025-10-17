@@ -176,7 +176,7 @@ public class CPUModule8BIT extends CPU {
     }
 
 
-    while (!programEnd && machineCode[registers[PC]] != TEXT_SECTION_END) {
+    while (!programEnd && machineCode[registers[PC]] != TEXT_SECTION_END && machineCode[registers[PC]] != 0x00) {
         if (canExecute) {
 
             if (registers[PC] == mainEntryPoint)
