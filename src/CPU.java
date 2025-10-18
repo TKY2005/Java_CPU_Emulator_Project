@@ -88,6 +88,8 @@ public abstract class CPU {
 
     public static final int DATA_BYTE_MODE = 1;
     public static final int DATA_WORD_MODE = 2;
+    public static final int DATA_BUFFER_BYTE_MODE = 3;
+    public static final int DATA_BUFFER_WORD_MODE = 4;
 
     public static final long UI_UPDATE_MAX_INTERVAL = Long.parseLong(Launcher.appConfig.get("UiUpdateInterval"));
     protected long lastTimeSinceUpdate = 0;
@@ -136,6 +138,8 @@ public abstract class CPU {
     protected boolean N, C, O, Z;
     // T = trap, E = Error, I = Interrupt
     protected boolean T, E, I;
+
+    protected boolean overFlowProtection = Boolean.parseBoolean(Launcher.appConfig.get("OverFlowProtection"));
     /// /////////////////////////////////////////////
 
 
@@ -187,8 +191,8 @@ public abstract class CPU {
     /// ////////////////////////////////////////////
     ///
     static String signature = "Made by T.K.Y";
-    static String lastUpdateDate = " 10/11/2025";
-    static String compilerVersion = " V1.4";
+    static String lastUpdateDate = " 10/18/2025";
+    static String compilerVersion = " V1.5";
 
     protected static String logDevice = "CPU_GENERIC";
 

@@ -14,7 +14,7 @@ import org.apache.commons.cli.*;
 
 public class Launcher{
     static String configFilePath = "./myEmulator.conf";
-    static String version = "3.7";
+    static String version = "3.8";
     static HashMap<String, String> appConfig;
 
     static Option architectureOption =
@@ -43,6 +43,14 @@ public class Launcher{
                     .desc("Specify the running memory size in bytes")
                     .get();
 
+    static Option overFlowOption =
+            Option.builder("o")
+                    .longOpt("overflow-protection")
+                    .hasArg(true)
+                    .desc("Enable the overflow protection mechanism for the CPU")
+                    .required(false)
+                    .get();
+
     static Option helpOption =
             Option.builder("h")
                     .longOpt("help")
@@ -59,6 +67,7 @@ public class Launcher{
             WriteDump=false
             Cycles=200
             OverwritePC=false
+            OverFlowProtection=true
             UiUpdateInterval=35
             """, version);
 
@@ -124,6 +133,14 @@ public class Launcher{
 
         if (!valid) triggerLaunchError("Invalid option for OverwritePC=" + appConfig.get("OverwritePC"));
 
+        String overflow = appConfig.get("OverFlowProtection");
+        valid = switch (overflow.toLowerCase()){
+            case "true", "false" -> true;
+            default -> false;
+        };
+
+        if (!valid) triggerLaunchError("Invalid option for OverFlowProtection=" + appConfig.get("OverFlowProtection"));
+
         try {
             Integer.parseInt(appConfig.get("UiUpdateInterval"));
         }catch (Exception e) {triggerLaunchError("Invalid ui interval count : " + appConfig.get("UiUpdateInterval"));}
@@ -159,6 +176,11 @@ public class Launcher{
             appConfig.replace("Architecture", cmd.getOptionValue("a"));
             System.out.println("Starting with defined architecture: " + appConfig.get("Architecture"));
         }
+        if (cmd.hasOption("o")){
+            String state = cmd.getOptionValue("o");
+            appConfig.replace("OverFlowProtection", state);
+            System.out.println("Setting overflow protection to: " + state);
+        }
     }
 
     public static void main(String[] args) throws IOException {
@@ -190,6 +212,7 @@ public class Launcher{
         options.addOption(architectureOption);
         options.addOption(memOption);
         options.addOption(memByteOption);
+        options.addOption(overFlowOption);
         options.addOption(helpOption);
 
         CommandLineParser parser = new DefaultParser();

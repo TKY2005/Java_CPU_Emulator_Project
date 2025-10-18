@@ -400,6 +400,23 @@ public class CPUModule8BIT extends CPU {
                  int dataStart = memoryController.dataOffset;
                  if (x[0].equals("org")) memoryController.dataOffset = Integer.parseInt(x[1].substring(1)) - offset;
 
+                 // buffer reservation is its own case, unlike the 16-bit module where its part of the data size definition process
+                 else if (x[1].equalsIgnoreCase("resb")) {
+                     dataMap.put(x[0], dataStart + offset);
+                     int bufferSize = Integer.parseInt(x[2].substring(1));
+                     memoryController.setMemory(dataStart + offset + bufferSize, ARRAY_TERMINATOR, DATA_BYTE_MODE);
+                     System.out.printf("""
+                                    reserved '%d' bytes for byte buffer '%s', start address: 0x%04X(%d):0x%04X(%d) -> 0x%04X(%d), end address: 0x%04X(%d):0x%04X(%d) -> 0x%04X(%d) 
+                                    """, bufferSize, x[0],
+                                    MemoryModule.data_start, MemoryModule.data_start,
+                                    dataStart + offset, dataStart + offset,
+                                    MemoryModule.data_start + dataStart + offset, MemoryModule.data_start + dataStart + offset,
+                                    MemoryModule.data_start, MemoryModule.data_start,
+                                    dataStart + offset + bufferSize, dataStart + offset + bufferSize,
+                                    MemoryModule.data_start + dataStart + offset + bufferSize, MemoryModule.data_start + dataStart + offset + bufferSize);
+                     offset += bufferSize + 1;
+                 }
+
                  else {
                      dataMap.put(x[0], dataStart + offset);
                      if (x[1].startsWith(String.valueOf(STRING_PREFIX))) { // 34 in decimal 0x22 in hex
@@ -419,8 +436,11 @@ public class CPUModule8BIT extends CPU {
                             }
 
                          for (int j = 0; j < fullString.length(); j++) {
-                             System.out.printf("Setting memoryController.memory location 0x%X(%d) to char %c\n",
-                                     dataStart + offset, dataStart + offset, fullString.charAt(j));
+                             System.out.printf("Setting memory location 0x%04X(%d):0x%04X(%d) -> 0x%04X(%d) to char %c\n",
+                                     MemoryModule.data_start, MemoryModule.data_start,
+                                     dataStart + offset, dataStart + offset,
+                                     MemoryModule.data_start + dataStart + offset, MemoryModule.data_start + dataStart + offset,
+                                     fullString.charAt(j));
                              memoryController.setMemory(dataStart + offset, (short) fullString.charAt(j));
                              offset++;
                          }
@@ -428,8 +448,10 @@ public class CPUModule8BIT extends CPU {
                          offset++;
                      } else {
                          for (int j = 1; j < x.length; j++) {
-                             System.out.printf("Setting memoryController.memory location 0x%X(%d) to value 0x%X(%d)\n",
+                             System.out.printf("Setting memory location 0x%04X(%d):0x%04X(%d) -> 0x%04X(%d) to value 0x%X(%d)\n",
+                                     MemoryModule.data_start, MemoryModule.data_start,
                                      dataStart + offset, dataStart + offset,
+                                     MemoryModule.data_start + dataStart + offset, MemoryModule.data_start + dataStart + offset,
                                      Integer.parseInt(x[j].substring(1)), Integer.parseInt(x[j].substring(1)));
 
                              memoryController.setMemory(dataStart + offset, (short) Integer.parseInt(x[j].substring(1)));

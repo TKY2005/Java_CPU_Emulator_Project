@@ -172,9 +172,10 @@ public class MemoryModule {
 
         int actualAddress = data_start + address;
         if (isValidMemoryAddress(actualAddress)){
-
+            checkOverFlow(actualAddress, value);
             if (mode == CPU.DATA_BYTE_MODE) memory[actualAddress] = (short) value;
             else if (mode == CPU.DATA_WORD_MODE){
+                checkOverFlow(actualAddress + 1, value);
                 if (!isValidMemoryAddress(actualAddress + 1)){
                     String err = String.format("0x%X(%d):0x%X(%d) -> 0x%X(%d) is an invalid memory address.",
                             data_start - file_offset, data_start - file_offset,
@@ -201,14 +202,25 @@ public class MemoryModule {
         }
     }
 
+    private void checkOverFlow(int actualAddress, int value) {
+        // if the address we're trying to write to is an array terminator.
+        // it causes a bug where buffer sizes are truncated by 1 byte
+        // so we check the value and if we're writing an array terminator that means we hit the end of the input (no trigger)
+        // otherwise, buffer overflow
+        if (memory[actualAddress] == CPU.ARRAY_TERMINATOR
+                && value != CPU.ARRAY_TERMINATOR
+                && cpu.overFlowProtection) cpu.triggerProgramError("Buffer overflow error", ErrorHandler.ERR_PROG_BUFF_OVRFLW);
+    }
+
     public void setMemory(int address, int value){
 
 
         int actualAddress = data_start + address;
         if (isValidMemoryAddress(actualAddress)){
-
+            checkOverFlow(actualAddress, value);
             if (value <= max_byte_value) memory[actualAddress] = (short) value;
             else {
+                checkOverFlow(actualAddress + 1, value);
                 if (!isValidMemoryAddress(actualAddress + 1)){
                     String err = String.format("0x%X(%d):0x%X(%d) -> 0x%X(%d) is an invalid memory address.",
                             data_start - file_offset, data_start - file_offset,

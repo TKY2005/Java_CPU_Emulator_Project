@@ -289,6 +289,7 @@ public class InterruptHandler {
                         short low = (short) (input.charAt(index) & 0xff);
                         short high = (short) ((input.charAt(index) >> 8) & 0xff);
 
+
                         memory.setMemory(i + 1, high, CPU.DATA_BYTE_MODE);
                         memory.setMemory(i, low, CPU.DATA_BYTE_MODE);
                         index++;
@@ -424,13 +425,13 @@ public class InterruptHandler {
                 int operation = registers[0]; // the operation to perform : AL
 
 
-                // for write operations
+                // for write operation
                 // AL = 0x1 for CPU.FILE_WRITE
                 // SS : file path
                 // DI : the beginning of the file
                 // DX : the number of bytes to write
 
-                // for read operations
+                // for read operation
                 // AL = 0x0 for CPU.FILE_READ
                 // SS : file path
                 // DI : the location the file will be loaded to
@@ -454,8 +455,9 @@ public class InterruptHandler {
                 if (operation == CPU.FILE_READ) {
                     byte[] file_data = VirtualMachine.diskDriver.readFile(fileName);
 
-                    for(int i = 0; i < file_data.length; i++)
+                    for(int i = 0; i < file_data.length; i++) {
                         memory.setMemory(read_write_addr + i, file_data[i], CPU.DATA_BYTE_MODE);
+                    }
 
                     registers[15] = file_data.length;
                 }
@@ -494,6 +496,8 @@ public class InterruptHandler {
         Logger.addLog("done. returning to original program.", logDevice);
         return validInterrupt;
     }
+
+
 
     public static boolean triggerSoftwareInterrupt(long[] registers, short[] memory){
         return true;

@@ -29,6 +29,7 @@ public class Settings extends JFrame {
     private JSlider ROMPercentageSlider;
     private JLabel ROMSizeLabel;
     private JPanel panel;
+    private JCheckBox OverFlowCheckBox;
 
     private boolean adjustingSliders = false;
     private int romValue, dataValue, stackValue;
@@ -100,6 +101,7 @@ public class Settings extends JFrame {
 
         writeLogsAndProgramCheckBox.setSelected(Boolean.parseBoolean(settings.get("WriteDump")));
         allowDirectManipulationOfCheckBox.setSelected( Boolean.parseBoolean( settings.get("OverwritePC") ) );
+        OverFlowCheckBox.setSelected( Boolean.parseBoolean(settings.get("OverFlowProtection")) );
 
         CycleSpeedSlider.setValue(Integer.parseInt(settings.get("Cycles")));
         CylceLabel.setText(settings.get("Cycles") + " Cycles/Second");
@@ -293,6 +295,7 @@ public class Settings extends JFrame {
             printer.println("WriteDump=" + writeLogsAndProgramCheckBox.isSelected());
             printer.println("Cycles=" + CycleSpeedSlider.getValue());
             printer.println("OverwritePC=" + allowDirectManipulationOfCheckBox.isSelected());
+            printer.println("OverFlowProtection=" + OverFlowCheckBox.isSelected());
             printer.print("UiUpdateInterval=" + UIintervalSlider.getValue());
 
             printer.close();

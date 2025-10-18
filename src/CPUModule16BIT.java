@@ -474,14 +474,53 @@ public class CPUModule16BIT extends CPU {
                         // store mode
                         // 1- Byte mode
                         // 2- Word mode
+                        // 3- byte buffer mode
+                        // 4- word buffer mode
                         // else- Undefined.
                         int storeMode = 0;
                         dataMap.put(x[0], dataStart + offset);
 
+                        // define size of data (required)
                         if (x[1].equalsIgnoreCase("db")) storeMode = DATA_BYTE_MODE;
                         else if (x[1].equalsIgnoreCase("dw")) storeMode = DATA_WORD_MODE;
 
-                        if (storeMode != DATA_BYTE_MODE && storeMode != DATA_WORD_MODE) {
+                        // alternatively reserve space for byte/word buffer
+                        else if (x[1].equalsIgnoreCase("resb")){
+                            int bufferSize = Integer.parseInt(x[2].substring(1));
+                            memoryController.setMemory(dataStart + offset + bufferSize, ARRAY_TERMINATOR, DATA_BYTE_MODE);
+                            System.out.printf("""
+                                    reserved '%d' bytes for byte buffer '%s', start address: 0x%04X(%d):0x%04X(%d) -> 0x%04X(%d), end address: 0x%04X(%d):0x%04X(%d) -> 0x%04X(%d) 
+                                    """, bufferSize, x[0],
+                                    MemoryModule.data_start, MemoryModule.data_start,
+                                    dataStart + offset, dataStart + offset,
+                                    MemoryModule.data_start + dataStart + offset, MemoryModule.data_start + dataStart + offset,
+                                    MemoryModule.data_start, MemoryModule.data_start,
+                                    dataStart + offset + bufferSize, dataStart + offset + bufferSize,
+                                    MemoryModule.data_start + dataStart + offset + bufferSize, MemoryModule.data_start + dataStart + offset + bufferSize);
+
+                            offset += bufferSize;
+                            storeMode = DATA_BUFFER_BYTE_MODE;
+                        }
+
+                        else if (x[1].equalsIgnoreCase("resw")){
+                            int bufferSize = Integer.parseInt(x[2].substring(1)) * 2;
+                            memoryController.setMemory(dataStart + offset + bufferSize, ARRAY_TERMINATOR, DATA_BYTE_MODE);
+                            System.out.printf("""
+                                    reserved '%d' bytes for word buffer '%s', start address: 0x%04X(%d):0x%04X(%d) -> 0x%04X(%d), end address: 0x%04X(%d):0x%04X(%d) -> 0x%04X(%d) 
+                                    """, bufferSize, x[0],
+                                    MemoryModule.data_start, MemoryModule.data_start,
+                                    dataStart + offset, dataStart + offset,
+                                    MemoryModule.data_start + dataStart + offset, MemoryModule.data_start + dataStart + offset,
+                                    MemoryModule.data_start, MemoryModule.data_start,
+                                    dataStart + offset + bufferSize, dataStart + offset + bufferSize,
+                                    MemoryModule.data_start + dataStart + offset + bufferSize, MemoryModule.data_start + dataStart + offset + bufferSize);
+
+                            offset += bufferSize;
+                            storeMode = DATA_BUFFER_WORD_MODE;
+                        }
+
+                        if (storeMode != DATA_BYTE_MODE && storeMode != DATA_WORD_MODE
+                         && storeMode != DATA_BUFFER_BYTE_MODE && storeMode != DATA_BUFFER_WORD_MODE) {
                             String err = "Undefined data store mode." + "'" + x[1] + "'";
                             triggerProgramError(err, ErrorHandler.ERR_COMP_UNDEFINED_DATA_MODE);
                         }
@@ -657,6 +696,7 @@ public class CPUModule16BIT extends CPU {
         memImageList.set(write_addr, entryPointLow);
 
         machineCode = memImageList.stream().mapToInt(Integer::intValue).toArray();
+
         if (stepListener != null) stepListener.updateUI();
         return machineCode;
     }
