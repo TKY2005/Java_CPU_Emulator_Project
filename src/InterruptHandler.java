@@ -234,6 +234,17 @@ public class InterruptHandler {
 
             }
 
+            case CPU.INT_INPUT_CHR -> {
+                int write_addr = registers[11]; // write address at address pointed to by: DI
+                char input;
+                if (VirtualMachine.ui){
+                    input = JOptionPane.showInputDialog(null, "Character input").charAt(0);
+                }else{
+                    input = new Scanner(System.in).next().charAt(0);
+                }
+                memory.setMemory(write_addr, input, CPU.DATA_BYTE_MODE);
+            }
+
             default -> validInterrupt = false;
         }
         Logger.addLog("done. returning to original program.", logDevice);
@@ -489,6 +500,17 @@ public class InterruptHandler {
                     validInterrupt = false;
                 }
 
+            }
+
+            case CPU.INT_INPUT_CHR -> {
+                int write_addr = registers[22]; // write address at address pointed to by: DI
+                char input;
+                if (VirtualMachine.ui){
+                    input = JOptionPane.showInputDialog(null, "Character input").charAt(0);
+                }else{
+                    input = new Scanner(System.in).next().charAt(0);
+                }
+                memory.setMemory(write_addr, input, CPU.DATA_BYTE_MODE);
             }
 
             default -> validInterrupt = false;

@@ -68,6 +68,7 @@ public abstract class CPU {
     public static final int INT_FILE = 0x05;
     public static final int INT_STR_CPY = 0x06;
     public static final int INT_MEM_CPY = 0x07;
+    public static final int INT_INPUT_CHR = 0x08;
 
     public static final int FILE_READ = 0x00;
     public static final int FILE_WRITE = 0x01;
