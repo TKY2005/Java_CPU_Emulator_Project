@@ -192,7 +192,9 @@ public abstract class CPU {
     ///
     static String signature = "Made by T.K.Y";
     static String lastUpdateDate = " 10/18/2025";
-    static String compilerVersion = " V1.5";
+    static String compilerVersion = " V1.6";
+    // 2 bytes for version checksum and 4 bytes for memory size, architecture flag, entry point address
+    static int metadataLength = signature.length() + lastUpdateDate.length() + compilerVersion.length() + 4;
 
     protected static String logDevice = "CPU_GENERIC";
 

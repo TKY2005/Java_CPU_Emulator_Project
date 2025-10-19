@@ -42,8 +42,8 @@ public class MemoryModule {
 
     public void calculateMemorySegments(){
 
-        // 4 additional bytes for architecture, memory size, entry point address
-        mem_size_B = mem_size_B + CPU.signature.length() + CPU.lastUpdateDate.length() + CPU.compilerVersion.length() + 4;
+        // 2 additional bytes for rom and data section end bytes
+        mem_size_B = mem_size_B + CPU.metadataLength + 2;
 
         ROMsizeKB = (ROMpercentage * memorySizeKB);
         DATAsizeKB = (DATApercentage * memorySizeKB);
@@ -73,7 +73,7 @@ public class MemoryModule {
                 last addressable location: 0x%X(%d)
                 data offset location: 0x%X(%d)
                 """,
-                memorySizeKB, CPU.signature.length() + CPU.lastUpdateDate.length() + CPU.compilerVersion.length() + 4, mem_size_B,
+                memorySizeKB, CPU.metadataLength + 2, mem_size_B,
                 ROMsizeKB, ROMsizeB, rom_start, rom_start, rom_end, rom_end,
                 DATAsizeKB, DATAsizeB, data_start, data_start, data_end, data_end,
                 STACKsizeKB, STACKsizeB, stack_start, stack_start, stack_end, stack_end,

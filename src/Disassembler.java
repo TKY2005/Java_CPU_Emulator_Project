@@ -14,7 +14,6 @@ public class Disassembler {
 
     public Disassembler(String binaryFilePath, String outputFilePath){
 
-
         try {
 
             byte[] x = Files.readAllBytes(Path.of(binaryFilePath));

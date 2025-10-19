@@ -444,7 +444,7 @@ public class CPUModule16BIT extends CPU {
         List<Integer> memImageList = new ArrayList<>();
 
         // preset the list size
-        for(int i = 0; i < memoryController.mem_size_B; i++) memImageList.add(0x00);
+        for(int i = 0; i < memoryController.mem_size_B - (metadataLength - 2); i++) memImageList.add(0x00);
 
         StringBuilder machineCodeString = new StringBuilder();
 
@@ -660,31 +660,24 @@ public class CPUModule16BIT extends CPU {
 
         memImageList.set(MemoryModule.rom_end ,(int) TEXT_SECTION_END & 0xff);
 
-        for (int i = MemoryModule.data_start; i < memoryController.getMemorySize(); i++) { // The DATA and STACK sections
+        for (int i = MemoryModule.data_start; i <= memoryController.mem_size_B - metadataLength; i++) { // The DATA and STACK sections
             memImageList.set(i, memoryController.readByteAbsolute(i) & 0xff);
         }
         memImageList.set(MemoryModule.stack_end, (int) MEMORY_SECTION_END & 0xff);
 
-        int write_addr = MemoryModule.stack_end + 1;
-        for (int i = 0; i < signature.length(); i++){
-            // My signature, last release date and compiler version
-            memImageList.set(write_addr ,(int) signature.charAt(i));
-            write_addr++;
-        }
 
-        for (int i = 0; i < lastUpdateDate.length(); i++) {
-            memImageList.set(write_addr, (int) lastUpdateDate.charAt(i));
-            write_addr++;
-        }
+        // My signature, last release date and compiler version
+        for (int i = 0; i < signature.length(); i++)
+            memImageList.add((int) signature.charAt(i));
 
-        for (int i = 0; i < compilerVersion.length(); i++) {
-            memImageList.set(write_addr, (int) compilerVersion.charAt(i));
-            write_addr++;
-        }
+        for (int i = 0; i < lastUpdateDate.length(); i++)
+            memImageList.add((int) lastUpdateDate.charAt(i));
 
-        write_addr = memoryController.getMemorySize() - 1;
-        memImageList.set(write_addr - 3, (int) (memorySizeKB + 1)); // The memory size in KB
-        memImageList.set(write_addr - 2, bit_length); // the CPU architecture flag
+        for(int i = 0; i < compilerVersion.length(); i++)
+            memImageList.add((int) compilerVersion.charAt(i));
+
+        memImageList.add((int) (memorySizeKB + 1)); // The memory size in KB
+        memImageList.add(bit_length); // the CPU architecture flag
 
         // Add the program's entry point.
         int entryPoint = functions.get("MAIN");
@@ -692,8 +685,8 @@ public class CPUModule16BIT extends CPU {
         int entryPointLow = entryPoint & 0xff;
         int entryPointHigh = (entryPoint >> 8) & 0xff;
 
-        memImageList.set(write_addr - 1, entryPointHigh);
-        memImageList.set(write_addr, entryPointLow);
+        memImageList.add(entryPointHigh);
+        memImageList.add(entryPointLow);
 
         machineCode = memImageList.stream().mapToInt(Integer::intValue).toArray();
 

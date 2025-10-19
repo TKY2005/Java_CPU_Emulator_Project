@@ -17,45 +17,97 @@ public class Launcher{
     static String version = "3.8";
     static HashMap<String, String> appConfig;
 
-    static Option architectureOption =
-                    Option.builder("a")
+    static boolean ignoreVersionCheck = false;
+
+    private static final Option[] optionList = {
+            Option.builder("a")
                             .longOpt("architecture")
                             .hasArg(true)
                             .argName("ARCHITECTURE")
                             .required(false)
-                            .desc("Decide which CPU architecture to run the current process.").get();
+                            .desc("Decide which CPU architecture to run the current process.").get(),
 
-    static Option memOption =
             Option.builder("m")
                     .longOpt("memory")
                     .argName("MEMORYKB")
                     .hasArg(true)
                     .required(false)
                     .desc("Specify the running memory size in Kilobytes.")
-                    .get();
+                    .get(),
 
-    static Option memByteOption =
             Option.builder("b")
                     .longOpt("bytes")
                     .argName("MEMORYBYTES")
                     .hasArg(true)
                     .required(false)
                     .desc("Specify the running memory size in bytes")
-                    .get();
+                    .get(),
 
-    static Option overFlowOption =
+            Option.builder("r")
+                    .longOpt("rom")
+                    .argName("ROMSIZE")
+                    .hasArg(true)
+                    .required(false)
+                    .desc("Specify the starting rom size.")
+                    .get(),
+
+            Option.builder("d")
+                    .longOpt("data")
+                    .argName("DATASIZE")
+                    .hasArg(true)
+                    .required(false)
+                    .desc("Specify the starting data size.")
+                    .get(),
+
+            Option.builder("s")
+                    .longOpt("stack")
+                    .argName("STACKSIZE")
+                    .hasArg(true)
+                    .required(false)
+                    .desc("Specify the starting stack size.")
+                    .get(),
+
             Option.builder("o")
                     .longOpt("overflow-protection")
                     .hasArg(true)
                     .desc("Enable the overflow protection mechanism for the CPU")
                     .required(false)
-                    .get();
+                    .get(),
 
-    static Option helpOption =
+            Option.builder("rb")
+                            .longOpt("rom-bytes")
+                            .hasArg(true)
+                            .required(false)
+                            .desc("define rom size in bytes")
+                            .get(),
+
+            Option.builder("db")
+                            .longOpt("data-bytes")
+                            .hasArg(true)
+                            .required(false)
+                            .desc("define data size in bytes")
+                            .get(),
+            Option.builder("sb")
+                            .longOpt("stack-bytes")
+                            .hasArg(true)
+                            .required(false)
+                            .desc("define stack size in bytes")
+                            .get(),
+
+
+
+            Option.builder("ivc")
+                            .longOpt("ignore-version-check")
+                            .hasArg(false)
+                            .required(false)
+                            .desc("Ignore version checks when running files")
+                            .get(),
+
             Option.builder("h")
                     .longOpt("help")
                     .desc("Display this help message.")
-                    .get();
+                    .get()
+    };
 
     static String configDefaultTemplate = String.format("""
             Version=%s
@@ -91,13 +143,13 @@ public class Launcher{
             triggerLaunchError(String.format("Invalid memory size: %s", appConfig.get("MemSize")));
         }
 
-        int dataSize = 0, stackSize = 0;
+        float dataSize = 0, stackSize = 0;
         String[] current = {"DATA", ""};
         try{
             current[1] = appConfig.get("DataPercentage");
-            dataSize = Integer.parseInt(appConfig.get("DataPercentage"));
+            dataSize = Float.parseFloat(appConfig.get("DataPercentage"));
             current[0] = "STACK"; current[1] = appConfig.get("StackPercentage");
-            stackSize = Integer.parseInt(appConfig.get("StackPercentage"));
+            stackSize = Float.parseFloat(appConfig.get("StackPercentage"));
         }catch (Exception e){
             triggerLaunchError(String.format("Invalid %s percentage %s%%", current[0], current[1]));
         }
@@ -166,11 +218,45 @@ public class Launcher{
         }
         if (cmd.hasOption("b"))
         {
-            int sizeB = Integer.parseInt(cmd.getOptionValue("b"));
+            int sizeB = getParsedInt(cmd.getOptionValue("b"));
             float sizeKB = (sizeB / 1024f);
             appConfig.replace("MemSize", Float.toString(sizeKB));
             System.out.println("Starting with custom size in bytes: " + sizeB);
         }
+
+        if (cmd.hasOption("r")){
+            appConfig.replace("ROMPercentage", cmd.getOptionValue("r"));
+            System.out.println("Starting with custom ROM percentage:" + cmd.getOptionValue("r"));
+        }
+        if (cmd.hasOption("s")){
+            appConfig.replace("StackPercentage", cmd.getOptionValue("s"));
+            System.out.println("Starting with custom STACK percentage:" + cmd.getOptionValue("s"));
+        }
+        if (cmd.hasOption("d")){
+            appConfig.replace("DataPercentage", cmd.getOptionValue("d"));
+            System.out.println("Starting with custom DATA percentage:" + cmd.getOptionValue("d"));
+        }
+
+        if (cmd.hasOption("rb")){
+            int memsizeB = (int) (Float.parseFloat(appConfig.get("MemSize")) * 1024);
+            float percentage =
+                    ( (float) getParsedInt(cmd.getOptionValue("rb")) / memsizeB ) * 100;
+            appConfig.replace("ROMPercentage", Float.toString(percentage));
+            System.out.println("Starting with custom rom byte size: " + cmd.getOptionValue("rb") + " percentage: " + percentage);
+        }
+        if (cmd.hasOption("db")){
+            int memsizeB = (int) (Float.parseFloat(appConfig.get("MemSize")) * 1024);
+            float percentage = ( (float) getParsedInt(cmd.getOptionValue("db")) / memsizeB ) * 100;
+            appConfig.replace("DataPercentage", Float.toString(percentage));
+            System.out.println("Starting with custom data byte size: " + cmd.getOptionValue("db") + " percentage: " + percentage);
+        }
+        if (cmd.hasOption("sb")){
+            int memsizeB = (int) (Float.parseFloat(appConfig.get("MemSize")) * 1024);
+            float percentage = ( (float) getParsedInt(cmd.getOptionValue("sb")) / memsizeB ) * 100;
+            appConfig.replace("StackPercentage", Float.toString(percentage));
+            System.out.println("Starting with custom stack byte size: " + cmd.getOptionValue("sb") + " percentage: " + percentage);
+        }
+
         if (cmd.hasOption("a"))
         {
             appConfig.replace("Architecture", cmd.getOptionValue("a"));
@@ -180,6 +266,76 @@ public class Launcher{
             String state = cmd.getOptionValue("o");
             appConfig.replace("OverFlowProtection", state);
             System.out.println("Setting overflow protection to: " + state);
+        }
+
+        if (cmd.hasOption("ivc")){
+            ignoreVersionCheck = true;
+        }
+    }
+
+    private static int getParsedInt(String numString) {
+        if (numString.endsWith("h")) return Integer.parseInt(numString.substring(0, numString.length() - 1), 16);
+        else return Integer.parseInt(numString);
+    }
+
+    private void adjustOtherSliders(int changedValue, int changedSlider) {
+        int remaining = 100 - changedValue;
+
+        // Get current values of the other two sliders
+        int other1, other2;
+        if (changedSlider == 0) { // ROM changed
+            other1 = Integer.parseInt(appConfig.get("DataPercentage"));
+            other2 = Integer.parseInt(appConfig.get("StackPercentage"));
+        } else if (changedSlider == 1) { // Data changed
+            other1 = Integer.parseInt(appConfig.get("ROMPercentage"));
+            other2 = Integer.parseInt(appConfig.get("StackPercentage"));
+        } else { // Stack changed
+            other1 = Integer.parseInt(appConfig.get("ROMPercentage"));
+            other2 = Integer.parseInt(appConfig.get("DataPercentage"));
+        }
+
+        int totalOther = other1 + other2;
+
+        if (totalOther == 0) {
+            // If both others are 0, split remaining equally
+            other1 = remaining / 2;
+            other2 = remaining - other1;
+        } else {
+            // Distribute remaining proportionally
+            other1 = (other1 * remaining) / totalOther;
+            other2 = remaining - other1;
+
+            // Ensure no negative values and handle rounding errors
+            if (other1 < 0) other1 = 0;
+            if (other2 < 0) other2 = 0;
+
+            // Re-adjust if there's still remaining due to rounding
+            int actualTotal = other1 + other2;
+            if (actualTotal != remaining) {
+                if (changedSlider == 0) {
+                    other1 += (remaining - actualTotal);
+                } else if (changedSlider == 1) {
+                    other2 += (remaining - actualTotal);
+                } else {
+                    other1 += (remaining - actualTotal);
+                }
+            }
+        }
+
+        if (changedSlider == 0){
+            appConfig.replace("ROMPercentage", Integer.toString(changedValue));
+            appConfig.replace("DataPercentage", Integer.toString(other1));
+            appConfig.replace("StackPercentage", Integer.toString(other2));
+        }
+        else if (changedSlider == 1){
+            appConfig.replace("DataPercentage", Integer.toString(changedValue));
+            appConfig.replace("ROMPercentage", Integer.toString(other1));
+            appConfig.replace("StackPercentage", Integer.toString(other2));
+        }
+        else{
+            appConfig.replace("StackPercentage", Integer.toString(changedValue));
+            appConfig.replace("ROMPercentage", Integer.toString(other1));
+            appConfig.replace("DataPercentage", Integer.toString(other2));
         }
     }
 
@@ -209,11 +365,7 @@ public class Launcher{
         }
 
         Options options = new Options();
-        options.addOption(architectureOption);
-        options.addOption(memOption);
-        options.addOption(memByteOption);
-        options.addOption(overFlowOption);
-        options.addOption(helpOption);
+        for(int i = 0; i < optionList.length; i++) options.addOption(optionList[i]);
 
         CommandLineParser parser = new DefaultParser();
         HelpFormatter formatter = HelpFormatter.builder().get();

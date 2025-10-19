@@ -86,7 +86,7 @@ public class CLI {
 
             byte[] fileBin = Files.readAllBytes(binFile.toPath());
 
-            byte[] metadata = new byte[33];
+            byte[] metadata = new byte[CPU.metadataLength];
             for(int i = 0; i < metadata.length; i++){
                 metadata[i] = fileBin[ fileBin.length - metadata.length + i ];
             }
@@ -101,12 +101,13 @@ public class CLI {
                     (int) CPU.compilerVersion.charAt(3) +
                     (int) CPU.compilerVersion.charAt(4);
 
-            if (Cver != Fver){
+            if (Cver != Fver && !Launcher.ignoreVersionCheck){
                 String err = String.format("""
                         THE COMPILED BINARY FILE VERSION DOESN'T MATCH WITH THE CURRENT COMPILER VERSION.
                         RUNNING THE FILE WITH NON-MATCHING VERSIONS CAN CAUSE UNDEFINED BEHAVIOUR AND CRASHES.
                         PLEASE RECOMPILE THE SOURCE CODE FILE TO UPDATE IT TO THE LATEST VERSION.
                         CURRENT COMPILER VERSION: %s(%d), FILE VERSION: %s(%d)
+                        YOU CAN ALSO TURN OFF VERSION CHECKING BY INCLUDING THE -ivc FLAG
                         """, CPU.compilerVersion, Cver, fileVersion, Fver);
 
                 cpuModule.triggerProgramError(err, ErrorHandler.ERR_CODE_INCOMPATIBLE_ARCHITECTURE);
@@ -183,7 +184,7 @@ public class CLI {
             System.out.println("COPYING METADATA TO MEMORY IMAGE.");
 
             int copyIndex = fileBin.length - 1;
-            for(int i = 0; i <= 33; i++){
+            for(int i = 0; i <= CPU.metadataLength; i++){
                 machineCode.set( machineCode.size() - i - 1, (int) fileBin[copyIndex]);
                 copyIndex--;
             }
