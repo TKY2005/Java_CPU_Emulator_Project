@@ -127,7 +127,7 @@ public class VirtualMachine {
                 e.printStackTrace(pw);
                 writer.write(sw.toString());
                 writer.close();
-            } catch (IOException ex) {
+            } catch (Exception ex) {
                 throw new RuntimeException(ex);
             }
             diskDriver.closeDrive();

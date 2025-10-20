@@ -1,8 +1,18 @@
 import javax.swing.*;
 import java.util.Scanner;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Semaphore;
 
-public class InterruptHandler {
+import com.github.kwhat.jnativehook.GlobalScreen;
+import com.github.kwhat.jnativehook.NativeHookException;
+import com.github.kwhat.jnativehook.keyboard.NativeKeyEvent;
+import com.github.kwhat.jnativehook.keyboard.NativeKeyListener;
+
+public class InterruptHandler implements NativeKeyListener {
     static String logDevice = "INT_HANDLER";
+
+    private static char chrIN;
+    private static boolean initialized = false;
 
     // 8-BIT INTERRUPT HANDLER
     public static boolean triggerSoftwareInterrupt(CPU cpuModule ,short[] registers, MemoryModule memory){
@@ -504,13 +514,24 @@ public class InterruptHandler {
 
             case CPU.INT_INPUT_CHR -> {
                 int write_addr = registers[22]; // write address at address pointed to by: DI
-                char input;
-                if (VirtualMachine.ui){
-                    input = JOptionPane.showInputDialog(null, "Character input").charAt(0);
-                }else{
-                    input = new Scanner(System.in).next().charAt(0);
-                }
-                memory.setMemory(write_addr, input, CPU.DATA_BYTE_MODE);
+                try{
+                    // set up a semaphore to block the program execution until input is received
+                    Semaphore programPause = new Semaphore(0);
+                    init();
+
+                    GlobalScreen.addNativeKeyListener(new NativeKeyListener() {
+                        @Override
+                        public void nativeKeyTyped(NativeKeyEvent e) {
+                            chrIN = e.getKeyChar();
+                            programPause.release(); // release and resume execution
+                        }
+                    });
+
+                    programPause.acquire(); // block the program and wait for input
+                    System.out.print(chrIN);
+
+                }catch (Exception e) {e.printStackTrace();}
+                memory.setMemory(write_addr, chrIN, CPU.DATA_BYTE_MODE);
             }
 
             default -> validInterrupt = false;
@@ -519,6 +540,16 @@ public class InterruptHandler {
         return validInterrupt;
     }
 
+    private static void init() throws NativeHookException {
+        if (initialized) return;
+        initialized = true;
+        GlobalScreen.registerNativeHook();
+    }
+
+    public static void shutdownKeyboardListener() throws NativeHookException {
+        if(initialized) GlobalScreen.unregisterNativeHook();
+        initialized = false;
+    }
 
 
     public static boolean triggerSoftwareInterrupt(long[] registers, short[] memory){
