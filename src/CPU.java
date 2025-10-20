@@ -147,6 +147,7 @@ public abstract class CPU {
     //Instruction set //
     HashMap<Integer, String> instructionSet = new HashMap<>();
     HashMap<String, Integer> translationMap = new HashMap<>();
+    protected HashMap<String, Integer> definitionMap = new HashMap<>();
     protected HashMap<String, Integer> dataMap = new HashMap<>();
     protected HashMap<String, Integer> functions = new HashMap<>();
     protected Stack<Integer> functionCallStack = new Stack<>();
@@ -161,6 +162,7 @@ public abstract class CPU {
     public static final char DATA_PREFIX_ALT = '=';
     public final static char STRING_PREFIX = '\"';
     public final static String HEX_PREFIX = "0x";
+    public static final String BIN_PREFIX = "0b";
     public final static String CHAR_PREFIX = "@";
     public static final String HEX_MEMORY = "*";
     public final static String SIGNAL_PREFIX = "^";
@@ -349,6 +351,14 @@ public abstract class CPU {
         Logger.addLog(memoryController.dumpMemory(), logDevice);
         Logger.writeLogFile("./ErrLog.log");
         System.out.println("Program terminated with code : " + status_code);
+        for(int i = 0; i < 3; i++){
+            VirtualMachine.beep(950, 150);
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
         throw exceptionType;
     }
 }

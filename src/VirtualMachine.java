@@ -1,3 +1,7 @@
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.LineUnavailableException;
+import javax.sound.sampled.SourceDataLine;
 import javax.swing.*;
 import java.io.*;
 import java.util.Scanner;
@@ -52,6 +56,11 @@ public class VirtualMachine {
                     String hex = token.substring(1);
                     int decimal = Integer.parseInt(hex, 16);
                     newLine.append("%").append(decimal).append(" ");
+                }
+                else if (token.startsWith(CPU.BIN_PREFIX)){
+                    String bin = token.substring(2);
+                    int decimal = Integer.parseInt(bin, 2);
+                    newLine.append("!").append(decimal).append(" ");
                 }
                 else if (token.startsWith(CPU.SIGNAL_PREFIX)){
                     String signal = String.valueOf(cpuModule.programSignals.get(token.substring(1)));
@@ -142,4 +151,25 @@ public class VirtualMachine {
         readyToExecute = false;
     }
 
+    public static void beep(int hz, int msecs){ // written by chatgpt
+        try {
+            float SAMPLE_RATE = 44100;
+            byte[] buf = new byte[(int) SAMPLE_RATE * msecs / 1000];
+            for (int i = 0; i < buf.length; i++) {
+                double angle = i / (SAMPLE_RATE / hz) * 2.0 * Math.PI;
+                buf[i] = (byte)(Math.sin(angle) * 127);
+            }
+
+            AudioFormat af = new AudioFormat(SAMPLE_RATE, 8, 1, true, false);
+            try (SourceDataLine sdl = AudioSystem.getSourceDataLine(af)) {
+                sdl.open(af);
+                sdl.start();
+                sdl.write(buf, 0, buf.length);
+                sdl.drain();
+                sdl.stop();
+            }
+        } catch (LineUnavailableException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }

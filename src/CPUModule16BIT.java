@@ -356,18 +356,31 @@ public class CPUModule16BIT extends CPU {
                         continue;
                     }
                     default -> {
-                        result.add(FUNCTION_MODE);
+                        // if we meet a non-prefixed token
+                        // we first assume it's a function definition
+                        // if not found in the function table, we assume it's a symbol
+                        // if neither, throw error.
                         Integer addr = functions.get( tokens[i] );
                         if (addr == null) {
-                            String err = String.format("The function '%s' doesn't exist in the ROM.\n",
-                                tokens[i].substring(1));
-                            status_code = ErrorHandler.ERR_COMP_NULL_DATA_POINTER;
-                            triggerProgramError(
-                                err, status_code);
-
-                            return result;
+                            Integer val = definitionMap.get( tokens[i] );
+                            if (val == null) {
+                                String err = String.format("The function '%s' doesn't exist in the ROM.\n",
+                                        tokens[i].substring(1));
+                                status_code = ErrorHandler.ERR_COMP_NULL_DATA_POINTER;
+                                triggerProgramError(
+                                        err, status_code);
+                                return result;
+                            }else{
+                                result.add(IMMEDIATE_MODE);
+                                int low = val & 0xff;
+                                int high = (val >> 8) & 0xff;
+                                result.add(high);
+                                result.add(low);
+                                byteIndex += 3;
+                            }
                         }
                         else {
+                            result.add(FUNCTION_MODE);
                             int low = addr & 0xff;
                             int high = (addr >> 8) & 0xff;
                             result.add(high);
@@ -392,7 +405,7 @@ public class CPUModule16BIT extends CPU {
                     result.set(byteIndex - 2, INDIRECT_MODE);
 
 
-                // maybe the user wants to manually specify the mode.
+                // maybe the user wants to manually specify the mode. (mode overriding)
                 if (tokens[i - 1].equalsIgnoreCase(MEMORY_MODE_PREFIX + "byte")){
 
                     switch (tokens[i].charAt(0)){
@@ -607,7 +620,16 @@ public class CPUModule16BIT extends CPU {
                     }
                     i++;
                 }
-            } else if (lines[i].startsWith(".")) { // regular function. add the function along with the calculated offset
+            }
+            else if (lines[i].startsWith("DEFINE")) { // definition declaration
+
+                String[] tokens = lines[i].trim().split(" ");
+                String symbolName = tokens[1];
+                Integer symbolValue = Integer.parseInt(tokens[2].substring(1));
+                definitionMap.put(symbolName, symbolValue);
+                System.out.printf("set the definition for symbol '%s' to value 0x%04X(%d)\n", symbolName, symbolValue, symbolValue);
+            }
+            else if (lines[i].startsWith(".")) { // regular function. add the function along with the calculated offset
                 functions.put(lines[i].substring(1), currentByte);
                 System.out.println("Mapped function '" + lines[i].substring(1) + "' to address: 0x" +
                         Integer.toHexString(currentByte));
@@ -2383,6 +2405,7 @@ public class CPUModule16BIT extends CPU {
         functionCallStack = new Stack<>();
         dataMap = new HashMap<>();
         functions = new HashMap<>();
+        definitionMap = new HashMap<>();
 
         outputString = new StringBuilder();
 

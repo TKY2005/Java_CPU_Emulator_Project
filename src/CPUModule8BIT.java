@@ -463,7 +463,17 @@ public class CPUModule8BIT extends CPU {
                  }
                  i++;
              }
-            } else if (lines[i].startsWith(".")) { // regular function. add the function along with the calculated offset
+            }
+            else if (lines[i].startsWith("DEFINE")) { // definition declaration
+
+                String[] tokens = lines[i].trim().split(" ");
+                String symbolName = tokens[1];
+                Integer symbolValue = Integer.parseInt(tokens[2].substring(1));
+                definitionMap.put(symbolName, symbolValue);
+                System.out.printf("set the definition for symbol '%s' to value 0x%04X(%d)\n", symbolName, symbolValue, symbolValue);
+            }
+
+            else if (lines[i].startsWith(".")) { // regular function. add the function along with the calculated offset
                 functions.put(lines[i].substring(1), currentByte);
                 System.out.println("Mapped function '" + lines[i].substring(1) + "' to address: 0x" +
                         Integer.toHexString(currentByte));
@@ -1646,7 +1656,10 @@ public class CPUModule8BIT extends CPU {
         for(int i = 1; i < tokens.length; i++){
             switch (tokens[i].charAt(0)){
                 case REGISTER_PREFIX, DIRECT_MEMORY_PREFIX, INDIRECT_MEMORY_PREFIX, IMMEDIATE_PREFIX -> length += 2;
-                default -> length += 3;
+                default -> {
+                    if (definitionMap.get(tokens[i]) == null) length += 3;
+                    else length += 2;
+                }
             }
 
         }
@@ -1701,12 +1714,21 @@ public class CPUModule8BIT extends CPU {
                     Integer functionPointer = functions.get(tokens[tokenIndex]);
 
                     if (functionPointer == null){
-                        String err = String.format("The function '%s' doesn't exist in the ROM.\n",
-                                tokens[tokenIndex]);
-                        status_code = ErrorHandler.ERR_COMP_NULL_FUNCTION_POINTER;
-                        triggerProgramError(
-                                err, status_code);
-                        return new int[] {-1};
+                        Integer val = definitionMap.get( tokens[tokenIndex] );
+                        if (val == null) {
+                            String err = String.format("The function '%s' doesn't exist in the ROM.\n",
+                                    tokens[tokenIndex]);
+                            status_code = ErrorHandler.ERR_COMP_NULL_FUNCTION_POINTER;
+                            triggerProgramError(
+                                    err, status_code);
+                            return new int[]{-1};
+                        }
+                        else{
+                            result[i] = IMMEDIATE_MODE;
+                            result[i + 1] = val;
+                            tokenIndex++;
+                            break;
+                        }
                     }
 
                     else {

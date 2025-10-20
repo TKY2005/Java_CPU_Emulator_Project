@@ -245,14 +245,23 @@ public class InterruptHandler implements NativeKeyListener {
             }
 
             case CPU.INT_INPUT_CHR -> {
-                int write_addr = registers[11]; // write address at address pointed to by: DI
-                char input;
-                if (VirtualMachine.ui){
-                    input = JOptionPane.showInputDialog(null, "Character input").charAt(0);
-                }else{
-                    input = new Scanner(System.in).next().charAt(0);
-                }
-                memory.setMemory(write_addr, input, CPU.DATA_BYTE_MODE);
+                try{
+                    // set up a semaphore to block the program execution until input is received
+                    Semaphore programPause = new Semaphore(0);
+                    init();
+
+                    GlobalScreen.addNativeKeyListener(new NativeKeyListener() {
+                        @Override
+                        public void nativeKeyTyped(NativeKeyEvent e) {
+                            chrIN = e.getKeyChar();
+                            programPause.release(); // release and resume execution
+                        }
+                    });
+
+                    programPause.acquire(); // block the program and wait for input
+
+                }catch (Exception e) {e.printStackTrace();}
+                registers[3] = (short) chrIN; // input is placed in: RD
             }
 
             default -> validInterrupt = false;
@@ -513,7 +522,6 @@ public class InterruptHandler implements NativeKeyListener {
             }
 
             case CPU.INT_INPUT_CHR -> {
-                int write_addr = registers[22]; // write address at address pointed to by: DI
                 try{
                     // set up a semaphore to block the program execution until input is received
                     Semaphore programPause = new Semaphore(0);
@@ -528,10 +536,10 @@ public class InterruptHandler implements NativeKeyListener {
                     });
 
                     programPause.acquire(); // block the program and wait for input
-                    System.out.print(chrIN);
 
                 }catch (Exception e) {e.printStackTrace();}
-                memory.setMemory(write_addr, chrIN, CPU.DATA_BYTE_MODE);
+                registers[6] = chrIN; // input is placed in: DL
+                registers[15] = (registers[7] << 8) | registers[6]; // update DX
             }
 
             default -> validInterrupt = false;
