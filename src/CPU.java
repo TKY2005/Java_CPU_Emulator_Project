@@ -352,9 +352,9 @@ public abstract class CPU {
         Logger.writeLogFile("./ErrLog.log");
         System.out.println("Program terminated with code : " + status_code);
         for(int i = 0; i < 3; i++){
-            VirtualMachine.beep(950, 150);
+            VirtualMachine.beep(VirtualMachine.beepError[0], VirtualMachine.beepError[1]);
             try {
-                Thread.sleep(100);
+                Thread.sleep(VirtualMachine.beepError[2]);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }

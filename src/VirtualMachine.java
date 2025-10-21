@@ -19,6 +19,10 @@ public class VirtualMachine {
     static HardDiskDriver diskDriver;
     private int[] memImage;
 
+    static int[] beepError = {950, 150, 100};
+    static int[] beepOverflow = {900, 500};
+    static int[] beepSuccess = {900, 150};
+
     static String logDevice = "VIRTUAL_MACHINE";
 
     public VirtualMachine(CPU cpuModule){

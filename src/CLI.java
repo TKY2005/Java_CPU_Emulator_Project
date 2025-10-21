@@ -42,6 +42,7 @@ public class CLI {
         int entryPointHigh = cpuModule.machineCode[ cpuModule.machineCode.length - 2 ];
 
         cpuModule.functions.put("MAIN",  (entryPointHigh << 8) | entryPointLow );
+        VirtualMachine.beep(VirtualMachine.beepSuccess[0], VirtualMachine.beepSuccess[1]);
         vm.executeCode();
     }
 

@@ -208,7 +208,7 @@ public class MemoryModule {
         // so we check the value and if we're writing an array terminator that means we hit the end of the input (no trigger)
         // otherwise, buffer overflow
         if (memory[actualAddress] == CPU.ARRAY_TERMINATOR && value != CPU.ARRAY_TERMINATOR){
-            VirtualMachine.beep(900, 500);
+            VirtualMachine.beep(VirtualMachine.beepOverflow[0], VirtualMachine.beepOverflow[1]);
             if (cpu.overFlowProtection) cpu.triggerProgramError("Buffer overflow error", ErrorHandler.ERR_PROG_BUFF_OVRFLW);
         }
     }
