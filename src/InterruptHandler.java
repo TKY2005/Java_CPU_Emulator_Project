@@ -1,6 +1,6 @@
 import javax.swing.*;
+import java.io.IOException;
 import java.util.Scanner;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Semaphore;
 
 import com.github.kwhat.jnativehook.GlobalScreen;
@@ -12,7 +12,7 @@ public class InterruptHandler implements NativeKeyListener {
     static String logDevice = "INT_HANDLER";
 
     private static char chrIN;
-    private static boolean initialized = false;
+    private static boolean keybrdListenerInit = false, usesLinux = false;
 
     // 8-BIT INTERRUPT HANDLER
     public static boolean triggerSoftwareInterrupt(CPU cpuModule ,short[] registers, MemoryModule memory){
@@ -525,6 +525,7 @@ public class InterruptHandler implements NativeKeyListener {
                 try{
                     // set up a semaphore to block the program execution until input is received
                     Semaphore programPause = new Semaphore(0);
+                    InterruptHandler.disableTTYCanonical(); // Prevent linux TTY driver from messing up the input buffer
                     init();
 
                     GlobalScreen.addNativeKeyListener(new NativeKeyListener() {
@@ -536,8 +537,16 @@ public class InterruptHandler implements NativeKeyListener {
                     });
 
                     programPause.acquire(); // block the program and wait for input
-
                 }catch (Exception e) {e.printStackTrace();}
+                finally {
+                    restoreTTYCanonical(); // restore canonical mode for other forms of input
+                    try {
+                        // flush the input buffer to start clean for other input
+                        while (System.in.available() > 0) System.in.read();
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
                 registers[6] = chrIN; // input is placed in: DL
                 registers[15] = (registers[7] << 8) | registers[6]; // update DX
             }
@@ -549,14 +558,35 @@ public class InterruptHandler implements NativeKeyListener {
     }
 
     private static void init() throws NativeHookException {
-        if (initialized) return;
-        initialized = true;
+        if (keybrdListenerInit) return;
+        keybrdListenerInit = true;
         GlobalScreen.registerNativeHook();
     }
 
+    static void disableTTYCanonical() {
+        if (System.getProperty("os.name").toLowerCase().contains("linux")){
+            usesLinux = true;
+            try{
+                 new ProcessBuilder("sh", "-c", "stty -echo -icanon min 1 time 0").inheritIO().start().waitFor();
+                 new ProcessBuilder("sh", "-c", "stty -F /dev/tty -echo -icanon min 1 time 0").inheritIO().start().waitFor();
+                 new ProcessBuilder("sh", "-c", "stty -F /dev/tty -echo; stty -F /dev/tty -icanon; dd bs=1 count=0 >/dev/null 2>&1").inheritIO().start().waitFor();
+            }catch (Exception e) {e.printStackTrace();}
+        }
+    }
+
+    public static void restoreTTYCanonical(){
+        if (usesLinux){
+            try {
+                new ProcessBuilder("sh", "-c", "stty echo icanon").inheritIO().start().waitFor();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
     public static void shutdownKeyboardListener() throws NativeHookException {
-        if(initialized) GlobalScreen.unregisterNativeHook();
-        initialized = false;
+        if(keybrdListenerInit) GlobalScreen.unregisterNativeHook();
+        keybrdListenerInit = false;
     }
 
 

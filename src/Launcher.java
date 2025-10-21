@@ -432,6 +432,7 @@ public class Launcher{
         finally {
             try {
                 InterruptHandler.shutdownKeyboardListener();
+                InterruptHandler.restoreTTYCanonical();
             }catch (Exception e) {e.printStackTrace();}
         }
     }
