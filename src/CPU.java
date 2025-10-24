@@ -56,6 +56,24 @@ public abstract class CPU {
     public static final int INS_SHR = 0x33;
     public static final int INS_OUTSW = 0x34;
     public static final int INS_LENW = 0x35;
+    public static final int INS_JC = 0x36;
+    public static final int INS_JO = 0x37;
+    public static final int INS_JNC = 0x38;
+    public static final int INS_JNO = 0x39;
+    public static final int INS_CALC = 0x3a;
+    public static final int INS_CALO = 0x3b;
+    public static final int INS_CALNC = 0x3c;
+    public static final int INS_CALNO = 0x3d;
+    public static final int INS_CLC = 0x3e;
+    public static final int INS_CLO = 0x3f;
+    public static final int INS_CLZ = 0x40;
+    public static final int INS_CLN = 0x41;
+    public static final int INS_CLI = 0x42;
+    public static final int INS_SLC = 0x43;
+    public static final int INS_SLO = 0x44;
+    public static final int INS_SLZ = 0x45;
+    public static final int INS_SLN = 0x46;
+    public static final int INS_SLI = 0x47;
 
 
 
@@ -195,7 +213,7 @@ public abstract class CPU {
     ///
     static String signature = "Made by T.K.Y";
     static String lastUpdateDate = " 10/18/2025";
-    static String compilerVersion = " V1.6";
+    static String compilerVersion = " V1.7";
     // 2 bytes for version checksum and 4 bytes for memory size, architecture flag, entry point address
     static int metadataLength = signature.length() + lastUpdateDate.length() + compilerVersion.length() + 4;
 
@@ -228,13 +246,13 @@ public abstract class CPU {
         instructionSet.put(INS_PUSH, "push");
         instructionSet.put(INS_POP, "pop");
         instructionSet.put(INS_CALL, "call");
-        instructionSet.put(INS_CE, "ce");
-        instructionSet.put(INS_CNE, "cne");
-        instructionSet.put(INS_CL, "cl");
-        instructionSet.put(INS_CLE, "cle");
-        instructionSet.put(INS_CG, "cg");
-        instructionSet.put(INS_CGE, "cge");
-        instructionSet.put(INS_CB, "cb");
+        instructionSet.put(INS_CE, "cale");
+        instructionSet.put(INS_CNE, "calne");
+        instructionSet.put(INS_CL, "cal");
+        instructionSet.put(INS_CLE, "calle");
+        instructionSet.put(INS_CG, "calg");
+        instructionSet.put(INS_CGE, "calge");
+        instructionSet.put(INS_CB, "calb");
         instructionSet.put(INS_JMP, "jmp");
         instructionSet.put(INS_JE, "je");
         instructionSet.put(INS_JNE, "jne");
@@ -259,6 +277,24 @@ public abstract class CPU {
         instructionSet.put(INS_SHR, "shr");
         instructionSet.put(INS_OUTSW, "outsw");
         instructionSet.put(INS_LENW, "lenw");
+        instructionSet.put(INS_JC, "jc");
+        instructionSet.put(INS_JO, "jo");
+        instructionSet.put(INS_JNC, "jnc");
+        instructionSet.put(INS_JNO, "jno");
+        instructionSet.put(INS_CALC, "calc");
+        instructionSet.put(INS_CALO, "calo");
+        instructionSet.put(INS_CALNC, "calnc");
+        instructionSet.put(INS_CALNO, "calno");
+        instructionSet.put(INS_CLC, "clc");
+        instructionSet.put(INS_CLO, "clo");
+        instructionSet.put(INS_CLZ, "clz");
+        instructionSet.put(INS_CLN, "cln");
+        instructionSet.put(INS_CLI, "cli");
+        instructionSet.put(INS_SLC, "slc");
+        instructionSet.put(INS_SLO, "slo");
+        instructionSet.put(INS_SLZ, "slz");
+        instructionSet.put(INS_SLN, "sln");
+        instructionSet.put(INS_SLI, "sli");
 
 
         translationMap = createTranslationMap(instructionSet);

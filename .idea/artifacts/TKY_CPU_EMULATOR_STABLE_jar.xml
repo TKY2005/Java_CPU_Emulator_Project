@@ -3,6 +3,14 @@
     <output-path>$PROJECT_DIR$/out/artifacts/TKY_CPU_EMULATOR_STABLE_jar</output-path>
     <root id="archive" name="Java_CPU_Emulation_Project.jar">
       <element id="module-output" name="Java_CPU_Emulation_Project" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/.idea/libraries/commons-cli-1.10.0/commons-cli-1.10.0-javadoc.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/.idea/libraries/commons-cli-1.10.0/commons-cli-1.10.0-sources.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/.idea/libraries/commons-cli-1.10.0/commons-cli-1.10.0-test-sources.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/.idea/libraries/commons-cli-1.10.0/commons-cli-1.10.0-tests.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/.idea/libraries/commons-cli-1.10.0/commons-cli-1.10.0.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/.idea/libraries/jnativehook/jnativehook-2.2.2-javadoc.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/.idea/libraries/jnativehook/jnativehook-2.2.2-sources.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/.idea/libraries/jnativehook/jnativehook-2.2.2.jar" path-in-jar="/" />
     </root>
   </artifact>
 </component>

@@ -106,26 +106,11 @@ public class CPUModule16BIT extends CPU {
                         err, ErrorHandler.ERR_CODE_PC_MODIFY_UNALLOWED);
             } else if (registerID < registerPairStart) {
 
-                if (value > max_byte_value) {
-                    String err = String.format("The value 0x%X(%d) is bigger than the selected register (%s) bit width.",
-                            value, value, registerNames[registerID]);
-                    triggerProgramError(
-                            err, ErrorHandler.ERR_CODE_CPU_SIZE_VIOLATION);
-                } else {
-                    registers[registerID] = value;
-                    updateRegisterPairs();
-                }
+                registers[registerID] = (value) % (0xff + 1); // wraparound logic for 8-bit registers
+                updateRegisterPairs();
             } else if (registerID >= registerPairStart) {
-
-                if (value > max_pair_value) {
-                    String err = String.format("The value 0x%X(%d) is bigger than the selected register (%s) bit width.",
-                            value, value, registerNames[registerID]);
-                    triggerProgramError(
-                            err, ErrorHandler.ERR_CODE_CPU_SIZE_VIOLATION);
-                } else {
-                    registers[registerID] = value;
-                    updateRegisterBytes();
-                }
+                registers[registerID] = (value) % (0xffff + 1); // wraparound logic for 16-bit registers
+                updateRegisterBytes();
             }
         }
     }
@@ -218,14 +203,23 @@ public class CPUModule16BIT extends CPU {
         return result.toString();
     }
 
-    public void updateFlags(int value) {
-        Logger.addLog("Updating flags.", logDevice);
+    public void updateFlags16(int value) {
+        Logger.addLog("Updating 16-bit operation flags.", logDevice);
         short flagSetter = (short) value;
 
         Z = flagSetter == 0;
         N = ((flagSetter >>> 15) & 1) == 1;
-        if (N) O = value > Short.MAX_VALUE || value < Short.MIN_VALUE;
-        else C = value > max_pair_value;
+        O = value > Short.MAX_VALUE || value < Short.MIN_VALUE;
+        C = value > max_pair_value || value < 0;
+    }
+    public void updateFlags8(int value){
+        short v = (short) value;
+        byte flagSetter = (byte) v;
+
+        Z = flagSetter == 0;
+        N = ( (flagSetter >>> 7) & 1 ) == 1;
+        O = v > 0x7f || v < -0x7f;
+        C = v > 0xff || v < 0;
     }
 
 
@@ -1046,6 +1040,34 @@ public class CPUModule16BIT extends CPU {
                         if (!N || Z) call(address, return_address);
                         else registers[PC] = return_address;
                     }
+                    case INS_CALC -> {
+                        step();
+                        int address = ((machine_code[step()] << 8) | machine_code[step()]);
+                        int return_address = step() - 1;
+                        if (C) call(address, return_address);
+                        else registers[PC] = return_address;
+                    }
+                    case INS_CALO -> {
+                        step();
+                        int address = ((machine_code[step()] << 8) | machine_code[step()]);
+                        int return_address = step() - 1;
+                        if (O) call(address, return_address);
+                        else registers[PC] = return_address;
+                    }
+                    case INS_CALNC -> {
+                        step();
+                        int address = ((machine_code[step()] << 8) | machine_code[step()]);
+                        int return_address = step() - 1;
+                        if (!C) call(address, return_address);
+                        else registers[PC] = return_address;
+                    }
+                    case INS_CALNO -> {
+                        step();
+                        int address = ((machine_code[step()] << 8) | machine_code[step()]);
+                        int return_address = step() - 1;
+                        if (!O) call(address, return_address);
+                        else registers[PC] = return_address;
+                    }
 
                     case INS_JMP -> {
                         step();
@@ -1088,6 +1110,30 @@ public class CPUModule16BIT extends CPU {
                         if (!N || Z) jmp();
                         else step();
                     }
+                    case INS_JC -> {
+                        step();
+                        step();
+                        if (C) jmp();
+                        else step();
+                    }
+                    case INS_JO -> {
+                        step();
+                        step();
+                        if (O) jmp();
+                        else step();
+                    }
+                    case INS_JNC -> {
+                        step();
+                        step();
+                        if (!C) jmp();
+                        else step();
+                    }
+                    case INS_JNO -> {
+                        step();
+                        step();
+                        if (!O) jmp();
+                        else step();
+                    }
 
                     case INS_CMP -> {
                         int[] destination = getNextOperand();
@@ -1113,6 +1159,18 @@ public class CPUModule16BIT extends CPU {
                             if (!x) E = true;
                         } else Logger.addLog("Interrupt flag not set. skipping.", logDevice, true);
                     }
+
+                    case INS_CLC -> C = false;
+                    case INS_CLO -> N = false;
+                    case INS_CLZ -> Z = false;
+                    case INS_CLN -> N = false;
+                    case INS_CLI -> I = false;
+
+                    case INS_SLC -> C = true;
+                    case INS_SLO -> O = true;
+                    case INS_SLZ -> Z = true;
+                    case INS_SLN -> N = true;
+                    case INS_SLI -> I = true;
 
 
                     case INS_NOP ->{ // do nothing for 1 cycle
@@ -1194,7 +1252,8 @@ public class CPUModule16BIT extends CPU {
                     }
                 }
 
-                else if (machine_code[i] >= INS_CALL && machine_code[i] <= INS_JB || machine_code[i] == INS_LOOP) {
+                else if (machine_code[i] >= INS_CALL && machine_code[i] <= INS_JB || machine_code[i] == INS_LOOP
+                || machine_code[i] >= INS_JC && machine_code[i] <= INS_CALNO) {
 
                     if (machine_code[i + 1] == FUNCTION_MODE) {
                         int high = machine_code[i + 2], low = machine_code[i + 3];
@@ -1378,7 +1437,7 @@ public class CPUModule16BIT extends CPU {
 
                         case INS_CE, INS_CNE, INS_CL, INS_CLE, INS_CG, INS_CGE, INS_JMP, INS_JE, INS_JNE, INS_JL,
                              INS_JLE,
-                             INS_JG, INS_JGE -> {
+                             INS_JG, INS_JGE, INS_JC, INS_JO, INS_JNC, INS_JNO, INS_CALC, INS_CALO, INS_CALNC, INS_CALNO -> {
                             numBytes = 4;
                             for (int i = 0; i < numBytes; i++)
                                 byteStr.append(String.format("%02X ", machine_code[registers[PC] + i]));
@@ -1400,7 +1459,8 @@ public class CPUModule16BIT extends CPU {
                         }
 
                         case INS_INT, INS_OUTS, INS_OUTSW, INS_EXT, INS_RET,
-                             INS_END, INS_NOP -> {
+                             INS_END, INS_NOP, INS_CLC, INS_CLO, INS_CLN, INS_CLZ, INS_CLI,
+                             INS_SLC, INS_SLI, INS_SLN, INS_SLO, INS_SLZ -> {
                             numBytes = 1;
                             byteStr.append(String.format("%02X ", machine_code[registers[PC]]));
                             code.append(String.format("%-25s", byteStr.toString()));
@@ -1551,7 +1611,8 @@ public class CPUModule16BIT extends CPU {
             }
             default -> E = true;
         }
-        updateFlags(newVal);
+        if (destination[0] == REGISTER_MODE) updateFlags8(newVal);
+        else if (destination[0] == REGISTER_WORD_MODE) updateFlags16(newVal);
     }
 
     public void shift_right(int[] destination, int[] source) {
@@ -1581,7 +1642,8 @@ public class CPUModule16BIT extends CPU {
             }
             default -> E = true;
         }
-        updateFlags(newVal);
+        if (destination[0] == REGISTER_MODE) updateFlags8(newVal);
+        else if (destination[0] == REGISTER_WORD_MODE) updateFlags16(newVal);
     }
 
 
@@ -1620,7 +1682,8 @@ public class CPUModule16BIT extends CPU {
 
             default -> E = true;
         }
-        updateFlags(newVal);
+        if (destination[0] == REGISTER_MODE) updateFlags8(newVal);
+        else if (destination[0] == REGISTER_WORD_MODE) updateFlags16(newVal);
     }
 
 
@@ -1657,7 +1720,8 @@ public class CPUModule16BIT extends CPU {
 
             default -> E = true;
         }
-        updateFlags(newVal);
+        if (destination[0] == REGISTER_MODE) updateFlags8(newVal);
+        else if (destination[0] == REGISTER_WORD_MODE) updateFlags16(newVal);
     }
 
 
@@ -1694,7 +1758,8 @@ public class CPUModule16BIT extends CPU {
 
             default -> E = true;
         }
-        updateFlags(newVal);
+        if (destination[0] == REGISTER_MODE) updateFlags8(newVal);
+        else if (destination[0] == REGISTER_WORD_MODE) updateFlags16(newVal);
     }
 
 
@@ -1731,7 +1796,8 @@ public class CPUModule16BIT extends CPU {
 
             default -> E = true;
         }
-        updateFlags(newVal);
+        if (destination[0] == REGISTER_MODE) updateFlags8(newVal);
+        else if (destination[0] == REGISTER_WORD_MODE) updateFlags16(newVal);
     }
 
 
@@ -1769,7 +1835,8 @@ public class CPUModule16BIT extends CPU {
 
             default -> E = true;
         }
-        updateFlags(newVal);
+        if (source[0] == REGISTER_MODE) updateFlags8(newVal);
+        else if (source[0] == REGISTER_WORD_MODE) updateFlags16(newVal);
     }
 
 
@@ -1806,7 +1873,8 @@ public class CPUModule16BIT extends CPU {
 
             default -> E = true;
         }
-        updateFlags(newVal);
+        if (destination[0] == REGISTER_MODE) updateFlags8(newVal);
+        else if (destination[0] == REGISTER_WORD_MODE) updateFlags16(newVal);
     }
 
 
@@ -1843,7 +1911,8 @@ public class CPUModule16BIT extends CPU {
 
             default -> E = true;
         }
-        updateFlags(newVal);
+        if (destination[0] == REGISTER_MODE) updateFlags8(newVal);
+        else if (destination[0] == REGISTER_WORD_MODE) updateFlags16(newVal);
     }
 
 
@@ -1880,7 +1949,8 @@ public class CPUModule16BIT extends CPU {
 
             default -> E = true;
         }
-        // TODO : Update flags
+        if (destination[0] == REGISTER_MODE) updateFlags8(newVal);
+        else if (destination[0] == REGISTER_WORD_MODE) updateFlags16(newVal);
     }
 
 
@@ -1917,7 +1987,8 @@ public class CPUModule16BIT extends CPU {
 
             default -> E = true;
         }
-        updateFlags(newVal);
+        if (destination[0] == REGISTER_MODE) updateFlags8(newVal);
+        else if (destination[0] == REGISTER_WORD_MODE) updateFlags16(newVal);
     }
 
 
@@ -1954,7 +2025,8 @@ public class CPUModule16BIT extends CPU {
 
             default -> E = true;
         }
-        updateFlags(newVal);
+        if (destination[0] == REGISTER_MODE) updateFlags8(newVal);
+        else if (destination[0] == REGISTER_WORD_MODE) updateFlags16(newVal);
     }
 
 
@@ -1991,7 +2063,8 @@ public class CPUModule16BIT extends CPU {
 
             default -> E = true;
         }
-        updateFlags(newVal);
+        if (destination[0] == REGISTER_MODE) updateFlags8(newVal);
+        else if (destination[0] == REGISTER_WORD_MODE) updateFlags16(newVal);
     }
 
 
@@ -2029,7 +2102,8 @@ public class CPUModule16BIT extends CPU {
 
             default -> E = true;
         }
-        updateFlags(newVal);
+        if (source[0] == REGISTER_MODE) updateFlags8(newVal);
+        else if (source[0] == REGISTER_WORD_MODE) updateFlags16(newVal);
     }
 
 
@@ -2060,7 +2134,8 @@ public class CPUModule16BIT extends CPU {
 
             default -> E = true;
         }
-        updateFlags(newVal);
+        if (destination[0] == REGISTER_MODE) updateFlags8(newVal);
+        else if (destination[0] == REGISTER_WORD_MODE) updateFlags16(newVal);
     }
 
 
@@ -2098,7 +2173,8 @@ public class CPUModule16BIT extends CPU {
 
             default -> E = true;
         }
-        updateFlags(newVal);
+        if (source[0] == REGISTER_MODE) updateFlags8(newVal);
+        else if (source[0] == REGISTER_WORD_MODE) updateFlags16(newVal);
     }
 
 
@@ -2136,7 +2212,8 @@ public class CPUModule16BIT extends CPU {
 
             default -> E = true;
         }
-        updateFlags(newVal);
+        if (source[0] == REGISTER_MODE) updateFlags8(newVal);
+        else if (source[0] == REGISTER_WORD_MODE) updateFlags16(newVal);
     }
 
     public void la(int[] source){

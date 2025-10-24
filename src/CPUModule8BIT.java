@@ -109,7 +109,8 @@ public class CPUModule8BIT extends CPU {
 
     for (int i = 0; machineCode[i] != (TEXT_SECTION_END & 0xff); i++) {
 
-        if (machineCode[i] >= INS_CALL && machineCode[i] <= INS_JB || machineCode[i] == INS_LOOP) {
+        if (machineCode[i] >= INS_CALL && machineCode[i] <= INS_JB || machineCode[i] == INS_LOOP ||
+        machineCode[i] >= INS_JC && machineCode[i] <= INS_CALNO) {
             if (machineCode[i + 1] == FUNCTION_MODE) {
                 int high = machineCode[i + 2], low = machineCode[i + 3];
                 int address = memoryController.bytePairToWordLE(low, high);
@@ -269,8 +270,8 @@ public class CPUModule8BIT extends CPU {
                 }
 
 
-                case INS_CE, INS_CNE, INS_CL, INS_CLE, INS_CG, INS_CGE, INS_JMP, INS_JE, INS_JNE, INS_JL, INS_JLE,
-                        INS_JG, INS_JGE -> {
+                case INS_CE, INS_CNE, INS_CL, INS_CLE, INS_CG, INS_CGE, INS_CALC, INS_CALO, INS_CALNC, INS_CALNO, INS_JMP, INS_JE, INS_JNE, INS_JL, INS_JLE,
+                        INS_JG, INS_JGE, INS_JC, INS_JO, INS_JNC, INS_JNO -> {
                     numBytes = 4;
                     for (int i = 0; i < numBytes; i++) byteStr.append(String.format("%02X ", machineCode[registers[PC] + i]));
                     code.append(String.format("%-20s", byteStr.toString()));
@@ -301,7 +302,8 @@ public class CPUModule8BIT extends CPU {
                 }
 
                 case INS_INT, INS_OUTS, INS_EXT, INS_RET,
-                        INS_END, INS_NOP -> {
+                     INS_END, INS_NOP, INS_CLC, INS_CLI, INS_CLN, INS_CLO, INS_CLZ,
+                     INS_SLC, INS_SLI, INS_SLN, INS_SLO, INS_SLZ -> {
                     numBytes = 1;
                     byteStr.append(String.format("%02X ", machineCode[registers[PC]]));
                     code.append(String.format("%-20s", byteStr.toString()));
@@ -858,6 +860,34 @@ public class CPUModule8BIT extends CPU {
                         if (!N || Z) call(address, return_address);
                         else registers[PC] = (short) return_address;
                     }
+                    case INS_CALC -> {
+                        step();
+                        int address = ( ( machine_code[step()] << 8 ) | machine_code[step()] );
+                        int return_address = step() - 1;
+                        if (C) call(address, return_address);
+                        else registers[PC] = (short) return_address;
+                    }
+                    case INS_CALO -> {
+                        step();
+                        int address = ( ( machine_code[step()] << 8 ) | machine_code[step()] );
+                        int return_address = step() - 1;
+                        if (O) call(address, return_address);
+                        else registers[PC] = (short) return_address;
+                    }
+                    case INS_CALNC -> {
+                        step();
+                        int address = ( ( machine_code[step()] << 8 ) | machine_code[step()] );
+                        int return_address = step() - 1;
+                        if (!C) call(address, return_address);
+                        else registers[PC] = (short) return_address;
+                    }
+                    case INS_CALNO -> {
+                        step();
+                        int address = ( ( machine_code[step()] << 8 ) | machine_code[step()] );
+                        int return_address = step() - 1;
+                        if (!O) call(address, return_address);
+                        else registers[PC] = (short) return_address;
+                    }
 
                     case INS_JMP -> {
                         step();
@@ -900,6 +930,30 @@ public class CPUModule8BIT extends CPU {
                         if (!N || Z) jmp();
                         else step();
                     }
+                    case INS_JC -> {
+                        step();
+                        step();
+                        if (C) jmp();
+                        else step();
+                    }
+                    case INS_JO -> {
+                        step();
+                        step();
+                        if (O) jmp();
+                        else step();
+                    }
+                    case INS_JNC -> {
+                        step();
+                        step();
+                        if (!C) jmp();
+                        else step();
+                    }
+                    case INS_JNO -> {
+                        step();
+                        step();
+                        if (!O) jmp();
+                        else step();
+                    }
 
                     case INS_CMP -> {
                         short[] destination = getNextOperand();
@@ -919,11 +973,23 @@ public class CPUModule8BIT extends CPU {
                         }else step();
                     }
 
+                    case INS_CLC -> C = false;
+                    case INS_CLI -> I = false;
+                    case INS_CLN -> N = false;
+                    case INS_CLO -> O = false;
+                    case INS_CLZ -> Z = false;
+
+                    case INS_SLC -> C = true;
+                    case INS_SLI -> I = true;
+                    case INS_SLN -> N = true;
+                    case INS_SLO -> O = true;
+                    case INS_SLZ -> Z = true;
+
                     case INS_INT -> {
                         if (I) {
                             boolean x = InterruptHandler.triggerSoftwareInterrupt(this, registers, memoryController);
                             if (!x) E = true;
-                        } else System.out.println("Interrupt flag not set. skipping.");
+                        } else Logger.addLog("Interrupt flag not set. skipping.", logDevice);
                     }
 
                     default -> {
@@ -979,8 +1045,8 @@ public class CPUModule8BIT extends CPU {
         N = ( (flagSetter >>> 7) & 1 ) == 1;
 
         // C for unsigned arithmetic, O for signed arithmetic.
-        if (N) O =  value > 127 || value < -127;
-        else C = value > 255;
+        O =  value > 127 || value < -127;
+        C = value > 255 || value < 0;
 
         Z = value == 0; // Z = is value = 0
     }
@@ -1193,9 +1259,7 @@ public class CPUModule8BIT extends CPU {
                 memoryController.setMemory( getRegister( destination[1] ), newVal );
             }
         }
-        byte flagSetter = (byte) newVal;
-        if (flagSetter == 0) Z = true;
-        if (flagSetter < 0) N = true;
+        updateFlags(newVal);
 
     }
 
@@ -1229,9 +1293,7 @@ public class CPUModule8BIT extends CPU {
                 memoryController.setMemory( getRegister( destination[1] ), newVal );
             }
         }
-        byte flagSetter = (byte) newVal;
-        if (flagSetter == 0) Z = true;
-        if (flagSetter < 0) N = true;
+        updateFlags(newVal);
 
     }
     
@@ -1265,9 +1327,7 @@ public class CPUModule8BIT extends CPU {
                 memoryController.setMemory( getRegister( destination[1] ), newVal );
             }
         }
-        byte flagSetter = (byte) newVal;
-        if (flagSetter == 0) Z = true;
-        if (flagSetter < 0) N = true;
+       updateFlags(newVal);
 
     }
 
@@ -1288,9 +1348,7 @@ public class CPUModule8BIT extends CPU {
             default -> E = true;
         }
 
-        byte flagSetter = (byte) newVal;
-        if (flagSetter < 0) N = true;
-        if (flagSetter == 0) Z = true;
+        updateFlags(newVal);
     }
 
 
@@ -1321,9 +1379,7 @@ public class CPUModule8BIT extends CPU {
             }
             default -> E = true;
         }
-        byte flagSetter = (byte) newVal;
-        if (flagSetter < 0) N = true;
-        if (flagSetter == 0) Z = true;
+        updateFlags(newVal);
     }
 
 
@@ -1354,9 +1410,7 @@ public class CPUModule8BIT extends CPU {
             }
             default -> E = true;
         }
-        byte flagSetter = (byte) newVal;
-        if (flagSetter < 0) N = true;
-        if (flagSetter == 0) Z = true;
+       updateFlags(newVal);
     }
 
 
@@ -1387,9 +1441,7 @@ public class CPUModule8BIT extends CPU {
             }
             default -> E = true;
         }
-        byte flagSetter = (byte) newVal;
-        if (flagSetter < 0) N = true;
-        if (flagSetter == 0) Z = true;
+        updateFlags(newVal);
     }
 
 
@@ -1420,9 +1472,7 @@ public class CPUModule8BIT extends CPU {
             }
             default -> E = true;
         }
-        byte flagSetter = (byte) newVal;
-        if (flagSetter < 0) N = true;
-        if (flagSetter == 0) Z = true;
+        updateFlags(newVal);
     }
 
 
@@ -1453,9 +1503,7 @@ public class CPUModule8BIT extends CPU {
             }
             default -> E = true;
         }
-        byte flagSetter = (byte) newVal;
-        if (flagSetter < 0) N = true;
-        if (flagSetter == 0) Z = true;
+        updateFlags(newVal);
     }
 
 
@@ -1486,9 +1534,7 @@ public class CPUModule8BIT extends CPU {
                 memoryController.setMemory( getRegister( destination[1] ), newValue );
             }
         }
-        byte flagSetter = (byte) newValue;
-        if (flagSetter == 0) Z = true;
-        if (flagSetter < 0) N = true;
+        updateFlags(newValue);
     }
 
 
@@ -1514,9 +1560,7 @@ public class CPUModule8BIT extends CPU {
                         err, ErrorHandler.ERR_CODE_INVALID_PREFIX);
             }
         }
-        byte flagSetter = (byte) newValue;
-        if (flagSetter == 0) Z = true;
-        if (flagSetter < 0) N = true;
+        updateFlags(newValue);
     }
 
 
@@ -1546,29 +1590,32 @@ public class CPUModule8BIT extends CPU {
 
 
     public void inc(short[] destination){
-
+        short newVal = 0;
         switch (destination[0]){
-            case REGISTER_MODE -> setRegister(destination[1], (short) (getRegister(destination[1]) + 1));
+            case REGISTER_MODE ->{
+                newVal = (short) (getRegister( destination[1] ) + 1);
+                setRegister(destination[1], newVal);
+            }
             case DIRECT_MODE -> memoryController.setMemory(destination[1], (short) (memoryController.getMemory(destination[1]) + 1));
             case INDIRECT_MODE -> memoryController.setMemory(memoryController.getMemory( getRegister(destination[1]) ),
                     (short) ( memoryController.getMemory( getRegister(destination[1]) ) + 1));
         }
-        byte flagSetter = (byte) destination[1];
-        if (flagSetter == 0) Z = true;
-        if (flagSetter < 0) N = true;
+        updateFlags(newVal);
     }
 
 
     public void dec(short[] destination){
+        short newVal = 0;
         switch (destination[0]){
-            case REGISTER_MODE -> setRegister(destination[1], (short) (getRegister(destination[1]) - 1));
+            case REGISTER_MODE -> {
+                newVal = (short) (getRegister( destination[1] ) - 1);
+                setRegister(destination[1], newVal);
+            }
             case DIRECT_MODE -> memoryController.setMemory(destination[1], (short) (memoryController.getMemory(destination[1]) - 1));
             case INDIRECT_MODE -> memoryController.setMemory(memoryController.getMemory( getRegister(destination[1]) ),
                     (short) ( memoryController.getMemory( getRegister(destination[1]) ) - 1));
         }
-        byte flagSetter = (byte) destination[1];
-        if (flagSetter == 0) Z = true;
-        if (flagSetter < 0) N = true;
+        updateFlags(newVal);
     }
 
 
@@ -1803,13 +1850,8 @@ public class CPUModule8BIT extends CPU {
                             err, ErrorHandler.ERR_CODE_PC_MODIFY_UNALLOWED);
             }
             // Special purpose registers are 16-bits whereas general purpose registers are 8-bits
-            else if (registerID >= PC) registers[registerID] = value;
-            else if (value > max_value){
-                String err = String.format("The value %X(%d) exceeds the %d-bit CPU module size.", value, value, bit_length);
-                triggerProgramError(
-                        err, ErrorHandler.ERR_CODE_CPU_SIZE_VIOLATION);
-            }
-            else registers[registerID] = value;
+            else if (registerID >= PC) registers[registerID] = (short) ((value) % (0xffff + 1));
+            else registers[registerID] = (short) ((value) % (0xff + 1));
         }
     }
 
