@@ -706,6 +706,21 @@ public class CPUModule16BIT extends CPU {
 
         machineCode = memImageList.stream().mapToInt(Integer::intValue).toArray();
 
+        for(Map.Entry<String, Integer> entry : functions.entrySet()){
+            String name = entry.getKey();
+            int val = entry.getValue();
+            int low = val & 0xff;
+            int high = (val >> 8) & 0xff;
+            String x = (low == (TEXT_SECTION_END & 0xff)) ? "first" : "second";
+            if (low == (TEXT_SECTION_END & 0xff) || high == (TEXT_SECTION_END & 0xff))
+                System.out.printf("""
+                        WARNING: the %s byte of function label '%s' address is equal to 0x%02X
+                        This could cause undefined behaviour when loading the program into the CPU ROM
+                        suggestion: add a 'nop' instruction before the function declaration and recompile
+                        '%s' => 0x%02X, 0x%02X
+                        """, x, name, TEXT_SECTION_END, name, low, high);
+        }
+
         if (stepListener != null) stepListener.updateUI();
         return machineCode;
     }
