@@ -1176,7 +1176,7 @@ public class CPUModule16BIT extends CPU {
                     }
 
                     case INS_CLC -> C = false;
-                    case INS_CLO -> N = false;
+                    case INS_CLO -> O = false;
                     case INS_CLZ -> Z = false;
                     case INS_CLN -> N = false;
                     case INS_CLI -> I = false;
@@ -1303,7 +1303,7 @@ public class CPUModule16BIT extends CPU {
 
             for(int i = 0; i < dataPointers.length; i++){
                 dataSectionRebuild.append("\n\t").append(dataAddresses.get(dataPointers[i])).append(" ").append("\"");
-                int start_address = dataPointers[i] + dataOffset + 1; // +1 to skip the previous data terminator
+                int start_address = dataPointers[i] + dataOffset; // +1 to skip the previous data terminator
                 StringBuilder data = new StringBuilder();
                 for(int j = start_address; machine_code[j] != ARRAY_TERMINATOR && data.length() <= MAX_STRING_LENGTH; j++){
 
