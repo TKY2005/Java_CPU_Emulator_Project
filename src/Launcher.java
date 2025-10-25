@@ -9,12 +9,12 @@ import org.apache.commons.cli.*;
 /*
     Java simple CPU emulator
     T.K.Y
-    last updated: October 17 2025
+    last updated: October 25 2025
  */
 
 public class Launcher{
     static String configFilePath = "./myEmulator.conf";
-    static String version = "3.8";
+    static String version = "3.9";
     static HashMap<String, String> appConfig;
 
     static boolean ignoreVersionCheck = false;

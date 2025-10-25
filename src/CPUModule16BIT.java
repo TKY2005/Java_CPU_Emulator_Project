@@ -463,19 +463,19 @@ public class CPUModule16BIT extends CPU {
 
         // Step 1- Calculate the function offset addresses, add .DATA variables to the data section, and build a raw code string
         String fullCode = "";
+        int dataStart = memoryController.dataOffset;
+        int offset = 0;
         for (int i = 0; i < lines.length; i++) {
             currentLine++;
             // Which section are we in? (is it a line of code? is it a function. and if it starts with '.' is it the data section?)
             if (lines[i].equals(".DATA")) {
                 System.out.println("Data section detected.");
-                int offset = 0;
                 i++; // skip .DATA line
 
                 while (!lines[i].equalsIgnoreCase("end")) {
 
                     String[] x = lines[i].trim().split(" ");
-                    int dataStart = memoryController.dataOffset;
-                    if (x[0].equals("org")) memoryController.dataOffset = Integer.parseInt(x[1].substring(1)) - offset;
+                    if (x[0].equals("org")) dataStart = Integer.parseInt(x[1].substring(1)) - offset;
 
                     else {
                         // store mode
@@ -1172,7 +1172,7 @@ public class CPUModule16BIT extends CPU {
                         if (I) {
                             boolean x = InterruptHandler.triggerSoftwareInterrupt(this, registers, memoryController);
                             if (!x) E = true;
-                        } else Logger.addLog("Interrupt flag not set. skipping.", logDevice, true);
+                        } else Logger.addLog("Interrupt flag not set. skipping.", logDevice);
                     }
 
                     case INS_CLC -> C = false;

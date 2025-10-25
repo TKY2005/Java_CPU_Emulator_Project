@@ -386,6 +386,7 @@ public abstract class CPU {
         Logger.addLog("=============Program memory===================", logDevice);
         Logger.addLog(memoryController.dumpMemory(), logDevice);
         Logger.writeLogFile("./ErrLog.log");
+        System.out.println(exceptionType.getMessage());
         System.out.println("Program terminated with code : " + status_code);
         for(int i = 0; i < 3; i++){
             VirtualMachine.beep(VirtualMachine.beepError[0], VirtualMachine.beepError[1]);

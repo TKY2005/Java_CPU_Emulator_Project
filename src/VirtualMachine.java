@@ -4,6 +4,8 @@ import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
 import javax.swing.*;
 import java.io.*;
+import java.lang.reflect.Array;
+import java.util.Arrays;
 import java.util.Scanner;
 
 public class VirtualMachine {
@@ -34,12 +36,43 @@ public class VirtualMachine {
 
     public void sendCode(String code){
 
-       StringBuilder result = new StringBuilder();
+        StringBuilder result = new StringBuilder();
         String[] lines = code.split("\n");
         err_msg = "";
         cpuModule.reset();
 
+        StringBuilder fullCode = new StringBuilder();
+        for(String line : lines){
 
+            if (line.split(" ")[0].equalsIgnoreCase("INCLUDE")){
+                StringBuilder path = new StringBuilder();
+                int path_start = line.indexOf('"');
+                while (line.charAt(++path_start) != '"') path.append(line.charAt(path_start));
+
+                try {
+                    System.out.println("Adding file: " + path);
+                    File file = new File(path.toString());
+                    BufferedReader reader = new BufferedReader(new FileReader(file));
+                    String x;
+                    while ( (x = reader.readLine()) != null ){
+                        if (x.equalsIgnoreCase(".MAIN")) {
+                            String err = "Included files cannot have cannot have a MAIN function label.";
+                            cpuModule.triggerProgramError(err, ErrorHandler.ERR_COMP_COMPILATION_ERROR);
+                        }
+                        else fullCode.append(x).append("\n");
+                    }
+                }catch (FileNotFoundException e) {
+                    String err = String.format("INCLUDE statement failed. file '%s' not found.", path);
+                    cpuModule.triggerProgramError(err, ErrorHandler.ERR_COMP_COMPILATION_ERROR);
+                }
+                catch (IOException e) {
+                    String err = "Cannot read file...";
+                    cpuModule.triggerProgramError(err, ErrorHandler.ERR_COMP_COMPILATION_ERROR);
+                }
+            } else fullCode.append(line).append("\n");
+        }
+
+        lines = fullCode.toString().split("\n");
         for (String line : lines) {
             String[] tokens = line.trim().split("\\s+");
             StringBuilder newLine = new StringBuilder();
