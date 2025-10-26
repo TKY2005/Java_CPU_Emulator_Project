@@ -1317,7 +1317,9 @@ public class CPUModule16BIT extends CPU {
             }
             dataSectionRebuild.append("\nEND");
 
-            int mainEntryPoint = ((machine_code[machine_code.length - 2] & 0xff) | machine_code[machine_code.length - 1]);
+            int high = machine_code[ machine_code.length - 2 ] & 0xff;
+            int low = machine_code[ machine_code.length - 1 ] & 0xff;
+            int mainEntryPoint = ( high << 8 ) | low;
             code.append("Program's entry point: ").append("0x").append(Integer.toHexString(mainEntryPoint).toUpperCase()).append("\n");
 
             if (machine_code[machine_code.length - 3] != bit_length) { // Check the architecture

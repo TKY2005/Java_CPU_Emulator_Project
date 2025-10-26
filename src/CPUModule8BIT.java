@@ -163,7 +163,9 @@ public class CPUModule8BIT extends CPU {
     }
     dataSectionRebuild.append("\nEND");
 
-    int mainEntryPoint = ((machineCode[machineCode.length - 2] & 0xff) | machineCode[machineCode.length - 1]);
+    int high = machineCode[ machineCode.length - 2 ] & 0xff;
+    int low = machineCode[ machineCode.length - 1 ] & 0xff;
+    int mainEntryPoint = ( high << 8 ) | low;
     code.append("Program's entry point: ").append("0x").append(Integer.toHexString(mainEntryPoint).toUpperCase()).append("\n");
 
     if (machineCode[machineCode.length - 3] != bit_length) { // Check the architecture
