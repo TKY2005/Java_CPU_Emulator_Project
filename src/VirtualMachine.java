@@ -43,8 +43,7 @@ public class VirtualMachine {
 
         StringBuilder fullCode = new StringBuilder();
         for(String line : lines){
-
-            if (line.split(" ")[0].equalsIgnoreCase("INCLUDE")){
+            if (line.trim().split(" ")[0].equalsIgnoreCase("INCLUDE")){
                 StringBuilder path = new StringBuilder();
                 int path_start = line.indexOf('"');
                 while (line.charAt(++path_start) != '"') path.append(line.charAt(path_start));

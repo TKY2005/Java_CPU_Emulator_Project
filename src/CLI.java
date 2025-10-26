@@ -38,8 +38,8 @@ public class CLI {
             System.exit(-1);
         }
         vm.readyToExecute = true;
-        int entryPointLow = cpuModule.machineCode[ cpuModule.machineCode.length - 1 ];
-        int entryPointHigh = cpuModule.machineCode[ cpuModule.machineCode.length - 2 ];
+        int entryPointLow = cpuModule.machineCode[ cpuModule.machineCode.length - 1 ] & 0xff;
+        int entryPointHigh = cpuModule.machineCode[ cpuModule.machineCode.length - 2 ] & 0xff;
 
         cpuModule.functions.put("MAIN",  (entryPointHigh << 8) | entryPointLow );
         VirtualMachine.beep(VirtualMachine.beepSuccess[0], VirtualMachine.beepSuccess[1]);
@@ -73,8 +73,8 @@ public class CLI {
             System.exit(-1);
         }
         vm.readyToExecute = true;
-        int entryPointLow = cpuModule.machineCode[ cpuModule.machineCode.length - 1 ];
-        int entryPointHigh = cpuModule.machineCode[ cpuModule.machineCode.length - 2 ];
+        int entryPointLow = cpuModule.machineCode[ cpuModule.machineCode.length - 1 ] & 0xff;
+        int entryPointHigh = cpuModule.machineCode[ cpuModule.machineCode.length - 2 ] & 0xff;
 
         cpuModule.functions.put("MAIN",  (entryPointHigh << 8) | entryPointLow );
         vm.executeCode();
@@ -196,7 +196,7 @@ public class CLI {
             vm.setMemImage(image);
 
             for(int i = 0; i < cpuModule.memoryController.mem_size_B; i++)
-                cpuModule.memoryController.setMemoryAbsolute(i, (short) image[i], CPU.DATA_BYTE_MODE);
+                cpuModule.memoryController.setMemoryAbsolute(i, (short) image[i] & 0xff, CPU.DATA_BYTE_MODE);
 
             System.out.println("DONE. STARTING EXECUTION.\n");
         } catch (IOException e) {
