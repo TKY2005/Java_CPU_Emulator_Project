@@ -493,11 +493,13 @@ public class InterruptHandler implements NativeKeyListener {
                         memory.setMemory(read_write_addr + i, file_data[i], CPU.DATA_BYTE_MODE);
                     }
 
-                    registers[15] = file_data.length;
+                    //registers[15] = file_data.length;
+                    cpuModule.setRegister( cpuModule.getRegisterCode( "dx" ), file_data.length );
                 }
 
                 else if (operation == CPU.FILE_WRITE) {
-                    int file_length = registers[15]; // the number of bytes to copy : DX
+                    //int file_length = registers[15]; // the number of bytes to copy : DX
+                    int file_length = cpuModule.getRegister( cpuModule.getRegisterCode( "dx" ) );
                     byte[] file_data = new byte[file_length];
 
                     for(int i = 0; i < file_data.length; i++) {
@@ -507,7 +509,8 @@ public class InterruptHandler implements NativeKeyListener {
                 }
 
                 else if (operation == CPU.FILE_APPEND){
-                    int file_length = registers[15];
+                    //int file_length = registers[15];
+                    int file_length = cpuModule.getRegister( cpuModule.getRegisterCode("dx") );
                     byte[] file_data = new byte[file_length];
                     for(int i = 0; i < file_data.length; i++){
                         file_data[i] = (byte) memory.readByte(read_write_addr + i);
