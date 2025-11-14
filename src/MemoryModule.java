@@ -348,7 +348,7 @@ public class MemoryModule {
     }
 
     public String dumpMemory() {
-        int chunkSize = 10;
+        int chunkSize = 16;
         StringBuilder result = new StringBuilder();
         StringBuilder charSet = new StringBuilder();
         for (int i = 0; i < memory.length; i++) {

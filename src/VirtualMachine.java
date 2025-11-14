@@ -142,7 +142,8 @@ public class VirtualMachine {
     }
 
     private void loadImageToMemory(StringBuilder result, MemoryModule memory) {
-        memImage = cpuModule.compileToMemoryImage(result.toString());
+        if (Launcher.appConfig.get("MemSize").equals("auto")) memImage = cpuModule.compileToMemoryImageAuto(result.toString());
+        else memImage = cpuModule.compileToMemoryImage(result.toString());
         for(int i = 0; i < memory.getMemorySize(); i++)
             memory.setMemoryAbsolute(i, (short) (memImage[i] & 0xff), CPU.DATA_BYTE_MODE);
     }

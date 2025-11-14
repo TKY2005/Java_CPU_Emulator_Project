@@ -140,7 +140,8 @@ public class Launcher{
         try{
             Float.parseFloat(appConfig.get("MemSize"));
         }catch (Exception e) {
-            triggerLaunchError(String.format("Invalid memory size: %s", appConfig.get("MemSize")));
+            if (!appConfig.get("MemSize").equals("auto"))
+                triggerLaunchError(String.format("Invalid memory size: %s", appConfig.get("MemSize")));
         }
 
         float dataSize = 0, stackSize = 0;
@@ -218,10 +219,21 @@ public class Launcher{
         }
         if (cmd.hasOption("b"))
         {
-            int sizeB = getParsedInt(cmd.getOptionValue("b"));
-            float sizeKB = (sizeB / 1024f);
-            appConfig.replace("MemSize", Float.toString(sizeKB));
-            System.out.println("Starting with custom size in bytes: " + sizeB);
+            try {
+                int sizeB = getParsedInt(cmd.getOptionValue("b"));
+                float sizeKB = (sizeB / 1024f);
+                appConfig.replace("MemSize", Float.toString(sizeKB));
+                System.out.println("Starting with custom size in bytes: " + sizeB);
+            } catch (Exception e) {
+
+                String x = cmd.getOptionValue("b");
+                if (x.equalsIgnoreCase("auto")){
+                    appConfig.replace("MemSize", x.toLowerCase());
+                    System.out.println("Starting with custom size in bytes: " + x);
+                }
+                else triggerLaunchError("Invalid memory size: " + x);
+
+            }
         }
 
         if (cmd.hasOption("r")){

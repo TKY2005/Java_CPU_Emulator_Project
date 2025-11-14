@@ -564,17 +564,22 @@ public class CPUModule8BIT extends CPU {
             int val = entry.getValue();
             int low = val & 0xff;
             int high = (val >> 8) & 0xff;
-            String x = (low == (TEXT_SECTION_END & 0xff)) ? "first" : "second";
+            String x = (low == (TEXT_SECTION_END & 0xff)) ? "low" : "high";
             if (low == (TEXT_SECTION_END & 0xff) || high == (TEXT_SECTION_END & 0xff))
                 System.out.printf("""
                         WARNING: the %s byte of function label '%s' address is equal to 0x%02X
                         This could cause undefined behaviour when loading the program into the CPU ROM
                         suggestion: add a 'nop' instruction before the function declaration and recompile
                         '%s' => 0x%02X, 0x%02X
-                        """, x, name, TEXT_SECTION_END, name, low, high);
+                        """, x, name, TEXT_SECTION_END, name, high, low);
         }
 
         if (stepListener != null) stepListener.updateUI();
+        return machineCode;
+    }
+
+    @Override
+    public int[] compileToMemoryImageAuto(String code){
         return machineCode;
     }
 

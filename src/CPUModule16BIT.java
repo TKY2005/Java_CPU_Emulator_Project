@@ -711,14 +711,282 @@ public class CPUModule16BIT extends CPU {
             int val = entry.getValue();
             int low = val & 0xff;
             int high = (val >> 8) & 0xff;
-            String x = (low == (TEXT_SECTION_END & 0xff)) ? "first" : "second";
+            String x = (low == (TEXT_SECTION_END & 0xff)) ? "low" : "high";
             if (low == (TEXT_SECTION_END & 0xff) || high == (TEXT_SECTION_END & 0xff))
                 System.out.printf("""
                         WARNING: the %s byte of function label '%s' address is equal to 0x%02X
                         This could cause undefined behaviour when loading the program into the CPU ROM
                         suggestion: add a 'nop' instruction before the function declaration and recompile
                         '%s' => 0x%02X, 0x%02X
-                        """, x, name, TEXT_SECTION_END, name, low, high);
+                        """, x, name, TEXT_SECTION_END, name, high, low);
+        }
+
+        if (stepListener != null) stepListener.updateUI();
+        return machineCode;
+    }
+
+    @Override
+    public int[] compileToMemoryImageAuto(String code){
+        String[] lines = code.split("\n");
+        List<Integer> memImageList = new ArrayList<>();
+
+        StringBuilder machineCodeString = new StringBuilder();
+
+        if (memoryController.mem_size_B > 0xffff) {
+            String err = "This Maximum amount of addressable memory for this architecture is 64KB";
+            triggerProgramError(err, ErrorHandler.ERR_CODE_INVALID_MEMORY_LAYOUT);
+        }
+
+
+        // Step 1- Calculate the function offset addresses, add .DATA variables to the data section, and build a raw code string
+        String fullCode = "";
+        int dataStart = memoryController.dataOffset;
+        int offset = 0;
+        for (int i = 0; i < lines.length; i++) {
+            currentLine++;
+            // Which section are we in? (is it a line of code? is it a function. and if it starts with '.' is it the data section?)
+            if (lines[i].equals(".DATA")) {
+                System.out.println("Data section detected.");
+                i++; // skip .DATA line
+
+                while (!lines[i].equalsIgnoreCase("end")) {
+
+                    String[] x = lines[i].trim().split(" ");
+                    if (x[0].equals("org")) dataStart = Integer.parseInt(x[1].substring(1)) - offset;
+
+                    else {
+                        // store mode
+                        // 1- Byte mode
+                        // 2- Word mode
+                        // 3- byte buffer mode
+                        // 4- word buffer mode
+                        // else- Undefined.
+                        int storeMode = 0;
+                        dataMap.put(x[0], dataStart + offset);
+
+                        // define size of data (required)
+                        if (x[1].equalsIgnoreCase("db")) storeMode = DATA_BYTE_MODE;
+                        else if (x[1].equalsIgnoreCase("dw")) storeMode = DATA_WORD_MODE;
+
+                        // alternatively reserve space for byte/word buffer
+                        else if (x[1].equalsIgnoreCase("resb")){
+                            int bufferSize = Integer.parseInt(x[2].substring(1));
+                            memoryController.setMemory(dataStart + offset + bufferSize, ARRAY_TERMINATOR, DATA_BYTE_MODE);
+                            System.out.printf("""
+                                    reserved '%d' bytes for byte buffer '%s', start address: 0x%04X(%d):0x%04X(%d) -> 0x%04X(%d), end address: 0x%04X(%d):0x%04X(%d) -> 0x%04X(%d) 
+                                    """, bufferSize, x[0],
+                                    MemoryModule.data_start, MemoryModule.data_start,
+                                    dataStart + offset, dataStart + offset,
+                                    MemoryModule.data_start + dataStart + offset, MemoryModule.data_start + dataStart + offset,
+                                    MemoryModule.data_start, MemoryModule.data_start,
+                                    dataStart + offset + bufferSize, dataStart + offset + bufferSize,
+                                    MemoryModule.data_start + dataStart + offset + bufferSize, MemoryModule.data_start + dataStart + offset + bufferSize);
+
+                            offset += bufferSize;
+                            storeMode = DATA_BUFFER_BYTE_MODE;
+                        }
+
+                        else if (x[1].equalsIgnoreCase("resw")){
+                            int bufferSize = Integer.parseInt(x[2].substring(1)) * 2;
+                            memoryController.setMemory(dataStart + offset + bufferSize, ARRAY_TERMINATOR, DATA_BYTE_MODE);
+                            System.out.printf("""
+                                    reserved '%d' bytes for word buffer '%s', start address: 0x%04X(%d):0x%04X(%d) -> 0x%04X(%d), end address: 0x%04X(%d):0x%04X(%d) -> 0x%04X(%d) 
+                                    """, bufferSize, x[0],
+                                    MemoryModule.data_start, MemoryModule.data_start,
+                                    dataStart + offset, dataStart + offset,
+                                    MemoryModule.data_start + dataStart + offset, MemoryModule.data_start + dataStart + offset,
+                                    MemoryModule.data_start, MemoryModule.data_start,
+                                    dataStart + offset + bufferSize, dataStart + offset + bufferSize,
+                                    MemoryModule.data_start + dataStart + offset + bufferSize, MemoryModule.data_start + dataStart + offset + bufferSize);
+
+                            offset += bufferSize;
+                            storeMode = DATA_BUFFER_WORD_MODE;
+                        }
+
+                        if (storeMode != DATA_BYTE_MODE && storeMode != DATA_WORD_MODE
+                         && storeMode != DATA_BUFFER_BYTE_MODE && storeMode != DATA_BUFFER_WORD_MODE) {
+                            String err = "Undefined data store mode." + "'" + x[1] + "'";
+                            triggerProgramError(err, ErrorHandler.ERR_COMP_UNDEFINED_DATA_MODE);
+                        }
+
+                        // We're storing a string
+
+                        if (x[2].startsWith(String.valueOf(STRING_PREFIX))) { // 34 in decimal 0x22 in hex
+                            String fullString = String.join(" ", x);
+
+                            int startIndex = fullString.indexOf(34) + 1;
+                            int endIndex = fullString.length() - 1;
+                            fullString = fullString.substring(startIndex, endIndex);
+
+                            // Handle escape characters //
+
+                            List<Integer> string_bytes = toByteString(fullString);
+
+                            fullString = "";
+                            for(int j = 0; j < string_bytes.size(); j++){
+                                fullString += (char) (int) string_bytes.get(j);
+                            }
+
+
+                            for (int j = 0; j < fullString.length(); j++) {
+
+                                if (storeMode == DATA_BYTE_MODE) {
+                                     System.out.printf("Setting memory location 0x%X(%d):0x%X(%d) -> 0x%X(%d) to byte char %c\n",
+                                            MemoryModule.data_start, MemoryModule.data_start,
+                                            dataStart + offset, dataStart + offset,
+                                            MemoryModule.data_start + dataStart + offset, MemoryModule.data_start + dataStart + offset,
+                                            fullString.charAt(j));
+                                    memoryController.setMemory(dataStart + offset, (short) fullString.charAt(j), DATA_BYTE_MODE);
+                                    offset++;
+
+                                }else if (storeMode == DATA_WORD_MODE){
+                                    int low = fullString.charAt(j) & 0xff;
+                                    int high = (fullString.charAt(j) >> 8) & 0xff;
+                                    System.out.printf("Setting memory location 0x%X(%d):0x%X(%d) -> 0x%X(%d) to word char %c\n",
+                                            MemoryModule.data_start, MemoryModule.data_start,
+                                            dataStart + offset, dataStart + offset,
+                                            MemoryModule.data_start + dataStart + offset, MemoryModule.data_start + dataStart + offset
+                                            , fullString.charAt(j));
+                                    memoryController.setMemory(dataStart + offset, fullString.charAt(j), DATA_WORD_MODE);
+                                    offset += 2;
+                                }
+
+                            }
+                            memoryController.setMemory(dataStart + offset, ARRAY_TERMINATOR, DATA_BYTE_MODE);
+                            offset++;
+
+                            // We're storing an array of numbers
+                        } else {
+                            for (int j = 2; j < x.length; j++) {
+
+                                if (storeMode == DATA_BYTE_MODE) {
+
+                                    System.out.printf("Setting memory location 0x%X(%d):0x%X(%d) -> 0x%X(%d) to byte value 0x%X(%d)\n",
+                                            MemoryModule.data_start, MemoryModule.data_start,
+                                            dataStart + offset, dataStart + offset,
+                                            MemoryModule.data_start + dataStart + offset, MemoryModule.data_start + dataStart + offset,
+                                            Integer.parseInt(x[j].substring(1)), Integer.parseInt(x[j].substring(1)));
+
+                                    memoryController.setMemory(dataStart + offset, Integer.parseInt(x[j].substring(1)), DATA_BYTE_MODE);
+                                    offset++;
+
+                                }else if (storeMode == DATA_WORD_MODE){
+                                    int value = Integer.parseInt(x[j].substring(1));
+                                    int low = value & 0xff;
+                                    int high = (value >> 8) & 0xff;
+
+                                    System.out.printf("Setting memory location 0x%X(%d):0x%X(%d) -> 0x%X(%d) to word value 0x%X(%d)\n",
+                                            MemoryModule.data_start, MemoryModule.data_start,
+                                            dataStart + offset, dataStart + offset,
+                                            MemoryModule.data_start + dataStart + offset, MemoryModule.data_start + dataStart + offset,
+                                            value, value);
+
+                                    memoryController.setMemory(dataStart + offset, value, DATA_WORD_MODE);
+                                    offset += 2;
+                                }
+                            }
+                            memoryController.setMemory(dataStart + offset, ARRAY_TERMINATOR, DATA_BYTE_MODE);
+                            offset++;
+                        }
+                    }
+                    i++;
+                }
+            }
+            else if (lines[i].startsWith("DEFINE")) { // definition declaration
+
+                String[] tokens = lines[i].trim().split(" ");
+                String symbolName = tokens[1];
+                Integer symbolValue = Integer.parseInt(tokens[2].substring(1));
+                definitionMap.put(symbolName, symbolValue);
+                System.out.printf("set the definition for symbol '%s' to value 0x%04X(%d)\n", symbolName, symbolValue, symbolValue);
+            }
+            else if (lines[i].startsWith(".")) { // regular function. add the function along with the calculated offset
+                functions.put(lines[i].substring(1), currentByte);
+                System.out.println("Mapped function '" + lines[i].substring(1) + "' to address: 0x" +
+                        Integer.toHexString(currentByte));
+            } else { // code line. append the offset based on the string length.
+                // in this architecture there's only 3 possible cases
+                // no-operand instruction = 1 byte
+                // single-operand instruction = 3 bytes
+                // 2 operand instruction = 5 bytes
+                if (lines[i].isEmpty() || lines[i].startsWith(COMMENT_PREFIX)) continue;
+                currentByte += getInstructionLength(lines[i]);
+                fullCode += lines[i] + "\n";
+            }
+        }
+        //System.out.println(functionPointers);
+        //System.out.println(dataMap);
+
+        // Step 2- convert the raw code to machine code array.
+        String[] fullLines = fullCode.split("\n");
+
+        currentLine = 1;
+        eachInstruction = new HashMap<>();
+        for (int i = 0; i < fullLines.length; i++) {
+
+            currentLine++;
+            List<Integer> translatedLine = toMachineCode16(fullLines[i]);
+            //String a = Arrays.toString(toMachineCode(fullLines[i])).replace("[", "").replace("]", "");
+            String a = Arrays.toString(translatedLine.toArray()).replace("[", "").replace("]", "");
+            //eachInstruction.put(i, toMachineCode(fullLines[i]));
+            machineCodeString.append(a);
+            if (i < fullLines.length - 1) machineCodeString.append(", ");
+        }
+
+        String[] eachNum = machineCodeString.toString().split(", ");
+
+        for (int i = 0; i < eachNum.length; i++) { // The TEXT section (ROM/CODE)
+
+            if (isNumber(eachNum[i])) {
+                memImageList.add(i, Integer.parseInt(eachNum[i]));
+            }
+        }
+
+        memImageList.add(MemoryModule.rom_end ,(int) TEXT_SECTION_END & 0xff);
+
+        for (int i = MemoryModule.data_start; i <= memoryController.mem_size_B - metadataLength; i++) { // The DATA and STACK sections
+            memImageList.add(i, memoryController.readByteAbsolute(i) & 0xff);
+        }
+        memImageList.add(MemoryModule.stack_end, (int) MEMORY_SECTION_END & 0xff);
+
+
+        // My signature, last release date and compiler version
+        for (int i = 0; i < signature.length(); i++)
+            memImageList.add((int) signature.charAt(i));
+
+        for (int i = 0; i < lastUpdateDate.length(); i++)
+            memImageList.add((int) lastUpdateDate.charAt(i));
+
+        for(int i = 0; i < compilerVersion.length(); i++)
+            memImageList.add((int) compilerVersion.charAt(i));
+
+        memImageList.add((int) (memorySizeKB + 1)); // The memory size in KB
+        memImageList.add(bit_length); // the CPU architecture flag
+
+        // Add the program's entry point.
+        int entryPoint = functions.get("MAIN");
+
+        int entryPointLow = entryPoint & 0xff;
+        int entryPointHigh = (entryPoint >> 8) & 0xff;
+
+        memImageList.add(entryPointHigh);
+        memImageList.add(entryPointLow);
+
+        machineCode = memImageList.stream().mapToInt(Integer::intValue).toArray();
+
+        for(Map.Entry<String, Integer> entry : functions.entrySet()){
+            String name = entry.getKey();
+            int val = entry.getValue();
+            int low = val & 0xff;
+            int high = (val >> 8) & 0xff;
+            String x = (low == (TEXT_SECTION_END & 0xff)) ? "low" : "high";
+            if (low == (TEXT_SECTION_END & 0xff) || high == (TEXT_SECTION_END & 0xff))
+                System.out.printf("""
+                        WARNING: the %s byte of function label '%s' address is equal to 0x%02X
+                        This could cause undefined behaviour when loading the program into the CPU ROM
+                        suggestion: add a 'nop' instruction before the function declaration and recompile
+                        '%s' => 0x%02X, 0x%02X
+                        """, x, name, TEXT_SECTION_END, name, high, low);
         }
 
         if (stepListener != null) stepListener.updateUI();

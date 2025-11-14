@@ -1,4 +1,6 @@
 import javax.swing.*;
+import java.io.FileDescriptor;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Scanner;
 import java.util.concurrent.Semaphore;
@@ -15,7 +17,7 @@ public class InterruptHandler implements NativeKeyListener {
     private static boolean keybrdListenerInit = false, usesLinux = false;
 
     // 8-BIT INTERRUPT HANDLER
-    public static boolean triggerSoftwareInterrupt(CPU cpuModule ,short[] registers, MemoryModule memory){
+    public static boolean triggerSoftwareInterrupt(CPUModule8BIT cpuModule ,short[] registers, MemoryModule memory){
         boolean validInterrupt = true;
         switch (registers[0]){ // interrupt register : RA
 
@@ -272,13 +274,13 @@ public class InterruptHandler implements NativeKeyListener {
 
 
     // 16-BIT INTERRUPT HANDLER
-    public static boolean triggerSoftwareInterrupt(CPU cpuModule, int[] registers, MemoryModule memory){
+    public static boolean triggerSoftwareInterrupt(CPUModule16BIT cpuModule, int[] registers, MemoryModule memory){
          boolean validInterrupt = true;
-        switch (registers[1]){ // interrupt register: AH
+        switch (cpuModule.getRegister( cpuModule.getRegisterCode("ah") )){ // interrupt register: AH
 
             case CPU.INT_INPUT_STR -> {
 
-                int mode = registers[0]; // store mode register: AL
+                int mode = cpuModule.getRegister( cpuModule.getRegisterCode("al") ); // store mode register: AL
                 if (mode != CPU.DATA_BYTE_MODE && mode != CPU.DATA_WORD_MODE) mode = CPU.DATA_BYTE_MODE;
 
                 Logger.addLog("Calling interrupt for input string", logDevice);
@@ -291,7 +293,7 @@ public class InterruptHandler implements NativeKeyListener {
                             "Input", JOptionPane.INFORMATION_MESSAGE);
 
                 }else{
-                    //System.out.print(input_message);
+
                     for(int i = 0; i < input_message.length(); i++) {
                         try {
                             System.out.print(input_message.charAt(i));
@@ -304,7 +306,7 @@ public class InterruptHandler implements NativeKeyListener {
                 }
 
 
-                int write_address = registers[22]; // write position register: data_start:DI
+                int write_address = cpuModule.getRegister( cpuModule.getRegisterCode("di") ); // write position register: DI
 
                 int index = 0;
 
@@ -332,7 +334,8 @@ public class InterruptHandler implements NativeKeyListener {
 
                 memory.setMemory(endPosition, CPU.ARRAY_TERMINATOR, CPU.DATA_BYTE_MODE);
 
-                registers[21] = endPosition; // string end position stored in SE
+                //registers[21] = endPosition;// string end position stored in SE
+                cpuModule.setRegister( cpuModule.getRegisterCode("se"), endPosition );
 
             }
 
@@ -359,10 +362,11 @@ public class InterruptHandler implements NativeKeyListener {
                     input = new Scanner(System.in).nextShort();
                 }
 
-                registers[15] = input; // place input in DX
+                //registers[15] = input; // place input in DX
                 // update DL, DH
-                registers[6] = registers[15] & 0xff;
-                registers[7] = (registers[15] >> 8) & 0xff;
+                //registers[6] = registers[15] & 0xff;
+                //registers[7] = (registers[15] >> 8) & 0xff;
+                cpuModule.setRegister( cpuModule.getRegisterCode( "dx" ), input );
             }
 
             case CPU.INT_DEBUG -> {
@@ -406,9 +410,9 @@ public class InterruptHandler implements NativeKeyListener {
             }
 
             case CPU.INT_STRING_CONCAT -> {
-                int string1_address = registers[22]; // first string address: DI
-                int string2_address = registers[23]; // second string address: DP
-                int copy_address = registers[20]; // result will be copied to address: SS
+                int string1_address = cpuModule.getRegister( cpuModule.getRegisterCode("di") ); // first string address: DI
+                int string2_address = cpuModule.getRegister( cpuModule.getRegisterCode("dp") ); // second string address: DP
+                int copy_address = cpuModule.getRegister( cpuModule.getRegisterCode("ss") ); // result will be copied to address: SS
                 String concat = "";
                 for(int i = string1_address; memory.readByte(i) != CPU.ARRAY_TERMINATOR; i++){
                     //System.out.println("Concatenating: 0x" + Integer.toHexString(i) + " => " + (char) memory[i]);
@@ -427,8 +431,8 @@ public class InterruptHandler implements NativeKeyListener {
             }
 
             case CPU.INT_STR_CPY -> {
-                int strAddr = registers[20]; // original string address at : SS
-                int strDest = registers[21]; // copy destination address at : SE
+                int strAddr = cpuModule.getRegister( cpuModule.getRegisterCode("ss") ); // original string address at : SS
+                int strDest = cpuModule.getRegister( cpuModule.getRegisterCode("se") ); // copy destination address at : SE
 
                 for(int i = strAddr; memory.readByte(i) != CPU.ARRAY_TERMINATOR; i++){
                     int destination = strDest + (i - strAddr);
@@ -438,9 +442,9 @@ public class InterruptHandler implements NativeKeyListener {
             }
 
             case CPU.INT_MEM_CPY -> {
-                int startAddress = registers[22]; // start address at: DI
-                int destinationAddress = registers[23]; // destination address at: DP
-                int numBytes = registers[15]; // number of bytes to copy at: DX
+                int startAddress = cpuModule.getRegister( cpuModule.getRegisterCode("di") ); // start address at: DI
+                int destinationAddress = cpuModule.getRegister( cpuModule.getRegisterCode("dp") ); // destination address at: DP
+                int numBytes = cpuModule.getRegister( cpuModule.getRegisterCode("dx") ); // number of bytes to copy at: DX
 
                 for(int i = startAddress; i < startAddress + numBytes; i++){
                     memory.setMemory(destinationAddress + (i - startAddress), memory.readByte(i), CPU.DATA_BYTE_MODE);
@@ -449,10 +453,10 @@ public class InterruptHandler implements NativeKeyListener {
 
             case CPU.INT_FILE -> {
 
-                int read_write_addr = registers[22]; // the address where the file will be loaded / fetched : DI
-                int file_path_addr = registers[20]; // the address of the file path : SS
+                int read_write_addr = cpuModule.getRegister( cpuModule.getRegisterCode("di") ); // the address where the file will be loaded / fetched : DI
+                int file_path_addr = cpuModule.getRegister( cpuModule.getRegisterCode("ss") ); // the address of the file path : SS
 
-                int operation = registers[0]; // the operation to perform : AL
+                int operation = cpuModule.getRegister( cpuModule.getRegisterCode("al") ); // the operation to perform : AL
 
 
                 // for write operation
@@ -525,7 +529,7 @@ public class InterruptHandler implements NativeKeyListener {
                 try{
                     // set up a semaphore to block the program execution until input is received
                     Semaphore programPause = new Semaphore(0);
-                    InterruptHandler.disableTTYCanonical(); // Prevent linux TTY driver from messing up the input buffer
+                    disableTTYCanonical(); // Prevent linux TTY driver from messing up the input buffer
                     init();
 
                     GlobalScreen.addNativeKeyListener(new NativeKeyListener() {
@@ -542,13 +546,17 @@ public class InterruptHandler implements NativeKeyListener {
                     restoreTTYCanonical(); // restore canonical mode for other forms of input
                     try {
                         // flush the input buffer to start clean for other input
-                        while (System.in.available() > 0) System.in.read();
-                    } catch (IOException e) {
+                        while (System.in.available() > 0){
+                            System.in.skip(System.in.available());
+                            System.in.read();
+                        }
+                    } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
                 }
-                registers[6] = chrIN; // input is placed in: DL
-                registers[15] = (registers[7] << 8) | registers[6]; // update DX
+                //registers[6] = chrIN; // input is placed in: DL
+                //registers[15] = (registers[7] << 8) | registers[6]; // update DX
+                cpuModule.setRegister( cpuModule.getRegisterCode("dl"), chrIN );
             }
 
             default -> validInterrupt = false;

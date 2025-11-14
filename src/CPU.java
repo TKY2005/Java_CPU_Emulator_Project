@@ -145,9 +145,6 @@ public abstract class CPU {
     protected MemoryModule memoryController;
 
     //protected float ROMpercentage = (35.0f / 100);
-    protected float DATApercentage = (Float.parseFloat(Launcher.appConfig.get("DataPercentage")) / 100);
-    protected float STACKpercentage = (Float.parseFloat(Launcher.appConfig.get("StackPercentage")) / 100);
-
 
     protected float memorySizeKB = Float.parseFloat(Launcher.appConfig.get("MemSize"));
 
@@ -319,6 +316,7 @@ public abstract class CPU {
     public abstract int[] toMachineCode(String instruction);
     public abstract int getInstructionLength(String instruction);
     public abstract int[] compileToMemoryImage(String code);
+    public abstract int[] compileToMemoryImageAuto(String code);
     public abstract String disassembleMachineCode(int[] machine_code);
     public abstract void executeCompiledCode(int[] machine_code);
 
