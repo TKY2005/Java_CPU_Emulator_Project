@@ -406,9 +406,15 @@ public class Launcher{
             }
 
             if (args.length == 0) {
-                System.out.println("No arguments. Going into UI mode.");
-                new UI("T.K.Y CPU Emulator V" + Launcher.version);
-            } else if (args[0].equalsIgnoreCase("cli")) {
+                System.out.println("No arguments. Going into UI mode using the configuration file.");
+                new UI("T.K.Y CPU Emulator V" + version);
+            }
+            else if (args[0].equals("ui")) {
+                System.out.println("Staring in UI mode.");
+                checkFlags(options, cmd, formatter);
+                new UI("T.K.Y CPU Emulator V" + version);
+            }
+            else if (args[0].equalsIgnoreCase("cli")) {
                 System.out.println("Starting in CLI mode.");
                 if (args[1] == null) {
                     System.out.println("Please enter the binary file path.");

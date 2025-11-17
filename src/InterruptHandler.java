@@ -374,39 +374,7 @@ public class InterruptHandler implements NativeKeyListener {
                 System.out.println(cpuModule.dumpRegisters());
                 Scanner s = new Scanner(System.in);
 
-                if (VirtualMachine.ui){
-                    JOptionPane.showMessageDialog(null, "Debug interrupts are not supported in UI mode.");
-                }
-                else {
-                    boolean debugPause = true;
-
-                    while (debugPause) {
-                        System.out.print(">> ");
-                        String[] x = s.nextLine().trim().split(" ");
-                        if (x[0].equals("d")) {
-                            int address = 0;
-                            if (x[1].charAt(x[1].length() - 1) == 'h') address = Integer.parseInt(
-                                    x[1].substring(0, x[1].length() - 1), 16
-                            );
-                            else address = Integer.parseInt(x[1]);
-                            System.out.println(cpuModule.memoryController.dumpMemoryDebug(address));
-
-                        } else if (x[0].equals("g")) debugPause = false;
-
-                        else if (x[0].equals("ds")){
-
-                            if (cpuModule.functionCallStack.isEmpty()){
-                                System.out.println("The function call stack is currently empty.");
-                                continue;
-                            }
-                            for(int i = cpuModule.functionCallStack.size() - 1; i >= 0; i--){
-                                System.out.printf("[%d] => 0x%04X\n", i, cpuModule.functionCallStack.get(i));
-                            }
-
-                        }
-                        else System.out.println("Unknown command '" + x[0] + "'");
-                    }
-                }
+                enterDebugMode(cpuModule, s);
             }
 
             case CPU.INT_STRING_CONCAT -> {
@@ -566,6 +534,42 @@ public class InterruptHandler implements NativeKeyListener {
         }
         Logger.addLog("done. returning to original program.", logDevice);
         return validInterrupt;
+    }
+
+    private static void enterDebugMode(CPUModule16BIT cpuModule, Scanner s) {
+        if (VirtualMachine.ui){
+            JOptionPane.showMessageDialog(null, "Debug interrupts are not supported in UI mode.");
+        }
+        else {
+            boolean debugPause = true;
+
+            while (debugPause) {
+                System.out.print(">> ");
+                String[] x = s.nextLine().trim().split(" ");
+                if (x[0].equals("d")) {
+                    int address = 0;
+                    if (x[1].charAt(x[1].length() - 1) == 'h') address = Integer.parseInt(
+                            x[1].substring(0, x[1].length() - 1), 16
+                    );
+                    else address = Integer.parseInt(x[1]);
+                    System.out.println(cpuModule.memoryController.dumpMemoryDebug(address));
+
+                } else if (x[0].equals("g")) debugPause = false;
+
+                else if (x[0].equals("ds")){
+
+                    if (cpuModule.functionCallStack.isEmpty()){
+                        System.out.println("The function call stack is currently empty.");
+                        continue;
+                    }
+                    for(int i = cpuModule.functionCallStack.size() - 1; i >= 0; i--){
+                        System.out.printf("[%d] => 0x%04X\n", i, cpuModule.functionCallStack.get(i));
+                    }
+
+                }
+                else System.out.println("Unknown command '" + x[0] + "'");
+            }
+        }
     }
 
     private static void init() throws NativeHookException {
