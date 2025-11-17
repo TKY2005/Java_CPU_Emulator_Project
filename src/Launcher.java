@@ -103,6 +103,14 @@ public class Launcher{
                             .desc("Ignore version checks when running files")
                             .get(),
 
+            Option.builder("c")
+                            .longOpt("cycles")
+                            .hasArg(true)
+                            .argName("Cycle Count")
+                            .required(false)
+                            .desc("Specify the CPU execution speed in Cycles/Second")
+                            .get(),
+
             Option.builder("h")
                     .longOpt("help")
                     .desc("Display this help message.")
@@ -278,6 +286,12 @@ public class Launcher{
             String state = cmd.getOptionValue("o");
             appConfig.replace("OverFlowProtection", state);
             System.out.println("Setting overflow protection to: " + state);
+        }
+
+        if (cmd.hasOption("c")){
+            String cycles = cmd.getOptionValue("c");
+            appConfig.replace("Cycles", cycles);
+            System.out.println("Starting with defined execution speed: " + cycles + " Cycles/Second");
         }
 
         if (cmd.hasOption("ivc")){
