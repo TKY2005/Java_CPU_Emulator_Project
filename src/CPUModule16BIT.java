@@ -447,6 +447,11 @@ public class CPUModule16BIT extends CPU {
 
     @Override
     public int[] compileToMemoryImage(String code) {
+
+        Tokenizer t = new Tokenizer();
+        List<Token> tokenList = t.tokenize(code, this, registerNames);
+        for(Token tok : tokenList) System.out.println(tok.toString());
+        System.exit(0);
         String[] lines = code.split("\n");
         List<Integer> memImageList = new ArrayList<>();
 
