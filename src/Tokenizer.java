@@ -25,6 +25,7 @@ enum SubType {
     LABEL_FUNC, LABEL_DATA, // Label subtypes
     DIR_BYTE, DIR_WORD, DIR_ORG, DIR_RESB, DIR_RESW, DIR_DB, DIR_DW, DIR_DEFINE, // Directive subtypes
     OPER_ADD, OPER_SUB, OPER_MUL, OPER_DIV, // Operator subtypes
+    REG_8, REG_16,
     UNDEFINED
 }
 
@@ -78,6 +79,7 @@ public class Tokenizer {
 
         while (index < chars.length) {
 
+            // '!' and '#' are temporary and are added because of the preprocessor automatically adding prefixes
             if (chars[index] == ' ' || chars[index] == '!' || chars[index] == '#') next(); // skip whitespace (except for when reading strings)
             else if (chars[index] == '\n'){ // should we? Maybe i should remove this.
                 consume();
@@ -147,6 +149,9 @@ public class Tokenizer {
                     if (isReadingData) sub = SubType.LABEL_DATA;
                     else if (isReadingFunctionLabel) sub = SubType.LABEL_FUNC;
                 }
+                else if (mainType == TokenType.REGISTER) {
+                    sub = getRegisterWidth(tokenBuff.toString(), target);
+                }
                 isReadingFunctionLabel = false; // so we don't treat everything as labels
                 result.add(new Token(tokenBuff.toString(), mainType, sub));
             }
@@ -189,6 +194,17 @@ public class Tokenizer {
 
         for (String s : registerList) if (str.equalsIgnoreCase(s)) return true;
         return false;
+    }
+    private SubType getRegisterWidth(String registerName, CPU target) {
+        if (target instanceof CPUModule16BIT)
+        {
+            char last = registerName.charAt(registerName.length() - 1);
+            if (last == 'l' || last == 'L') return SubType.REG_8;
+            else return SubType.REG_16;
+        }
+        // this is wrong. will fix later
+        else if (target instanceof CPUModule8BIT) return SubType.REG_8;
+        else return null;
     }
 
     private SubType getOperatorSubType(char c) {
