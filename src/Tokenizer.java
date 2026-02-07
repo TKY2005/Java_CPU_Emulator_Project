@@ -18,11 +18,13 @@ enum TokenType {
     EOF,
     DOT,
     COMMA,
+    SPECIAL,
     UNDEFINED
 }
 
 enum SubType {
     LABEL_FUNC, LABEL_DATA, // Label subtypes
+    SPEC_MAIN, SPEC_DATA, SPEC_END,
     DIR_BYTE, DIR_WORD, DIR_ORG, DIR_RESB, DIR_RESW, DIR_DB, DIR_DW, DIR_DEFINE, // Directive subtypes
     OPER_ADD, OPER_SUB, OPER_MUL, OPER_DIV, // Operator subtypes
     REG_8, REG_16,
@@ -59,6 +61,7 @@ public class Tokenizer {
     private boolean isReadingQuotedString = false;
     private boolean isReadingFunctionLabel = false;
     private boolean isReadingData = false;
+    private boolean special = false;
 
     private String[] directives =  {
       "ORG",
@@ -81,7 +84,7 @@ public class Tokenizer {
 
             // '!' and '#' are temporary and are added because of the preprocessor automatically adding prefixes
             if (chars[index] == ' ' || chars[index] == '!' || chars[index] == '#') next(); // skip whitespace (except for when reading strings)
-            else if (chars[index] == '\n'){ // should we? Maybe i should remove this.
+            else if (chars[index] == '\n'){
                 consume();
                 result.add(new Token(tokenBuff.toString(), TokenType.NEWLINE, null));
             }
@@ -139,19 +142,41 @@ public class Tokenizer {
                 if (isReadingQuotedString) while (index < chars.length && chars[index] != '\"') consume();
                 else while (index < chars.length && isCharOrSep(chars[index]) || isDigit(chars[index])) consume();
 
-                if (tokenBuff.toString().equalsIgnoreCase("DATA")) isReadingData = true;
-                else if (tokenBuff.toString().equalsIgnoreCase("end")) isReadingData = false;
+                if (tokenBuff.toString().equals("MAIN")) {
+                    special = true;
+                }
+                else if (tokenBuff.toString().equals("DATA")){
+                    special = true;
+                    isReadingData = true;
+                    next();
+                }
+                else if (tokenBuff.toString().equalsIgnoreCase("end")){
+                    special = true;
+                    isReadingData = false;
+                    next();
+                }
 
                 TokenType mainType = getStringType(tokenBuff.toString(), registerList, target);
                 SubType sub = null;
-                if (mainType == TokenType.DIRECTIVE) sub = getDirectiveType(tokenBuff.toString());
+
+                if (mainType == TokenType.SPECIAL) {
+                    special = false;
+                    if (isReadingData) sub = SubType.SPEC_DATA;
+                    else if (isReadingFunctionLabel) sub = SubType.SPEC_MAIN;
+                    else if (tokenBuff.toString().equalsIgnoreCase("end")) sub = SubType.SPEC_END;
+                }
+
+                else if (mainType == TokenType.DIRECTIVE) sub = getDirectiveType(tokenBuff.toString());
+
                 else if (mainType == TokenType.LABEL){
                     if (isReadingData) sub = SubType.LABEL_DATA;
                     else if (isReadingFunctionLabel) sub = SubType.LABEL_FUNC;
                 }
+
                 else if (mainType == TokenType.REGISTER) {
                     sub = getRegisterWidth(tokenBuff.toString(), target);
                 }
+
                 isReadingFunctionLabel = false; // so we don't treat everything as labels
                 result.add(new Token(tokenBuff.toString(), mainType, sub));
             }
@@ -229,7 +254,8 @@ public class Tokenizer {
 
     private TokenType getStringType(String str, String[] registerList, CPU target) {
 
-        if (isReadingQuotedString) return TokenType.STRING;
+        if (special) return TokenType.SPECIAL;
+        else if (isReadingQuotedString) return TokenType.STRING;
         else if (isReadingFunctionLabel) return TokenType.LABEL;
 
         else if ( isDirective(str) ) return TokenType.DIRECTIVE;

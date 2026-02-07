@@ -304,7 +304,7 @@ public class CPUModule8BIT extends CPU {
                 }
 
                 case INS_INT, INS_OUTS, INS_EXT, INS_RET,
-                     INS_END, INS_NOP, INS_CLC, INS_CLI, INS_CLN, INS_CLO, INS_CLZ,
+                     INS_NOP, INS_CLC, INS_CLI, INS_CLN, INS_CLO, INS_CLZ,
                      INS_SLC, INS_SLI, INS_SLN, INS_SLO, INS_SLZ -> {
                     numBytes = 1;
                     byteStr.append(String.format("%02X ", machineCode[registers[PC]]));

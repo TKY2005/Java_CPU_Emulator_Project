@@ -20,8 +20,8 @@ public abstract class CPU {
     public static final int INS_LLEN = 0x0f;
     public static final int INS_STR = 0x10;
     public static final int INS_OUTS = 0x11;
-    public static final int INS_INP = 0x12;
-    public static final int INS_INPS = 0x13;
+    //public static final int INS_INP = 0x12;
+    //public static final int INS_INPS = 0x13;
     public static final int INS_PUSH = 0x14;
     public static final int INS_POP = 0x15;
     public static final int INS_CALL = 0x16;
@@ -49,7 +49,7 @@ public abstract class CPU {
     public static final int INS_CMP = 0x2c;
     public static final int INS_LOOP = 0x2d;
     public static final int INS_RET = 0x2e;
-    public static final int INS_END = 0x2f;
+    //public static final int INS_END = 0x2f;
     public static final int INS_INT = 0x30;
     public static final int INS_OUTC = 0x31;
     public static final int INS_SHL = 0x32;
@@ -241,8 +241,8 @@ public abstract class CPU {
         instructionSet.put(INS_LLEN, "len");
         instructionSet.put(INS_STR, "str");
         instructionSet.put(INS_OUTS, "outs");
-        instructionSet.put(INS_INP, "inp");
-        instructionSet.put(INS_INPS, "inps");
+        //instructionSet.put(INS_INP, "inp");
+        //instructionSet.put(INS_INPS, "inps");
         instructionSet.put(INS_PUSH, "push");
         instructionSet.put(INS_POP, "pop");
         instructionSet.put(INS_CALL, "call");
@@ -270,7 +270,7 @@ public abstract class CPU {
         instructionSet.put(INS_CMP, "cmp");
         instructionSet.put(INS_LOOP, "loop");
         instructionSet.put(INS_RET, "ret");
-        instructionSet.put(INS_END, "end");
+        //instructionSet.put(INS_END, "end");
         instructionSet.put(INS_INT, "int");
         instructionSet.put(INS_OUTC, "outc");
         instructionSet.put(INS_SHL, "shl");

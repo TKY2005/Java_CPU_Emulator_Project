@@ -1481,7 +1481,7 @@ public class CPUModule16BIT extends CPU {
                         }
 
                         case INS_INT, INS_OUTS, INS_OUTSW, INS_EXT, INS_RET,
-                             INS_END, INS_NOP, INS_CLC, INS_CLO, INS_CLN, INS_CLZ, INS_CLI,
+                             INS_NOP, INS_CLC, INS_CLO, INS_CLN, INS_CLZ, INS_CLI,
                              INS_SLC, INS_SLI, INS_SLN, INS_SLO, INS_SLZ -> {
                             numBytes = 1;
                             byteStr.append(String.format("%02X ", machine_code[registers[PC]]));
