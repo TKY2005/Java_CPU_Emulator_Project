@@ -35,6 +35,7 @@ class Token {
     String lexeme;
     TokenType mainType;
     SubType subType;
+    int row, column;
 
     public Token(String lexeme, TokenType mainType, SubType subType) {
         this.lexeme = lexeme;
@@ -44,6 +45,9 @@ class Token {
 
     @Override
     public String toString() {
+        return lexeme;
+    }
+    public String toStringDebug() {
         return String.format("""
                 [
                     token: %s

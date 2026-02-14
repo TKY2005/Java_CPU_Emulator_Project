@@ -450,7 +450,7 @@ public class CPUModule16BIT extends CPU {
 
         Tokenizer t = new Tokenizer();
         List<Token> tokenList = t.tokenize(code, this, registerNames);
-        for(Token tok : tokenList) System.out.println(tok.toString());
+        for(Token tok : tokenList) System.out.println(tok.toStringDebug());
         System.exit(0);
         String[] lines = code.split("\n");
         List<Integer> memImageList = new ArrayList<>();
