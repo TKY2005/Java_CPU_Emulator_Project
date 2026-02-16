@@ -83,6 +83,7 @@ public class Tokenizer {
         tokenBuff = new StringBuilder();
         chars = source.toCharArray();
         List<Token> result = new ArrayList<>();
+        int column = 0, row = 0;
 
         while (index < chars.length) {
 
@@ -90,6 +91,8 @@ public class Tokenizer {
             if (chars[index] == ' ' || chars[index] == '!' || chars[index] == '#') next(); // skip whitespace (except for when reading strings)
             else if (chars[index] == '\n'){
                 consume();
+                column++;
+                row = 0;
                 result.add(new Token(tokenBuff.toString(), TokenType.NEWLINE, null));
             }
             else if (chars[index] == '\"') { // signal the tokenizer to keep reading until next double quote is found
@@ -187,10 +190,11 @@ public class Tokenizer {
 
             else {
                 consume();
-                System.out.printf("Undefined token '%s'.", tokenBuff);
+                System.out.printf("Undefined token '%s' @ %d:%d\n.", tokenBuff, column, row);
                 System.exit(255);
             }
 
+            row++;
             tokenBuff.setLength(0);
         }
         result.add(new Token("", TokenType.EOF, null));
