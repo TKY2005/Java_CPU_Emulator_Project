@@ -449,7 +449,7 @@ public class CPUModule16BIT extends CPU {
     public int[] compileToMemoryImage(String code) {
 
         Assembler as = new Assembler();
-        as.compileToMemoryImage(code, this, registerNames);
+        as.compileToMemoryImage(code, this, registerNames, memoryController);
         System.exit(0);
         String[] lines = code.split("\n");
         List<Integer> memImageList = new ArrayList<>();
@@ -631,11 +631,12 @@ public class CPUModule16BIT extends CPU {
                 functions.put(lines[i].substring(1), currentByte);
                 System.out.println("Mapped function '" + lines[i].substring(1) + "' to address: 0x" +
                         Integer.toHexString(currentByte));
-            } else { // code line. append the offset based on the string length.
+            } else { // code line. append the offset based on the overall instruction length.
                 // in this architecture there's only 3 possible cases
                 // no-operand instruction = 1 byte
                 // single-operand instruction = 3 bytes
                 // 2 operand instruction = 5 bytes
+                // Note: when the instruction contains an address, the address is 2 bytes long + 1 byte for addressing mode.
                 if (lines[i].isEmpty() || lines[i].startsWith(COMMENT_PREFIX)) continue;
                 currentByte += getInstructionLength(lines[i]);
                 fullCode += lines[i] + "\n";
