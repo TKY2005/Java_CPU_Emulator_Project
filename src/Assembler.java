@@ -14,7 +14,7 @@ public class Assembler {
         //for(Token tok : tokens) System.out.println(tok.toStringDebug());
         Parser p = new Parser();
         ParseResult result = p.parseTokens(tokens, memory);
-
+        for(Instruction r : result.instructions) System.out.println(r.toStringDebug());
         for(ProgramData d : result.data) System.out.println(d.toStringDebug());
         if (!ParseResult.errors.isEmpty()){
             System.out.println(ParseResult.errors.size() + " problem(s) has been detected.");

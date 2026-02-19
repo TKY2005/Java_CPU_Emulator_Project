@@ -11,6 +11,8 @@ enum TokenType {
     LABEL,
     REGISTER,
     OPERATOR,
+    MEMORY,
+    AMPERSAND,
     LBRACE, RBRACE,
     LPAREN, RPAREN,
     DOUBLEQUOTE,
@@ -27,6 +29,7 @@ enum SubType {
     SPEC_MAIN, SPEC_DATA, SPEC_END,
     DIR_BYTE, DIR_WORD, DIR_ORG, DIR_RESB, DIR_RESW, DIR_DB, DIR_DW, DIR_DEFINE, // Directive subtypes
     OPER_ADD, OPER_SUB, OPER_MUL, OPER_DIV, // Operator subtypes
+    MEM_REGISTER, MEM_DIRECT, MEM_INDIRECT,
     REG_8, REG_16,
     UNDEFINED
 }
@@ -37,10 +40,12 @@ class Token {
     SubType subType;
     int row, column;
 
-    public Token(String lexeme, TokenType mainType, SubType subType) {
+    public Token(String lexeme, TokenType mainType, SubType subType, int row, int column) {
         this.lexeme = lexeme;
         this.mainType = mainType;
         this.subType = subType;
+        this.row = row;
+        this.column = column;
     }
 
     @Override
@@ -67,6 +72,8 @@ public class Tokenizer {
     private boolean isReadingData = false;
     private boolean special = false;
 
+    int column = 1, row = 0;
+
     private String[] directives =  {
       "ORG",
         "BYTE",
@@ -83,7 +90,6 @@ public class Tokenizer {
         tokenBuff = new StringBuilder();
         chars = source.toCharArray();
         List<Token> result = new ArrayList<>();
-        int column = 0, row = 0;
 
         while (index < chars.length) {
 
@@ -93,7 +99,7 @@ public class Tokenizer {
                 consume();
                 column++;
                 row = 0;
-                result.add(new Token(tokenBuff.toString(), TokenType.NEWLINE, null));
+                result.add(new Token(tokenBuff.toString(), TokenType.NEWLINE, null, row, column));
             }
             else if (chars[index] == '\"') { // signal the tokenizer to keep reading until next double quote is found
                 isReadingQuotedString = !isReadingQuotedString;
@@ -108,43 +114,49 @@ public class Tokenizer {
             else if (chars[index] == '[')
             {
                 consume();
-                result.add(new Token(tokenBuff.toString(), TokenType.LBRACE, null));
+                result.add(new Token(tokenBuff.toString(), TokenType.LBRACE, null, row, column));
             }
             else if (chars[index] == ']')
             {
                 consume();
-                result.add(new Token(tokenBuff.toString(), TokenType.RBRACE, null));
+                result.add(new Token(tokenBuff.toString(), TokenType.RBRACE, null, row, column));
             }
             else if (chars[index] == '(')
             {
                 consume();
-                result.add(new Token(tokenBuff.toString(), TokenType.LPAREN, null));
+                result.add(new Token(tokenBuff.toString(), TokenType.LPAREN, null, row, column));
             }
             else if (chars[index] == ')')
             {
                 consume();
-                result.add(new Token(tokenBuff.toString(), TokenType.RPAREN, null));
+                result.add(new Token(tokenBuff.toString(), TokenType.RPAREN, null, row, column));
             }
             else if (chars[index] == ',')
             {
                 consume();
-                result.add(new Token(tokenBuff.toString(), TokenType.COMMA, null));
+                result.add(new Token(tokenBuff.toString(), TokenType.COMMA, null, row, column));
+            }
+            else if (chars[index] == '&')
+            {
+                consume();
+                while(index < chars.length && isCharOrSep(chars[index])) consume();
+                result.add(new Token(tokenBuff.toString(), TokenType.MEMORY, SubType.MEM_REGISTER, row, column));
             }
 
             else if (isOperator(chars[index]))
             {
                 consume();
                 SubType type = getOperatorSubType(chars[index - 1]);
-                result.add(new Token(tokenBuff.toString(), TokenType.OPERATOR, type));
+                result.add(new Token(tokenBuff.toString(), TokenType.OPERATOR, type, row, column));
             }
 
-            else if (isDigit(chars[index])) // keep reading until there's no more digits
+            else if (isDigit(chars[index]) && !isReadingQuotedString) // keep reading until there's no more digits
             {
                 while (index < chars.length && isDigit(chars[index])) consume();
-                result.add(new Token(tokenBuff.toString(), TokenType.NUMBER, null));
+                result.add(new Token(tokenBuff.toString(), TokenType.NUMBER, null, row, column));
             }
 
-            else if (isCharOrSep(chars[index]))
+            else if (isCharOrSep(chars[index]) || isDigit(chars[index]) && isReadingQuotedString)
             {
                 if (isReadingQuotedString) while (index < chars.length && chars[index] != '\"') consume();
                 else while (index < chars.length && isCharOrSep(chars[index]) || isDigit(chars[index])) consume();
@@ -185,7 +197,7 @@ public class Tokenizer {
                 }
 
                 isReadingFunctionLabel = false; // so we don't treat everything as labels
-                result.add(new Token(tokenBuff.toString(), mainType, sub));
+                result.add(new Token(tokenBuff.toString(), mainType, sub, row, column));
             }
 
             else {
@@ -194,10 +206,9 @@ public class Tokenizer {
                 System.exit(255);
             }
 
-            row++;
             tokenBuff.setLength(0);
         }
-        result.add(new Token("", TokenType.EOF, null));
+        result.add(new Token("", TokenType.EOF, null, row, column));
         return result;
     }
 
@@ -288,7 +299,7 @@ public class Tokenizer {
         else return SubType.UNDEFINED;
     }
 
-    private void next() {index++;}
+    private void next() {index++; row++;}
     private char peek() {return chars[index + 1];}
-    private void consume() {tokenBuff.append(chars[index++]);}
+    private void consume() {tokenBuff.append(chars[index++]); row++;}
 }
