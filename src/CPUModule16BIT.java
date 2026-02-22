@@ -1,3 +1,4 @@
+import java.io.RandomAccessFile;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -701,13 +702,19 @@ public class CPUModule16BIT extends CPU {
         memImageList.add(bit_length); // the CPU architecture flag
 
         // Add the program's entry point.
-        int entryPoint = functions.get("MAIN");
+        Integer entryPoint = functions.get("MAIN");
+        if (entryPoint != null ) {
 
-        int entryPointLow = entryPoint & 0xff;
-        int entryPointHigh = (entryPoint >> 8) & 0xff;
+            int entryPointLow = entryPoint & 0xff;
+            int entryPointHigh = (entryPoint >> 8) & 0xff;
 
-        memImageList.add(entryPointHigh);
-        memImageList.add(entryPointLow);
+            memImageList.add(entryPointHigh);
+            memImageList.add(entryPointLow);
+        }
+        else{
+            System.out.println("WARNING: MAIN function not found. " +
+                    "if you intend to use this file as a dynamic link library, use the -lib flag instead.");
+        }
 
         machineCode = memImageList.stream().mapToInt(Integer::intValue).toArray();
 

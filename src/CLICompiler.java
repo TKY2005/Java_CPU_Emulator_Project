@@ -36,6 +36,7 @@ public class CLICompiler {
             vm.sendCode(code.toString());
 
             byte[] binaryCode = new byte[cpuModule.machineCode.length];
+
             for(int i = 0; i < binaryCode.length; i++) binaryCode[i] = (byte) (cpuModule.machineCode[i] & 0xff);
 
             VirtualMachine.beep(VirtualMachine.beepSuccess[0], VirtualMachine.beepSuccess[1]);
@@ -43,6 +44,7 @@ public class CLICompiler {
                     File successfully compiled and saved to file: '%s'
                     file size: %d bytes
                     """, outputFilePath, binaryCode.length);
+
             Files.write(Path.of(outputFilePath), binaryCode);
 
         }catch (Exception e) {e.printStackTrace();}

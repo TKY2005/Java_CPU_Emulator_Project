@@ -139,8 +139,7 @@ public class Tokenizer {
             else if (chars[index] == '&')
             {
                 consume();
-                while(index < chars.length && isCharOrSep(chars[index])) consume();
-                result.add(new Token(tokenBuff.toString(), TokenType.MEMORY, SubType.MEM_REGISTER, row, column));
+                result.add(new Token(tokenBuff.toString(), TokenType.AMPERSAND, null, row, column));
             }
 
             else if (isOperator(chars[index]))

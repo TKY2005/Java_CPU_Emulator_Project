@@ -32,6 +32,7 @@ class ParseError {
         this.errorMsg = e;
         this.type = type;
     }
+
     public ParseError(List<Token> line, Token t, String e, int type) {
         this.line = line;
         this.token = t;
@@ -229,44 +230,43 @@ public class Parser {
             ParseResult.errors.add(new ParseError(l, l.getFirst(), "Expected an instruction. instead got: " + l.getFirst().mainType, ParseError.ERR_CRITICAL));
         }
         else lengthCounter += 1;
+        List<List<Token>> operands = getOperands(r);
+        if (operands != null) {
 
-        // single-operand instruction.
-        if (l.size() == 2) {
-            switch (l.get(1).mainType) {
-                case REGISTER -> lengthCounter += 2;
-                case NUMBER -> lengthCounter += 2;
-                case SYMBOL -> lengthCounter += 3;
-                case SPECIAL -> lengthCounter += 3;
-                case MEMORY -> {
-                    if (l.get(1).subType == SubType.MEM_REGISTER) lengthCounter += 2;
-                    else ParseResult.errors.add(new ParseError(l, l.get(1), "Unknown operand type: " + l.get(1).mainType, ParseError.ERR_CRITICAL));
+            // single-operand instruction.
+            if (operands.size() == 1) {
+                switch(operands.getFirst().getFirst().mainType) {
+                    case REGISTER -> lengthCounter += 2;
+                    case SYMBOL -> lengthCounter += 3;
+                    case SPECIAL -> lengthCounter += 3;
+                    case NUMBER -> lengthCounter += 3;
+                    case AMPERSAND -> lengthCounter += 2;
+                    default -> ParseResult.errors.add(new ParseError(l,
+                            operands.getFirst().getFirst(),
+                            "Unexpected operand type: " + operands.getFirst().getFirst().mainType, ParseError.ERR_CRITICAL));
                 }
-                default -> ParseResult.errors.add(new ParseError(l, l.get(1), "Unknown operand type: " + l.get(1).mainType, ParseError.ERR_CRITICAL));
             }
+            else if (operands.size() == 2) {
+                 switch(operands.getFirst().getFirst().mainType) { // destination operand
+                    case REGISTER -> lengthCounter += 2;
+                    case AMPERSAND -> lengthCounter += 2;
+                    default -> ParseResult.errors.add(new ParseError(l,
+                            operands.getFirst().getFirst(),
+                            "Unexpected operand type: " + operands.getFirst().getFirst().mainType, ParseError.ERR_CRITICAL));
+                }
+                switch (operands.get(1).getFirst().mainType) { // source operand
+                    case REGISTER -> lengthCounter += 2;
+                    case SYMBOL -> lengthCounter += 3;
+                    case SPECIAL -> lengthCounter += 3;
+                    case NUMBER -> lengthCounter += 3;
+                    case AMPERSAND -> lengthCounter += 2;
+                    default -> ParseResult.errors.add(new ParseError(l,
+                            operands.get(1).getFirst(),
+                            "Unexpected operand type: " + operands.get(1).getFirst().mainType, ParseError.ERR_CRITICAL));
+                }
+            }
+            else ParseResult.errors.add(new ParseError(l, operands.get(2).getFirst(), "Extra operands are not allowed.", ParseError.ERR_CRITICAL));
         }
-        // 2-operand instruction
-        else if (l.size() == 3) {
-            switch (l.get(1).mainType) {
-                case REGISTER -> lengthCounter += 2;
-                case MEMORY -> {
-                    if (l.get(1).subType == SubType.MEM_REGISTER) lengthCounter += 2;
-                    else ParseResult.errors.add(new ParseError(l, l.get(1), "Unknown operand type: " + l.get(1).mainType, ParseError.ERR_CRITICAL));
-                }
-                default -> ParseResult.errors.add(new ParseError(l, l.get(1), "Unexpected operand type: " + l.get(1).mainType, ParseError.ERR_CRITICAL));
-            }
-            switch (l.get(2).mainType) {
-                case REGISTER -> lengthCounter += 2;
-                case NUMBER -> lengthCounter += 2;
-                case SYMBOL -> lengthCounter += 3;
-                case SPECIAL -> lengthCounter += 3;
-                case MEMORY -> {
-                    if (l.get(1).subType == SubType.MEM_REGISTER) lengthCounter += 2;
-                    else ParseResult.errors.add(new ParseError(l, l.get(1), "Unknown operand type: " + l.get(1).mainType, ParseError.ERR_CRITICAL));
-                }
-                default -> ParseResult.errors.add(new ParseError(l, l.get(1), "Unknown operand type: " + l.get(1).mainType, ParseError.ERR_CRITICAL));
-            }
-        }
-        else if (l.size() > 3) ParseResult.errors.add(new ParseError(l, l.get(4), "The extra operand will be ignored.", ParseError.ERR_WARNING));
 
         r.length = lengthCounter;
         offset += lengthCounter;
@@ -338,6 +338,29 @@ public class Parser {
         d.data = data;
         dataOffset += size;
         return d;
+    }
+
+    private List<List<Token>> getOperands(Instruction r) {
+        if (r == null || r.parts.size() <= 1) return null; // no operand or malformed instruction
+        else {
+            List<List<Token>> operands = new ArrayList<>();
+            List<Token> currentOperand = new  ArrayList<>();
+
+            for(int i = 1; i < r.parts.size(); i++) {
+                Token t =  r.parts.get(i);
+                if (t.mainType != TokenType.COMMA) {
+                    currentOperand.add(t);
+                }
+                else{
+                    operands.add(currentOperand);
+                    currentOperand = new ArrayList<>();
+                }
+            }
+            if (!currentOperand.isEmpty()) {
+                operands.add(currentOperand);
+            }
+            return operands;
+        }
     }
 
     private boolean matchTypes(TokenType[] types, Token t) {

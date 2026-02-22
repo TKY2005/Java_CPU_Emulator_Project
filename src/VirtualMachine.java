@@ -6,7 +6,6 @@ import javax.swing.*;
 import java.io.*;
 import java.lang.reflect.Array;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Scanner;
 
 public class VirtualMachine {
@@ -89,11 +88,11 @@ public class VirtualMachine {
                     int ascii = (int) ch;
                     newLine.append("!").append(ascii).append(" ");
                 }
-                /*else if (token.startsWith(CPU.HEX_MEMORY)){
+                else if (token.startsWith(CPU.HEX_MEMORY)){
                     String hex = token.substring(1);
                     int decimal = Integer.parseInt(hex, 16);
                     newLine.append("%").append(decimal).append(" ");
-                }*/
+                }
                 else if (token.startsWith(CPU.BIN_PREFIX)){
                     String bin = token.substring(2);
                     int decimal = Integer.parseInt(bin, 2);
@@ -143,7 +142,8 @@ public class VirtualMachine {
     }
 
     private void loadImageToMemory(StringBuilder result, MemoryModule memory) {
-        memImage = cpuModule.compileToMemoryImage(result.toString());
+
+        cpuModule.compileToMemoryImage(result.toString());
         for(int i = 0; i < memory.getMemorySize(); i++)
             memory.setMemoryAbsolute(i, (short) (memImage[i] & 0xff), CPU.DATA_BYTE_MODE);
     }
