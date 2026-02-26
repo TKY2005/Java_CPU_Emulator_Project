@@ -204,10 +204,7 @@ public class InterruptHandler implements NativeKeyListener {
                 // RB = 0x3 for CPU.DELETE_FILE
                 // SS : file path
 
-                String fileName = "";
-                for(int i = file_path_addr; memory.readByte(i) != CPU.ARRAY_TERMINATOR; i++) {
-                    fileName += (char) memory.readByte(i);
-                }
+                String fileName = getFileName(memory, file_path_addr);
 
                 if (operation == CPU.FILE_READ) {
                     byte[] file_data = VirtualMachine.diskDriver.readFile(fileName);
@@ -426,22 +423,29 @@ public class InterruptHandler implements NativeKeyListener {
 
                 int operation = cpuModule.getRegister( cpuModule.getRegisterCode("al") ); // the operation to perform : AL
 
+                // to locate/open a file
+                // AL = 0x4 for CPU.FILE_OPEN
+                // SS = file path
+                // BX = The file descriptor will be saved here.
+                // if the file is not found the Carry flag will be set.
 
                 // for write operation
                 // AL = 0x1 for CPU.FILE_WRITE
-                // SS : file path
                 // DI : the beginning of the file
+                // SS : The file name (if the file doesn't exist)
+                // BX : The file descriptor (if the file exists)
                 // DX : the number of bytes to write
 
                 // for read operation
                 // AL = 0x0 for CPU.FILE_READ
-                // SS : file path
+                // BX = The file descriptor
                 // DI : the location the file will be loaded to
                 // DX : the total number of bytes that were read will be placed here
 
                 // append data to a file
                 // AL = 0x2 for CPU.FILE_APPEND
-                // SS : file path
+                // BX = the file descriptor (if the file exists)
+                // SS = the file path (if the file doesn't exist)
                 // DI : the beginning of the data to be appended
                 // DX : the number of bytes to append
 
@@ -449,13 +453,19 @@ public class InterruptHandler implements NativeKeyListener {
                 // AL = 0x3 for CPU.DELETE_FILE
                 // SS : file path
 
-                String fileName = "";
-                for(int i = file_path_addr; memory.readByte(i) != CPU.ARRAY_TERMINATOR; i++) {
-                    fileName += (char) memory.readByte(i);
+
+                if (operation == CPU.FILE_OPEN) {
+                    String fileName = getFileName(memory, file_path_addr);
+                    int descriptor = VirtualMachine.diskDriver.getFileInodeAddress(fileName);
+                    if (descriptor == -1){
+                        cpuModule.C = true;
+                        descriptor = 0xffff;
+                    }
+                    cpuModule.setRegister(cpuModule.getRegisterCode("bx"), descriptor);
                 }
 
-                if (operation == CPU.FILE_READ) {
-                    byte[] file_data = VirtualMachine.diskDriver.readFile(fileName);
+                else if (operation == CPU.FILE_READ) {
+                    byte[] file_data = VirtualMachine.diskDriver.readFile(cpuModule.getRegister(cpuModule.getRegisterCode("bx")));
 
                     for(int i = 0; i < file_data.length; i++) {
                         memory.setMemory(read_write_addr + i, file_data[i], CPU.DATA_BYTE_MODE);
@@ -473,7 +483,12 @@ public class InterruptHandler implements NativeKeyListener {
                     for(int i = 0; i < file_data.length; i++) {
                         file_data[i] = (byte) memory.readByte(read_write_addr + i);
                     }
-                    VirtualMachine.diskDriver.saveFile(fileName, file_data);
+                    int inode = cpuModule.getRegister( cpuModule.getRegisterCode("bx") );
+                    if (inode != 0xffff && inode != 0x00) VirtualMachine.diskDriver.saveFile(inode, file_data);
+                    else{
+                        String fileName = getFileName(memory, file_path_addr);
+                        VirtualMachine.diskDriver.saveFile(fileName, file_data);
+                    }
                 }
 
                 else if (operation == CPU.FILE_APPEND){
@@ -483,11 +498,17 @@ public class InterruptHandler implements NativeKeyListener {
                     for(int i = 0; i < file_data.length; i++){
                         file_data[i] = (byte) memory.readByte(read_write_addr + i);
                     }
-                    VirtualMachine.diskDriver.appendFile(fileName, file_data);
+                    int inode = cpuModule.getRegister(cpuModule.getRegisterCode("bx"));
+                    if (inode != 0xffff && inode != 0x00) VirtualMachine.diskDriver.appendFile(inode, file_data);
+                    else{
+                        String fileName = getFileName(memory, file_path_addr);
+                        VirtualMachine.diskDriver.appendFile(fileName, file_data);
+                    }
                 }
 
                 else if (operation == CPU.FILE_DELETE){
 
+                    String fileName = getFileName(memory, file_path_addr);
                     VirtualMachine.diskDriver.deleteFile(fileName);
                 }
                 else {
@@ -534,6 +555,14 @@ public class InterruptHandler implements NativeKeyListener {
         }
         Logger.addLog("done. returning to original program.", logDevice);
         return validInterrupt;
+    }
+
+    private static String getFileName(MemoryModule memory, int file_path_addr) {
+        String fileName = "";
+        for(int i = file_path_addr; memory.readByte(i) != CPU.ARRAY_TERMINATOR; i++) {
+            fileName += (char) memory.readByte(i);
+        }
+        return fileName;
     }
 
     private static void enterDebugMode(CPUModule16BIT cpuModule, Scanner s) {

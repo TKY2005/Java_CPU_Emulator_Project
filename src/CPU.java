@@ -92,6 +92,7 @@ public abstract class CPU {
     public static final int FILE_WRITE = 0x01;
     public static final int FILE_APPEND = 0x02;
     public static final int FILE_DELETE = 0x03;
+    public static final int FILE_OPEN = 0x04;
 
 
     public static final int REGISTER_MODE = 0;

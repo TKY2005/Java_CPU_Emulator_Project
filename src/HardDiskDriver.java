@@ -312,17 +312,21 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
         }
     }
 
-    public int getFileInodeAddress(String fileName) throws IOException {
-        int currentPos = Math.toIntExact(diskFile.getFilePointer());
+    public int getFileInodeAddress(String fileName) {
 
-        int pos = getNameEntryAddress(fileName, true);
-        if (pos == -1) return -1;
-        else{
-            diskFile.seek(pos);
-            int targetPos = diskFile.readInt();
-            diskFile.seek(currentPos);
-            return targetPos;
-        }
+        try {
+            int currentPos = Math.toIntExact(diskFile.getFilePointer());
+
+            int pos = getNameEntryAddress(fileName, true);
+            if (pos == -1) return -1;
+            else {
+                diskFile.seek(pos);
+                int targetPos = diskFile.readInt();
+                diskFile.seek(currentPos);
+                return targetPos;
+            }
+        } catch (Exception e) {e.printStackTrace();}
+        return -1;
     }
 
     public int getNameEntryAddress(String fileName, boolean returnNameEndPosition) throws IOException {
@@ -512,6 +516,41 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
         }
     }
 
+    public void saveFile(int fileInodeEntry, byte[] fileMemory) {
+        try {
+            // This function assumes the file already exists and has a valid inode entry.
+
+            if (fileInodeEntry != -1){
+                Logger.addLog("This file already exists. overwriting content", logDevice);
+                diskFile.seek(fileInodeEntry);
+                diskFile.skipBytes(2);
+
+                int size = fileMemory.length;
+                int blocksUsedCount = diskFile.readByte();
+                int[] blocksUsed = new int[blocksUsedCount];
+                for(int i = 0; i < blocksUsedCount; i++) blocksUsed[i] = addressToBlock(diskFile.readInt());
+                int[] newBlocks = allocateBlocksToFile(fileMemory.length, blocksUsed);
+
+                overwriteInodeEntry(fileInodeEntry, size, newBlocks.length, newBlocks );
+
+                diskFile.seek( blockToAddress(newBlocks[0]) );
+                int blockIndex = 0, currentByte = 0;
+                for(byte b : fileMemory){
+                    if (currentByte >= blockSizeB){
+                        blockIndex++;
+                        diskFile.seek( blockToAddress( newBlocks[blockIndex] ) );
+                        currentByte = 0;
+                    }
+                    diskFile.writeByte(b);
+                    currentByte++;
+                }
+            }
+           // System.out.println("File saved successfully.");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public void appendFile(String fileName, byte[] fileMemory){
         try{
             int inodePos = getFileInodeAddress(fileName);
@@ -552,6 +591,94 @@ public class HardDiskDriver { // A custom hard disk driver for my CPU emulator. 
             }
         }
         catch (Exception e) {throw new RuntimeException(e);}
+    }
+
+    public void appendFile(int inodePos, byte[] fileMemory){
+        // This function also assumes the file already exists and has valid inode entry.
+        try{
+                diskFile.seek(inodePos);
+                int oldSize = diskFile.readShort();
+                int oldBlockCount = diskFile.readByte();
+                int[] oldBlocks = new int[oldBlockCount];
+                for(int i = 0; i < oldBlocks.length; i++) oldBlocks[i] = addressToBlock(diskFile.readInt());
+
+                byte[] fileContent = readFile(inodePos);
+
+                // There's probably a way to track the file offset and append only new data. but I'm too lazy ATM.
+                int newSize = fileContent.length + fileMemory.length;
+                int[] newBlocks = allocateBlocksToFile(newSize, oldBlocks);
+
+                byte[] newData = new byte[newSize];
+
+                overwriteInodeEntry(inodePos, newSize, newBlocks.length, newBlocks);
+
+                System.arraycopy(fileContent, 0, newData, 0, fileContent.length);
+                System.arraycopy(fileMemory, 0, newData, fileContent.length, fileMemory.length);
+
+
+                int currentByte = 0, blockIndex = 0;
+                diskFile.seek( blockToAddress( newBlocks[0] ) );
+
+                for(byte b : newData) {
+                    if (currentByte >= blockSizeB) {
+                        blockIndex++;
+                        diskFile.seek( blockToAddress( newBlocks[blockIndex] ) );
+                        currentByte = 0;
+                    }
+                    diskFile.writeByte(b);
+                    currentByte++;
+                }
+        }
+        catch (Exception e) {throw new RuntimeException(e);}
+    }
+
+    public byte[] readFile(int inodeAddress) {
+
+        try {
+                diskFile.seek(inodeAddress);
+                //System.out.println("Reading the file inode address at : 0x" + Integer.toHexString(inodeAddress));
+                Logger.addLog("Reading the file inode address at : 0x" + Integer.toHexString(inodeAddress), logDevice);
+
+                int fileLength = diskFile.readShort();
+                int blockCount = diskFile.readByte();
+                int[] blocksAddresses = new int[blockCount];
+                for (int i = 0; i < blocksAddresses.length; i++) blocksAddresses[i] = diskFile.readInt();
+
+
+                String info = String.format("""
+                                file info :
+                                file inode entry: %08X
+                                file size : %d
+                                blocks allocated : %d
+                                """, inodeAddress,
+                        fileLength,
+                        blockCount);
+
+                Logger.addLog(info, logDevice);
+                for (int i = 0; i < blocksAddresses.length; i++)
+                    Logger.addLog(String.format("Block #%d address : 0x%06X\n", i, blocksAddresses[i]), logDevice);
+
+                byte[] fileBytes = new byte[fileLength];
+                diskFile.seek(blocksAddresses[0]);
+
+                int bytesRead = 0;
+                int blockIndex = 0;
+
+                for (int i = 0; i < fileBytes.length; i++) {
+
+                    if (bytesRead >= blockSizeB) {
+                        blockIndex++;
+                        diskFile.seek(blocksAddresses[blockIndex]);
+                        bytesRead = 0;
+                    }
+
+                    fileBytes[i] = diskFile.readByte();
+                    bytesRead++;
+                }
+                return fileBytes;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public byte[] readFile(String fileName) {
